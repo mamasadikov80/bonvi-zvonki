@@ -20,6 +20,7 @@ ham hujjatdan olingan.
 yig'ilmaydi: `open_recording()` `httpx` ning stream rejimida ishlaydi.
 """
 
+import asyncio
 import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -27,6 +28,7 @@ from datetime import datetime
 from urllib.parse import urljoin, urlsplit
 
 import httpx
+import structlog
 
 from src.modules.moizvonki.domain.entities import (
     CallPage,
@@ -43,7 +45,19 @@ from src.modules.moizvonki.domain.entities import (
 )
 
 # Hujjat: max_results — ruxsat etilgan qiymat 1..100
+log = structlog.get_logger(__name__)
+
 MAX_RESULTS_LIMIT = 100
+
+#: Vaqtinchalik uzilishda necha marta urinib ko'riladi.
+#
+# Uch marta yetarli: o'lchov ko'rsatdi, sekinlashish qisqa muddatli va
+# ikkinchi urinish deyarli har doim o'tadi. Ko'proq urinish esa
+# haqiqatan ishlamayotgan integratsiyada adminni bejiz kuttirardi.
+RETRY_ATTEMPTS = 3
+
+#: Birinchi kutish (soniya). Keyingilari ikki barobar: 2 → 4.
+RETRY_BASE_SEC = 2.0
 
 # Autentifikatsiya nosozligini javob matnidan taniydigan kalit so'zlar.
 # MoyZvonki xatoni 200 dan farqli kod + tanadagi izoh bilan qaytaradi,
@@ -167,6 +181,44 @@ class MoizvonkiClient:
     )
 
     async def _post(self, action: str, **params: object) -> dict:
+        """So'rov yuboradi. Vaqtinchalik uzilishda QAYTA URINADI.
+
+        ⚠️ NEGA QAYTA URINISH KERAK. Bitta sinxronizatsiya o'nlab,
+        ba'zan yuzlab sahifa o'qiydi: 30 kunlik oraliqda ~250 so'rov,
+        jami ~4 daqiqa. Odatda har sahifa ~1 soniyada keladi, lekin
+        MoyZvonki ba'zida sekinlashadi va BITTA sahifa 30 soniyalik
+        chegaradan chiqib ketadi.
+
+        Qayta urinish bo'lmasa o'sha bitta sahifa BUTUN ishni
+        yiqitadi: admin 4 daqiqa kutib, «MoyZvonki javob bermadi»
+        degan xabar oladi va 20 000 qo'ng'iroq yozilmay qoladi.
+        HAQIQIY sinovda aynan shunday bo'ldi — ikki marta.
+
+        Faqat VAQT TUGASHI va tarmoq uzilishi qayta urinadi. Xato
+        kalit yoki noto'g'ri javob qayta urinilmaydi: ular
+        o'z-o'zidan tuzalmaydi va urinish faqat vaqt yo'qotardi.
+        """
+        oxirgi: Exception | None = None
+        for urinish in range(RETRY_ATTEMPTS):
+            try:
+                return await self._post_once(action, **params)
+            except MoizvonkiUnreachableError as exc:
+                oxirgi = exc
+                if urinish == RETRY_ATTEMPTS - 1:
+                    break
+                kutish = RETRY_BASE_SEC * (2**urinish)
+                log.warning(
+                    "moizvonki.retry",
+                    action=action,
+                    attempt=urinish + 1,
+                    of=RETRY_ATTEMPTS,
+                    sleep_sec=kutish,
+                )
+                await asyncio.sleep(kutish)
+        assert oxirgi is not None
+        raise oxirgi
+
+    async def _post_once(self, action: str, **params: object) -> dict:
         if action not in self.READ_ONLY_ACTIONS:
             raise MoizvonkiError(
                 f"MoyZvonki'ga «{action}» yuborilmadi: bu integratsiya faqat "

@@ -11,6 +11,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Phone,
+  PhoneCall,
   Settings,
   Star,
   Sun,
@@ -59,6 +60,15 @@ const NAV: NavItem[] = [
     anyOf: ['calls:read', 'calls:read:own'],
   },
 
+  {
+    // Faollik — «Tahlil» guruhining BOSHIDA: rahbar avval hajmni
+    // ko'radi (kim qancha ishlayapti), keyin sifatga o'tadi
+    to: '/activity',
+    labelKey: 'nav.activity',
+    icon: PhoneCall,
+    anyOf: ['analytics:read'],
+    group: 'nav.groupAnalyse',
+  },
   {
     to: '/agents',
     labelKey: 'nav.agents',

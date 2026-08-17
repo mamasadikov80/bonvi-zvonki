@@ -20,7 +20,7 @@ from src.modules.calls.infrastructure.models import CallModel
 from src.modules.clients.infrastructure.models import ClientModel
 from src.modules.moizvonki.application.factory import moizvonki_client
 from src.modules.moizvonki.application.ingest import IngestService
-from src.modules.calls.domain.entities import CallType
+from src.modules.calls.domain.entities import CallDirection, CallType
 from src.modules.moizvonki.domain.entities import (
     SYNC_MAX_DAYS,
     RecordingNotFoundError,
@@ -85,6 +85,25 @@ class SortOrder(StrEnum):
     DESC = "desc"
 
 
+class DirectionFilter(StrEnum):
+    """Yo'nalish bo'yicha filtr — `CallDirection` bilan bir xil qiymat."""
+
+    INBOUND = "inbound"
+    OUTBOUND = "outbound"
+
+
+class AnsweredFilter(StrEnum):
+    """Javob holati bo'yicha filtr.
+
+    `unknown` alohida turadi: `answered IS NULL` — ustun paydo
+    bo'lishidan oldingi qatorlar. Ularni «javobsiz» ga qo'shish
+    javobsizlar sonini oshirib ko'rsatardi."""
+
+    YES = "yes"
+    NO = "no"
+    UNKNOWN = "unknown"
+
+
 class CallTypeFilter(StrEnum):
     """Tur bo'yicha filtr qiymatlari.
 
@@ -116,6 +135,14 @@ class CallListItem(BaseModel):
     agent_id: UUID
     agent_name: str
     agent_color: str
+
+    direction: str
+    """`inbound` | `outbound`. Ro'yxatda ko'rinadi: kim kimga qo'ng'iroq
+    qilgani suhbatni butunlay boshqacha o'qitadi — mijoz o'zi murojaat
+    qilgani va xodim taklif bilan chiqqani bir xil emas."""
+    answered: bool | None
+    """`false` — javobsiz. `null` — MoyZvonki bu maydonni bermagan
+    (ustun paydo bo'lishidan oldingi qatorlar)."""
 
     client_name: str | None
     """Katalogdagi mijoz nomi, u bo'lmasa MoyZvonki bergani."""
@@ -185,6 +212,13 @@ async def list_calls(
         CallTypeFilter | None,
         Query(description="Qo'ng'iroq turi. `not_sales` — savdodan boshqa hammasi"),
     ] = None,
+    direction: Annotated[
+        DirectionFilter | None, Query(description="Kiruvchi yoki chiquvchi")
+    ] = None,
+    answered: Annotated[
+        AnsweredFilter | None,
+        Query(description="Javob berilganmi. `no` — javobsiz qo'ng'iroqlar"),
+    ] = None,
     search: str | None = None,
     sort: Annotated[SortField, Query(description="Saralash ustuni")] = SortField.DATE,
     order: Annotated[SortOrder, Query(description="Yo'nalish")] = SortOrder.DESC,
@@ -233,6 +267,15 @@ async def list_calls(
         # ko'rsatiladi — filtr ham aynan shunday o'qishi kerak, aks holda
         # javob o'z-o'ziga zid bo'ladi
         stmt = stmt.where(func.coalesce(score.needs_review, false()).is_(needs_review))
+    if direction is not None:
+        stmt = stmt.where(CallModel.direction == CallDirection(direction.value))
+    if answered is not None:
+        if answered is AnsweredFilter.UNKNOWN:
+            stmt = stmt.where(CallModel.answered.is_(None))
+        else:
+            stmt = stmt.where(
+                CallModel.answered.is_(answered is AnsweredFilter.YES)
+            )
     if call_type is not None:
         if call_type is CallTypeFilter.UNKNOWN:
             stmt = stmt.where(CallModel.call_type.is_(None))
@@ -326,6 +369,8 @@ async def list_calls(
                 # Katalog ustun turadi: u yerdagi nom tahrir qilingan
                 # bo'lishi mumkin, MoyZvonki'niki esa nusxa
                 client_name=(cl.name if cl else None) or c.client_name,
+                direction=c.direction.value,
+                answered=c.answered,
                 client_phone=c.client_phone,
                 call_type=c.call_type,
                 score=s.overall_score if s else None,

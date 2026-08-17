@@ -13,6 +13,8 @@ import { api } from '@/shared/api/client'
  *  `sales` baholanadi. */
 export type CallType = 'sales' | 'service' | 'internal' | 'personal' | 'unclear'
 
+export type Direction = 'inbound' | 'outbound'
+
 export interface CallListItem {
   id: string
   started_at: string
@@ -21,6 +23,13 @@ export interface CallListItem {
   agent_id: string
   agent_name: string
   agent_color: string
+  /** Kim kimga qo'ng'iroq qilgani. Suhbatni butunlay boshqacha
+   *  o'qitadi: mijoz o'zi murojaat qilgani va xodim taklif bilan
+   *  chiqqani bir xil emas. */
+  direction: Direction
+  /** `false` — javobsiz. `null` — MoyZvonki bu maydonni bermagan
+   *  (ustun paydo bo'lishidan oldingi qatorlar). */
+  answered: boolean | null
   /** Katalogdagi mijoz nomi, u bo'lmasa MoyZvonki bergani */
   client_name: string | null
   /** Nom umuman bo'lmaganda ko'rsatiladi — «—» dan foydaliroq */
@@ -107,6 +116,9 @@ export interface CallsQuery {
   score_max?: number
   needs_review?: boolean
   call_type?: CallTypeFilter
+  direction?: Direction
+  /** `no` — javobsiz qo'ng'iroqlar. `unknown` — holat noma'lum. */
+  answered?: 'yes' | 'no' | 'unknown'
   search?: string
   sort?: SortField
   order?: SortOrder

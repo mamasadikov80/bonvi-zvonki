@@ -20,7 +20,8 @@
     "myCalls": "My calls",
     "myRatings": "My ratings",
     "groups": "Telegram groups",
-    "regions": "Regions"
+    "regions": "Regions",
+    "activity": "Activity"
   },
   "auth": {
     "login": "Sign in",
@@ -336,6 +337,18 @@
       "filterNotSales": "Not sales",
       "filterUnknown": "Unclassified",
       "emptySalesHint": "Only sales calls are shown by default. Other types and not-yet-classified calls are hidden."
+    },
+    "direction": {
+      "all": "Direction: all",
+      "inbound": "Inbound",
+      "outbound": "Outbound",
+      "missed": "Missed (customer called, no answer)",
+      "unknown": "answer status unknown"
+    },
+    "answered": {
+      "all": "Answer: all",
+      "yes": "Answered",
+      "no": "Unanswered"
     }
   },
   "agents": {
@@ -823,5 +836,51 @@
     "offline": "No connection — data is not updating.",
     "loadFailed": "Could not load data ({{count}} request(s)). Numbers on screen may be incomplete.",
     "retry": "Retry"
+  },
+  "activity": {
+    "title": "Call activity",
+    "subtitle": "Who called whom, and whether missed calls got a callback",
+    "period": {
+      "d1": "1 day",
+      "d7": "1 week",
+      "d15": "15 days",
+      "d30": "1 month"
+    },
+    "outbound": "Agent → customer",
+    "outboundHint": "Calls made by sales agents to customers",
+    "inbound": "Customer → agent",
+    "inboundHint": "Calls customers made to the company",
+    "missed": "Missed",
+    "missedHint": "A customer called and got no answer. This is a CALL count; outbound calls the customer did not pick up are not included",
+    "calledBack": "Called back",
+    "calledBackHint": "The missed number was called back within {{hours}} hours",
+    "answeredOf": "{{count}} answered (of {{total}})",
+    "ofInbound": "{{percent}}% of inbound",
+    "callbackSub": "{{percent}}% · {{open}} still open",
+    "medianNote": "Median callback time — {{minutes}} min. Median, not average: one long delay skews the average. Callbacks within {{hours}} hours are counted.",
+    "unknownNote": "{{count}} calls have an unknown answer status — they are NOT counted. This is data from before the field existed; re-importing calls fills it in.",
+    "byAgent": "By agent",
+    "myRow": "My activity",
+    "byAgentHint": "\"Missed\" — a customer called and got no answer. \"Not picked up\" — the agent called and the customer did not answer",
+    "colOut": "Outbound",
+    "colOutNoAnswer": "Not picked up",
+    "colIn": "Inbound",
+    "colMissed": "Missed",
+    "colCalledBack": "Called back",
+    "colOpen": "Open",
+    "colRate": "Callback %",
+    "colTalk": "Talk time",
+    "totalRow": "Total",
+    "unreached": "Customers not reached",
+    "unreachedHint": "Customers who called without an answer and were not contacted within {{hours}} hours. Repeat attempts by one customer count ONCE",
+    "unreachedSub": "{{reached}} of {{clients}} customers were contacted ({{percent}}%)",
+    "colClients": "Customers",
+    "colUnreached": "Not reached",
+    "chartTitle": "Daily dynamics",
+    "chartHint": "Red line — unanswered inbound calls",
+    "hourTitle": "Load by hour",
+    "hourHint": "Bars — inbound calls, red line — share of missed (local time)",
+    "missedRateLabel": "Missed, %",
+    "scope": "Across {{count}} employees · who called whom, and whether missed calls got a callback"
   }
 }

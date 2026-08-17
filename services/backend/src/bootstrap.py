@@ -32,6 +32,23 @@ VERSIONS_DIR = Path(__file__).resolve().parent.parent / "migrations" / "versions
 COLUMN_PATCHES: list[str] = [
     # Admin yozadigan qo'shimcha baholash ko'rsatmalari
     "ALTER TABLE rubrics ADD COLUMN IF NOT EXISTS extra_rules TEXT",
+    # ── Qo'ng'iroq faolligi hisoboti ──────────────────────────
+    # `answered` — telefoniya fakti (MoyZvonki `answered`), bizning
+    # ishlov holatimiz emas. `NULL` — ustun paydo bo'lishidan oldingi
+    # qatorlar; ularni `true` deb to'ldirish yolg'on bo'lardi.
+    "ALTER TABLE calls ADD COLUMN IF NOT EXISTS answered BOOLEAN",
+    "CREATE INDEX IF NOT EXISTS ix_calls_answered ON calls (answered)",
+    # Javobsiz qo'ng'iroqqa QAYTIB aloqaga chiqishni topish uchun raqam
+    # bo'yicha izlash kerak. Raqam turli formatda kelishi mumkin
+    # («+998 90 123-45-67», «998901234567»), shuning uchun solishtirish
+    # oxirgi 9 raqam bo'yicha va indeks aynan shu ifodaga qo'yiladi —
+    # busiz oyiga ~25 000 qatorda har hisobot to'liq skanerlashga
+    # aylanardi.
+    "CREATE INDEX IF NOT EXISTS ix_calls_phone_tail ON calls "
+    "(right(regexp_replace(coalesce(client_phone, ''), '\\D', '', 'g'), 9))",
+    # Faollik hisoboti har doim sana + yo'nalish bo'yicha guruhlaydi
+    "CREATE INDEX IF NOT EXISTS ix_calls_activity ON calls "
+    "(started_at, direction, answered)",
     "ALTER TABLE agents ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(255)",
     # ── Guruh asosidagi so'rovnoma ────────────────────────────
     # `surveys` — guruhga bog'lanish, guruhdagi xabar id va keshlangan son

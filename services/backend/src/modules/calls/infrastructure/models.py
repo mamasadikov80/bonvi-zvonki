@@ -3,7 +3,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -60,6 +60,27 @@ class CallModel(Base, UUIDMixin, TimestampMixin):
 
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     duration_sec: Mapped[int] = mapped_column(Integer, default=0)
+
+    # ── Javob berilganmi ──────────────────────────────────────
+    #
+    # MoyZvonki'dagi `answered` — TELEFONIYA FAKTI, bizning ishlov
+    # holatimiz emas (u `status` da). Ikkisini aralashtirmaslik kerak:
+    # `status = SKIPPED` «baholanmadi» degani, `answered = false` esa
+    # «gaplashilmagan» degani va bu butunlay boshqa ma'no.
+    #
+    # NEGA ALOHIDA USTUN KERAK. Javobsiz qo'ng'iroqda audio HECH QACHON
+    # bo'lmaydi (o'lchandi: 2030 javobsizdan 0 tasida yozuv bor), ya'ni
+    # «audiosi yo'q» degan belgi javobsizlikni ANIQLAMAYDI — javob
+    # berilgan qo'ng'iroqlarning ham bir qismida yozuv yo'q (260/3847).
+    # Faollik hisobotining butun mantig'i shu farqqa tayanadi.
+    #
+    # `NULL` — bu ustun paydo bo'lishidan OLDIN yozilgan qatorlar.
+    # Ularni `true` deb to'ldirish yolg'on bo'lardi: audiosiz eski
+    # qatorlar javobsiz ham, yozuvsiz javobli ham bo'lishi mumkin.
+    # Hisobotlar `NULL` ni sanamaydi; qayta sinxronizatsiya to'ldiradi.
+    answered: Mapped[bool | None] = mapped_column(
+        Boolean, nullable=True, index=True
+    )
 
     # ── Qo'ng'iroq turi ───────────────────────────────────────
     #

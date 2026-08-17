@@ -13,6 +13,7 @@ kengayib ketmaganini tekshiradi.
 import pytest
 
 from src.modules.moizvonki.domain.entities import (
+    MoizvonkiUnreachableError,
     MoizvonkiCredentials,
     MoizvonkiError,
 )
@@ -98,3 +99,87 @@ async def test_xato_xabari_ruxsat_etilganlarni_koarsatadi() -> None:
             assert allowed in message
     finally:
         await client.aclose()
+
+
+# ══════════════════════════════════════════════════════════════
+#  Vaqtinchalik uzilishda qayta urinish
+# ══════════════════════════════════════════════════════════════
+
+
+async def _darhol(_seconds: float) -> None:
+    """Kutishni o'tkazib yuboradi — testlar tez bo'lishi kerak."""
+    return None
+
+
+@pytest.mark.asyncio
+async def test_vaqt_tugashida_qayta_urinadi(monkeypatch) -> None:
+    """⚠️ Bitta sekin sahifa BUTUN sinxronizatsiyani yiqitmasligi kerak.
+
+    30 kunlik oraliq ~250 so'rov, jami ~4 daqiqa. Odatda har sahifa
+    ~1 soniyada keladi, lekin MoyZvonki ba'zida sekinlashadi. Qayta
+    urinish bo'lmasa admin 4 daqiqa kutib, «javob bermadi» degan xabar
+    oladi va 20 000 qo'ng'iroq yozilmay qoladi — haqiqiy sinovda aynan
+    shunday bo'ldi."""
+    from src.modules.moizvonki.infrastructure import client as mod
+
+    client = _client()
+    urinishlar = {"n": 0}
+
+    async def soxta_post_once(action, **params):
+        urinishlar["n"] += 1
+        if urinishlar["n"] < 3:
+            raise MoizvonkiUnreachableError("vaqt tugadi")
+        return {"calls": []}
+
+    monkeypatch.setattr(client, "_post_once", soxta_post_once)
+    # Kutishni o'tkazib yuboramiz — test tez bo'lishi kerak.
+    # ⚠️ `asyncio.sleep` ni o'ziga bog'lab bo'lmaydi: patch'dan keyin
+    # nom yangi funksiyaga ishora qiladi va u o'zini chaqirib rekursiya
+    # beradi. Shuning uchun mustaqil bo'sh funksiya.
+    monkeypatch.setattr(mod.asyncio, "sleep", _darhol)
+
+    natija = await client._post("calls.list")
+    assert natija == {"calls": []}
+    assert urinishlar["n"] == 3, "uchinchi urinishda o'tishi kerak"
+    assert mod.RETRY_ATTEMPTS == 3
+
+
+@pytest.mark.asyncio
+async def test_barcha_urinish_tugasa_xato_qaytadi(monkeypatch) -> None:
+    """Cheksiz urinmaydi: haqiqatan ishlamayotgan integratsiyada admin
+    aniq xabar olishi kerak, bejiz kutmasligi."""
+    from src.modules.moizvonki.infrastructure import client as mod
+
+    client = _client()
+    urinishlar = {"n": 0}
+
+    async def har_doim_yiqiladi(action, **params):
+        urinishlar["n"] += 1
+        raise MoizvonkiUnreachableError("vaqt tugadi")
+
+    monkeypatch.setattr(client, "_post_once", har_doim_yiqiladi)
+    monkeypatch.setattr(mod.asyncio, "sleep", _darhol)
+
+    with pytest.raises(MoizvonkiUnreachableError):
+        await client._post("calls.list")
+    assert urinishlar["n"] == mod.RETRY_ATTEMPTS
+
+
+@pytest.mark.asyncio
+async def test_xato_kalit_qayta_urinilmaydi(monkeypatch) -> None:
+    """Autentifikatsiya xatosi o'z-o'zidan tuzalmaydi — urinish faqat
+    vaqt yo'qotardi va admin xatoni uch barobar kechroq ko'rardi."""
+    from src.modules.moizvonki.domain.entities import MoizvonkiAuthError
+
+    client = _client()
+    urinishlar = {"n": 0}
+
+    async def auth_xatosi(action, **params):
+        urinishlar["n"] += 1
+        raise MoizvonkiAuthError("kalit noto'g'ri")
+
+    monkeypatch.setattr(client, "_post_once", auth_xatosi)
+
+    with pytest.raises(MoizvonkiAuthError):
+        await client._post("calls.list")
+    assert urinishlar["n"] == 1, "faqat bir marta"

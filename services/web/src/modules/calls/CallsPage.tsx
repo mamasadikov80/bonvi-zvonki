@@ -16,10 +16,12 @@ import {
   useCalls,
   type CallsQuery,
   type CallTypeFilter,
+  type Direction,
   type SortField,
   type SortOrder,
 } from '@/modules/calls/api'
 import { CallTypeBadge } from '@/modules/calls/CallTypeBadge'
+import { DirectionMark } from '@/modules/calls/DirectionMark'
 import { SyncModal } from '@/modules/calls/SyncModal'
 import { ScoreModal } from '@/modules/pipeline/ScoreModal'
 import { ScoringProgressBar } from '@/modules/pipeline/ScoringProgressBar'
@@ -213,6 +215,34 @@ export function CallsPage() {
             </Select>
           ) : null}
 
+          {/* Yo'nalish */}
+          <Select
+            className="h-10 w-36"
+            value={query.direction ?? ''}
+            onChange={(e) =>
+              patch({ direction: (e.target.value || undefined) as Direction })
+            }
+          >
+            <option value="">{t('calls.direction.all')}</option>
+            <option value="inbound">{t('calls.direction.inbound')}</option>
+            <option value="outbound">{t('calls.direction.outbound')}</option>
+          </Select>
+
+          {/* Javob holati */}
+          <Select
+            className="h-10 w-40"
+            value={query.answered ?? ''}
+            onChange={(e) =>
+              patch({
+                answered: (e.target.value || undefined) as CallsQuery['answered'],
+              })
+            }
+          >
+            <option value="">{t('calls.answered.all')}</option>
+            <option value="yes">{t('calls.answered.yes')}</option>
+            <option value="no">{t('calls.answered.no')}</option>
+          </Select>
+
           {/* Tur.
               NEGA SELECT, SEGMENTED EMAS: yetti qiymat segmentli
               tugmachalarga sig'maydi va filtr qatorini buzardi. */}
@@ -333,9 +363,20 @@ export function CallsPage() {
                       className="cursor-pointer border-b border-border/60 transition-colors last:border-0 hover:bg-surface-2/60"
                     >
                       <td className="whitespace-nowrap px-4 py-3">
-                        <div className="tnum text-sm">{fmt.date(date)}</div>
-                        <div className="tnum text-2xs text-muted">
-                          {fmt.time(date)}
+                        {/* Yo'nalish sana yonida — alohida ustun
+                            jadvalni kengaytirardi, belgi esa bir
+                            qarashda o'qiladi */}
+                        <div className="flex items-center gap-2">
+                          <DirectionMark
+                            direction={call.direction}
+                            answered={call.answered}
+                          />
+                          <div>
+                            <div className="tnum text-sm">{fmt.date(date)}</div>
+                            <div className="tnum text-2xs text-muted">
+                              {fmt.time(date)}
+                            </div>
+                          </div>
                         </div>
                       </td>
 

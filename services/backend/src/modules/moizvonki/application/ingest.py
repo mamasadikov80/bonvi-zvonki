@@ -5,11 +5,24 @@ identifikatori (`calls.audio_key`). **Audio saqlanmaydi** — bu servis
 audio baytlariga umuman tegmaydi, `recording` maydonini matn sifatida
 ko'chiradi xolos.
 
-FILTR: faqat AUDIOSI BOR qo'ng'iroqlar ko'chiriladi. Javobsiz
-qo'ng'iroq, muddati o'tgan yozuv va xizmat qo'ng'iroqlari bazaga
-umuman tushmaydi — ular baholanmaydi, ya'ni ro'yxatda faqat shovqin
-bo'lardi. Nechtasi shu sababdan tashlanganini hisobot aytadi
-(`skipped_no_recording`).
+QAMROV: BARCHA qo'ng'iroqlar ko'chiriladi — javobsizlari ham.
+
+Ilgari faqat audiosi borlari olinardi (baholash audiodan boshlanadi).
+Lekin FAOLLIK hisoboti — kim kimga nechta qo'ng'iroq qildi, nechtasi
+javobsiz qoldi, nechtasiga qaytib aloqaga chiqildi — aynan audiosiz
+qatorlarga tayanadi. O'lchandi: javobsiz qo'ng'iroqda yozuv HECH QACHON
+bo'lmaydi (2030 dan 0 tasida), ya'ni eski filtr javobsizlarni butunlay
+yo'q qilardi — 7 kunda 2030 qo'ng'iroq, jamining 35% i.
+
+Audiosizlar baholanmaydi va shovqin ham qilmaydi:
+  · `status = SKIPPED` bilan yoziladi («navbatda» deb ko'rinmasin);
+  · `select_calls` da `audio_key IS NOT NULL` sharti bor;
+  · ro'yxatda sukut bo'yicha savdo turi ko'rsatiladi, ular esa
+    tasniflanmagan bo'lib qoladi.
+
+`answered` maydoni — MoyZvonki'dagi telefoniya fakti va bizning
+`status` dan MUSTAQIL. Ikkisini aralashtirmaslik kerak: `SKIPPED`
+«baholanmadi», `answered = false` esa «gaplashilmagan» degani.
 
 Idempotentlik: `calls.external_id` — MoyZvonki'dagi `db_call_id`.
 Ustunda UNIQUE indeks bor, shuning uchun qayta yurish `ON CONFLICT DO
@@ -25,7 +38,7 @@ o'qiladi (`MoizvonkiClient.READ_ONLY_ACTIONS`).
 import re
 from dataclasses import dataclass
 from collections.abc import Iterable
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 from sqlalchemy import func, literal_column, select
@@ -73,6 +86,50 @@ class _Directory:
             if agent is not None:
                 return agent
         return None
+
+
+#: Sinxronizatsiya MoyZvonki'dan necha kunlik bo'lakda so'raydi.
+#
+# ⚠️ NEGA BO'LAKLARGA BO'LINADI. `calls.list` sahifalashi `from_offset`
+# orqali ishlaydi va MoyZvonki tomonida offset qanchalik katta bo'lsa,
+# so'rov shunchalik sekin bajariladi (odatiy `OFFSET` skaneri). 30
+# kunlik oraliqda ~25 000 qo'ng'iroq bo'ladi, ya'ni oxirgi sahifalarda
+# offset 20 000 dan oshadi va so'rov 30 soniyalik chegaradan chiqib
+# ketadi — butun sinxronizatsiya «MoyZvonki javob bermadi» bilan
+# yiqiladi. HAQIQIY sinovda aynan shunday bo'ldi.
+#
+# 3 kun tanlandi: o'lchandi, kunda ~840 qo'ng'iroq, ya'ni bo'lakda
+# ~2500 qator = 25 sahifa va eng katta offset ~2400. Bunday so'rov
+# doim tez bajariladi. Bo'laklar soni oshgani muhim emas: har biri
+# alohida sahifalanadi va MoyZvonki'ga yuk BIR XIL qoladi — o'sha
+# qatorlar baribir o'qiladi.
+WINDOW_DAYS = 3
+
+
+def _windows(
+    since: datetime, until: datetime | None
+) -> list[tuple[datetime, datetime | None]]:
+    """Sana oralig'ini `WINDOW_DAYS` kunlik bo'laklarga ajratadi.
+
+    Oxirgi bo'lakning `until` i chaqiruvchi bergan qiymatni saqlaydi
+    (`None` bo'lsa ham) — aks holda «hozirgacha» degan so'rov jimgina
+    qisqarib, eng yangi qo'ng'iroqlar tushmay qolardi.
+    """
+    chegara = until or datetime.now(UTC)
+    if chegara <= since:
+        return [(since, until)]
+
+    bolaklar: list[tuple[datetime, datetime | None]] = []
+    kursor = since
+    qadam = timedelta(days=WINDOW_DAYS)
+    while kursor < chegara:
+        keyingi = kursor + qadam
+        if keyingi >= chegara:
+            bolaklar.append((kursor, until))
+            break
+        bolaklar.append((kursor, keyingi))
+        kursor = keyingi
+    return bolaklar
 
 
 class IngestService:
@@ -143,57 +200,75 @@ class IngestService:
         directory = await self._directory()
         wanted = set(agent_ids) if agent_ids is not None else None
 
-        async for page_number, page in self._client.iter_calls(
-            since=since, until=until, supervised=supervised, page_size=page_size
-        ):
-            report.pages = page_number
-            report.fetched += len(page.calls)
-
-            rows: dict[str, dict[str, object]] = {}
-            for call in page.calls:
-                # ── Audio bor-yo'qligi BIRINCHI tekshiriladi ──────
-                #
-                # Bu ro'yxatning asosiy filtri: baholash audiodan
-                # boshlanadi, audiosi yo'q qo'ng'iroq esa hech qachon
-                # baholanmaydi. Uni saqlash ro'yxatni 0:00 li, bahosiz
-                # qatorlar bilan to'ldiradi xolos.
-                #
-                # Tartib ham ataylab shunday: agar xodim tekshiruvi
-                # oldinda tursa, javobsiz qo'ng'iroqlar «xodimga
-                # bog'lanmadi» ro'yxatiga tushib, admin haqiqiy
-                # muammoni shovqin ichida qidirardi.
-                if not call.has_recording:
-                    report.skipped_no_recording += 1
-                    continue
-
-                agent_id = directory.agent_for(call)
-                if agent_id is None:
-                    # JIMGINA tashlab ketilmaydi — hisobotga tushadi
-                    report.skipped_no_agent += 1
-                    report.note_unmatched(call)
-                    continue
-
-                # Admin aniq xodimlarni tanlagan bo'lsa — qolganlari
-                # o'tkazib yuboriladi. Bu «xodimi topilmadi» EMAS,
-                # shuning uchun `skipped_no_agent` ga qo'shilmaydi:
-                # hisobotda ikkalasi aralashib ketmasin.
-                if wanted is not None and agent_id not in wanted:
-                    report.skipped_not_selected += 1
-                    continue
-
-                # Bir sahifada bir `db_call_id` ikki marta kelsa,
-                # PostgreSQL «ON CONFLICT ... bir qatorni ikki marta
-                # o'zgartira olmaydi» deb xato beradi — oldini olamiz
-                rows[call.db_call_id] = self._row(call, agent_id, directory)
-
-            if rows:
-                created, updated = await self._upsert(list(rows.values()))
-                report.created += created
-                report.updated += updated
-
-            if report.fetched >= max_calls:
-                report.truncated = True
+        for window_since, window_until in _windows(since, until):
+            if report.truncated:
                 break
+            async for page_number, page in self._client.iter_calls(
+                since=window_since,
+                until=window_until,
+                supervised=supervised,
+                page_size=page_size,
+            ):
+                report.pages += page_number if page_number == 1 else 1
+                report.fetched += len(page.calls)
+
+                rows: dict[str, dict[str, object]] = {}
+                for call in page.calls:
+                    # ── Audio bor-yo'qligi BIRINCHI tekshiriladi ──────
+                    #
+                    # ⚠️ AUDIOSI YO'Q QO'NG'IROQ HAM SAQLANADI.
+                    #
+                    # Ilgari bunday qatorlar tashlab yuborilardi: baholash
+                    # audiodan boshlanadi, audiosi yo'q qo'ng'iroq esa hech
+                    # qachon baholanmaydi. Lekin FAOLLIK hisoboti (kim kimga
+                    # nechta qo'ng'iroq qildi, nechtasi javobsiz qoldi,
+                    # nechtasiga qaytib aloqaga chiqildi) aynan shu
+                    # qatorlarga tayanadi.
+                    #
+                    # O'lchandi: javobsiz qo'ng'iroqda yozuv HECH QACHON
+                    # bo'lmaydi (2030 javobsizdan 0 tasida). Ya'ni eski
+                    # filtr javobsizlarni BUTUNLAY yo'q qilardi va «nechta
+                    # propushenniy bo'ldi» degan savolga javob bermaydigan
+                    # qilib qo'yardi. 7 kunda bu 2030 qo'ng'iroq — jamining
+                    # 35% i.
+                    #
+                    # Audiosizlar ro'yxatni to'ldirib yubormaydi: ular
+                    # baholanmaydi (`select_calls` da `audio_key IS NOT NULL`
+                    # sharti bor) va ro'yxatda sukut bo'yicha savdo turi
+                    # ko'rsatiladi, ular esa tasniflanmagan bo'lib qoladi.
+                    if not call.has_recording:
+                        # Bu XATO emas va tashlab ketish ham emas — hisobotda
+                        # «audiosi yo'q, demak baholanmaydi» degan son
+                        report.skipped_no_recording += 1
+
+                    agent_id = directory.agent_for(call)
+                    if agent_id is None:
+                        # JIMGINA tashlab ketilmaydi — hisobotga tushadi
+                        report.skipped_no_agent += 1
+                        report.note_unmatched(call)
+                        continue
+
+                    # Admin aniq xodimlarni tanlagan bo'lsa — qolganlari
+                    # o'tkazib yuboriladi. Bu «xodimi topilmadi» EMAS,
+                    # shuning uchun `skipped_no_agent` ga qo'shilmaydi:
+                    # hisobotda ikkalasi aralashib ketmasin.
+                    if wanted is not None and agent_id not in wanted:
+                        report.skipped_not_selected += 1
+                        continue
+
+                    # Bir sahifada bir `db_call_id` ikki marta kelsa,
+                    # PostgreSQL «ON CONFLICT ... bir qatorni ikki marta
+                    # o'zgartira olmaydi» deb xato beradi — oldini olamiz
+                    rows[call.db_call_id] = self._row(call, agent_id, directory)
+
+                if rows:
+                    created, updated = await self._upsert(list(rows.values()))
+                    report.created += created
+                    report.updated += updated
+
+                if report.fetched >= max_calls:
+                    report.truncated = True
+                    break
 
         await self._session.commit()
         return report
@@ -217,13 +292,22 @@ class IngestService:
             "direction": (
                 CallDirection.OUTBOUND if call.is_outbound else CallDirection.INBOUND
             ),
-            # Yangi qator uchun boshlang'ich holat. Bu yergacha faqat
-            # yozuvi BOR qo'ng'iroq yetib keladi, shuning uchun har doim
-            # `PENDING`. Mavjud qatorda `status` TEGILMAYDI (pastdagi
-            # `set_` ga kirmagan).
-            "status": CallStatus.PENDING,
+            # Yangi qator uchun boshlang'ich holat. Mavjud qatorda
+            # `status` TEGILMAYDI (pastdagi `set_` ga kirmagan) —
+            # sinxronizatsiya baholash natijasini yo'q qilmasin.
+            #
+            # Audiosi yo'q qo'ng'iroq darhol `SKIPPED`: u hech qachon
+            # baholanmaydi va `PENDING` bo'lib turishi yolg'on bo'lardi —
+            # interfeysda «navbatda kutmoqda» degan ma'no beradi va
+            # admin nega baholanmayotganini kutib o'tiradi.
+            "status": (
+                CallStatus.PENDING if call.has_recording else CallStatus.SKIPPED
+            ),
             "started_at": call.start_time,
             "duration_sec": call.duration_sec,
+            # Telefoniya fakti — `status` dan MUSTAQIL. Faollik
+            # hisobotining butun mantig'i shu maydonga tayanadi.
+            "answered": call.answered,
             # ⚠️ Faqat MANZIL saqlanadi, audio emas.
             "audio_key": call.recording,
         }
@@ -248,6 +332,10 @@ class IngestService:
                 "direction": stmt.excluded.direction,
                 "started_at": stmt.excluded.started_at,
                 "duration_sec": stmt.excluded.duration_sec,
+                # `coalesce` QO'YILMAYDI: `answered` — MoyZvonki'dagi
+                # joriy haqiqat va u har doim keladi. Eski qatordagi
+                # `NULL` ni aynan shu yangilanish to'ldiradi.
+                "answered": stmt.excluded.answered,
                 # Muddati o'tgan yozuv havolasini saqlab qolishning
                 # ASOSIY kafolati — yuqoridagi filtr: `recording` si
                 # bo'sh qo'ng'iroq bu yergacha yetib kelmaydi, ya'ni

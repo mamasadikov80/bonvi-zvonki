@@ -11,6 +11,7 @@ import { DashboardPage } from '@/modules/dashboard/DashboardPage'
 import { MonitorPage } from '@/modules/dashboard/MonitorPage'
 import { GroupsPage } from '@/modules/groups/GroupsPage'
 import { RegionsPage } from '@/modules/regions/RegionsPage'
+import { ActivityPage } from '@/modules/activity/ActivityPage'
 import { RubricPage } from '@/modules/rubric/RubricPage'
 import { SettingsPage } from '@/modules/settings/SettingsPage'
 import { SurveyWebAppPage } from '@/modules/survey-webapp/SurveyWebAppPage'
@@ -126,6 +127,14 @@ export function AppRouter() {
           element={
             <Gate anyOf={['surveys:read', 'surveys:read:own']}>
               <SurveysPage />
+            </Gate>
+          }
+        />
+        <Route
+          path="activity"
+          element={
+            <Gate anyOf={['analytics:read']}>
+              <ActivityPage />
             </Gate>
           }
         />

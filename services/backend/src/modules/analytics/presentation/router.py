@@ -1,13 +1,20 @@
 """Analitika endpointlari — dashboard shu yerdan ma'lumot oladi."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel
 
 from src.core.deps import CurrentUser, DbSession
+from src.core.exceptions import ValidationError
+from src.modules.analytics.application.activity import (
+    CALLBACK_WINDOW_HOURS,
+    ActivityService,
+)
 from src.modules.analytics.application.services import AnalyticsFilter, AnalyticsService
+from src.modules.users.domain.entities import Role
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
 
@@ -38,6 +45,21 @@ def _inclusive_end(date_to: datetime | None) -> datetime | None:
     ):
         return date_to
     return date_to + timedelta(days=1) - timedelta(microseconds=1)
+
+
+def _as_utc(moment: datetime | None) -> datetime | None:
+    """Mintaqasiz sanani UTC deb qabul qiladi.
+
+    ⚠️ Pydantic `?date_from=2026-08-10` ni MINTAQASIZ `datetime` qilib
+    o'qiydi. Uni mintaqali `datetime.now(UTC)` bilan solishtirish
+    `TypeError` beradi va endpoint 500 qaytaradi — ya'ni hujjatda
+    ko'rsatilgan parametrning oddiy shakli tizimni yiqitardi.
+    """
+    if moment is None:
+        return None
+    if moment.tzinfo is None:
+        return moment.replace(tzinfo=UTC)
+    return moment.astimezone(UTC)
 
 
 def build_filter(
@@ -112,3 +134,230 @@ async def regions(session: DbSession, user: CurrentUser, f: Filters):
 @router.get("/filters", summary="Filtr variantlari")
 async def filter_options(session: DbSession, user: CurrentUser):
     return await AnalyticsService(session, user).filter_options()
+
+
+# ══════════════════════════════════════════════════════════════
+#  Qo'ng'iroq FAOLLIGI — hajm va javobgarlik (sifatdan mustaqil)
+# ══════════════════════════════════════════════════════════════
+
+
+class AgentActivityRow(BaseModel):
+    agent_id: UUID
+    agent_name: str
+    region: str | None
+
+    outbound_total: int
+    """Xodim mijozlarga qilgan qo'ng'iroqlar."""
+    outbound_answered: int
+    outbound_no_answer: int
+    """Mijoz ko'tarmadi. ⚠️ Bu «propushenniy» EMAS."""
+
+    inbound_total: int
+    """Mijozlar xodimga qilgan qo'ng'iroqlar."""
+    inbound_known: int
+    """Javob holati bilingan kiruvchilar — FOIZLAR shundan hisoblanadi."""
+    inbound_answered: int
+    missed: int
+    """KIRUVCHI + javobsiz = «propushenniy». Kompaniya javobgarligi."""
+
+    missed_called_back: int
+    """Javobsiz HODISALARdan keyin aloqa bo'lganlari."""
+    missed_addressable: int
+    """Raqami bor javobsiz hodisalar — `missed_open` shundan."""
+    missed_open: int
+    """Javobsiz qolib, keyin ham aloqa bo'lmagan hodisalar (hajm)."""
+
+    # ── Mijoz darajasi — ASOSIY ko'rsatkich ───────────────────
+    #
+    # Mijoz bog'lanolmasa qayta-qayta uriniadi (o'lchandi: o'rtacha 1.8
+    # marta). Hodisalarni sanash bir odamning muammosini bir necha
+    # marta hisoblardi. Yomonroq holat: mijoz 4 marta qo'ng'iroq qilib
+    # 4-chisida javob olgan bo'lsa, hodisa hisobi «3 javobsiz, 75%»
+    # deb ko'rsatadi — holbuki mijoz BOG'LANGAN.
+    missed_clients: int
+    """Bog'lanolmagan MIJOZLAR soni."""
+    clients_reached: int
+    clients_unreached: int
+    """⚠️ HISOBOTNING ASOSIY RAQAMI — yo'qolgan savdo imkoniyati."""
+
+    missed_rate: float | None
+    callback_rate: float | None
+    """Bog'lanolmagan mijozlarning qancha foiziga qaytilgan (MIJOZ
+    darajasida, hodisa darajasida emas)."""
+
+    total: int
+    talk_seconds: int
+    unknown_in: int
+    unknown_out: int
+    """Yo'nalish bo'yicha noma'lumlar. Ular bo'lmasa `outbound_total` va
+    `answered + no_answer` orasidagi farqni ekranda tushuntirib
+    bo'lmasdi — son o'z-o'ziga zid ko'rinardi."""
+
+    unknown: int
+    """`answered` noma'lum qatorlar. Hisobda SANALMAYDI — eski, ustun
+    paydo bo'lishidan oldingi qatorlar. Qayta sinxronizatsiya to'ldiradi."""
+
+
+class ActivityDayRow(BaseModel):
+    """Bir kunlik hajm — grafik uchun.
+
+    Faqat hajm: mijoz darajasidagi hisob bu yerda YO'Q va ataylab — u
+    kun chegarasida buziladi (mijoz kechqurun qo'ng'iroq qilib, ertalab
+    javob olishi mumkin) va grafikdagi raqam kartadagi bilan mos
+    kelmasdi."""
+
+    day: date
+    inbound: int
+    inbound_answered: int
+    outbound: int
+    missed: int
+
+
+class ActivityHourRow(BaseModel):
+    """Soatlik kesim — qaysi soatda mijozlar bog'lanolmaydi.
+
+    ⚠️ Soat MAHALLIY vaqtda (Asia/Tashkent). UTC da bu razrez xulosani
+    yo'q qilardi: «tushlikda javobsizlar ko'p» naqshi 12:00 da
+    ko'rinadi, UTC da esa 07:00 ga siljib ma'nosini yo'qotadi."""
+
+    hour: int
+    inbound: int
+    missed: int
+    missed_rate: float | None
+
+
+class ActivityResponse(BaseModel):
+    days: int
+    date_from: datetime
+    date_to: datetime
+    callback_window_hours: int
+    """Qaytib aloqaga chiqish shu muddat ichida hisobga olinadi."""
+    callback_median_minutes: float | None
+    days_series: list[ActivityDayRow]
+    hours_series: list[ActivityHourRow]
+    agents: list[AgentActivityRow]
+    total: AgentActivityRow
+
+
+def _activity_row(row) -> AgentActivityRow:
+    return AgentActivityRow(
+        agent_id=row.agent_id,
+        agent_name=row.agent_name,
+        region=row.region,
+        outbound_total=row.outbound_total,
+        outbound_answered=row.outbound_answered,
+        outbound_no_answer=row.outbound_no_answer,
+        inbound_total=row.inbound_total,
+        inbound_known=row.inbound_known,
+        inbound_answered=row.inbound_answered,
+        missed=row.missed,
+        missed_called_back=row.missed_called_back,
+        missed_addressable=row.missed_addressable,
+        missed_open=row.missed_open,
+        missed_clients=row.missed_clients,
+        clients_reached=row.clients_reached,
+        clients_unreached=row.clients_unreached,
+        missed_rate=row.missed_rate,
+        callback_rate=row.callback_rate,
+        total=row.total,
+        talk_seconds=row.talk_seconds,
+        unknown=row.unknown,
+        unknown_in=row.unknown_in,
+        unknown_out=row.unknown_out,
+    )
+
+
+@router.get(
+    "/activity",
+    response_model=ActivityResponse,
+    summary="Qo'ng'iroq faolligi (hajm, javobsizlar, qaytib chiqish)",
+)
+async def activity(
+    session: DbSession,
+    user: CurrentUser,
+    days: Annotated[
+        int,
+        Query(ge=1, le=365, description="Oxirgi N kun (1 / 7 / 15 / 30)"),
+    ] = 7,
+    date_from: Annotated[
+        datetime | None,
+        Query(description="Aniq boshlanish sanasi — `days` ni bekor qiladi"),
+    ] = None,
+    date_to: Annotated[datetime | None, Query(description="Tugash sanasi")] = None,
+    agent_ids: Annotated[list[UUID] | None, Query(description="Xodimlar")] = None,
+    regions: Annotated[list[str] | None, Query(description="Hududlar")] = None,
+) -> ActivityResponse:
+    """Kim kimga qancha qo'ng'iroq qildi va javobsizlarga qaytildimi.
+
+    ⚠️ «Javobsiz» degan yagona son YO'Q. Kiruvchi javobsiz
+    («propushenniy» — kompaniya javob bermadi) va chiquvchi javobsiz
+    (mijoz ko'tarmadi) butunlay boshqa narsa: o'lchandi, 7 kunda 983 va
+    1047. Ularni qo'shish raqamni ikki barobar oshirib, ma'nosini yo'q
+    qiladi va xodimni nohaq ayblaydi.
+
+    SALES roli faqat O'ZINING ma'lumotini ko'radi.
+    """
+    scoped = list(agent_ids) if agent_ids else None
+    if user.role == Role.SALES:
+        # ⚠️ URL dagi `agent_ids` E'TIBORSIZ qoldiriladi — savdo xodimi
+        # hamkasbining faolligini ko'rmasligi kerak
+        scoped = [user.agent_id] if user.agent_id else []
+
+    # Aniq oraliq berilgan bo'lsa u USTUN turadi va O'ZGARTIRILMASDAN
+    # uzatiladi. `days` esa tez tanlash uchun (1 / 7 / 15 / 30).
+    #
+    # ⚠️ ORALIQ KUN SONIGA AYLANTIRILMAYDI. Ilgari shunday qilinardi va
+    # `timedelta.days` pastga yaxlitlaganligi uchun boshlanish sanasi
+    # 24 soatgacha oldinga siljirdi — o'lchandi: «10–16 avgust»
+    # so'rovida 853 qo'ng'iroq va 137 javobsiz JIMGINA tushib qolgan
+    # edi, javobda esa hech qanday belgi yo'q edi.
+    #
+    # `_inclusive_end` — tugash sanasi kun OXIRIGA suriladi. Busiz
+    # «17-avgustgacha» tanlovi yarim tunga aylanib, o'sha kunning butun
+    # ishi tushib qolardi.
+    since = _as_utc(date_from)
+    until = _as_utc(_inclusive_end(date_to))
+
+    if since is not None and until is None:
+        until = datetime.now(UTC)
+    if since is not None and until is not None and since >= until:
+        raise ValidationError(
+            "Boshlanish sanasi tugash sanasidan keyin bo'lolmaydi. "
+            "Teskari oraliq jimgina BOSHQA davr ma'lumotini qaytarardi."
+        )
+
+    report = await ActivityService(session).report(
+        days=days,
+        since=since,
+        until=until,
+        agent_ids=scoped,
+        regions=list(regions) if regions else None,
+    )
+    return ActivityResponse(
+        days=report.days,
+        date_from=report.date_from,
+        date_to=report.date_to,
+        callback_window_hours=CALLBACK_WINDOW_HOURS,
+        callback_median_minutes=report.callback_median_minutes,
+        days_series=[
+            ActivityDayRow(
+                day=row.day,
+                inbound=row.inbound,
+                inbound_answered=row.inbound_answered,
+                outbound=row.outbound,
+                missed=row.missed,
+            )
+            for row in report.days_series
+        ],
+        hours_series=[
+            ActivityHourRow(
+                hour=row.hour,
+                inbound=row.inbound,
+                missed=row.missed,
+                missed_rate=row.missed_rate,
+            )
+            for row in report.hours_series
+        ],
+        agents=[_activity_row(row) for row in report.agents],
+        total=_activity_row(report.total),
+    )

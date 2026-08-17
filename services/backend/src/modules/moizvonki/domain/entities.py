@@ -206,6 +206,24 @@ def _flag(value: Any) -> bool:
     return text.lower() not in {"0", "false", "no", "null", "none"}
 
 
+def _flag_or_none(payload: dict[str, Any], key: str) -> bool | None:
+    """`True` / `False` / `None` (maydon umuman kelmagan).
+
+    ⚠️ NEGA `False` EMAS. Bu qiymat faollik hisobotiga tushadi:
+    «nechta qo'ng'iroq javobsiz qoldi» degan son shefga ko'rsatiladi.
+    Maydon kelmaganda `False` deb qabul qilish o'sha sonni OSHIRIB
+    yuboradi — ya'ni xato aynan eng yomon tomonga qarab bo'ladi:
+    kompaniya aslida javob bergan qo'ng'iroqlar «o'tkazib yuborilgan»
+    bo'lib chiqadi va xodimlar nohaq ayblanadi.
+
+    `None` esa «bilmayman» degani va hisobot bunday qatorni umuman
+    sanamaydi — noto'g'ri raqamdan ko'ra kamroq raqam yaxshiroq.
+    """
+    if key not in payload:
+        return None
+    return _flag(payload[key])
+
+
 def _digits(value: str | None) -> str:
     return "".join(ch for ch in (value or "") if ch.isdigit())
 
@@ -273,7 +291,8 @@ class MoizvonkiCall:
     end_time: datetime | None
     upload_time: datetime | None
     duration_sec: int
-    answered: bool
+    answered: bool | None
+    """`None` — MoyZvonki bu maydonni bermadi (hisobot sanamaydi)."""
     recording: str | None
     user_id: str | None
     user_account: str | None
@@ -340,7 +359,7 @@ class MoizvonkiCall:
             end_time=_timestamp(payload.get("end_time")),
             upload_time=_timestamp(payload.get("upload_time")),
             duration_sec=max(duration, 0),
-            answered=_flag(payload.get("answered")),
+            answered=_flag_or_none(payload, "answered"),
             recording=_recording_link(payload.get("recording")),
             user_id=_text(payload.get("user_id")),
             user_account=_text(payload.get("user_account")),
@@ -463,13 +482,16 @@ class IngestReport:
     haqiqiy muammoni filtr shovqini ichida ko'rmay qolardi."""
 
     skipped_no_recording: int = 0
-    """Audiosi yo'q — bazaga UMUMAN yozilmagan.
+    """Audiosi yo'q — BAHOLANMAYDI, lekin bazaga YOZILADI.
 
-    Javobsiz qo'ng'iroq, muddati o'tgan yozuv yoki xizmat
-    qo'ng'irog'i. Ilgari bunday qatorlar `status='skipped'` bilan
-    saqlanardi va ro'yxatning katta qismini 0:00 li, bahosiz, mijozsiz
-    qatorlar egallab olardi — ular hech qachon baholanmasa ham. Endi
-    ular faqat SHU sonda ko'rinadi."""
+    ⚠️ Nom aldamchi: bu qo'ng'iroq tashlab ketilgani EMAS. U saqlanadi
+    (`status = SKIPPED`) va faollik hisobotida sanaladi — javobsiz
+    qo'ng'iroqlar soni, qaytib aloqaga chiqish darajasi aynan shu
+    qatorlardan hisoblanadi.
+
+    Bu son adminga bitta narsani aytadi: nechta qo'ng'iroq AI bilan
+    baholanmaydi. Sabablari: javobsiz qo'ng'iroq (yozuv umuman
+    yaratilmaydi), yozuv muddati o'tgan yoki xizmat qo'ng'irog'i."""
 
     unmatched: list[UnmatchedOwner] = field(default_factory=list)
     truncated: bool = False

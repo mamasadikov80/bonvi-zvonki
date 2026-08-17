@@ -20,7 +20,8 @@
     "myCalls": "Mening qo'ng'iroqlarim",
     "myRatings": "Mening baholarim",
     "groups": "Telegram guruhlari",
-    "regions": "Hududlar"
+    "regions": "Hududlar",
+    "activity": "Faollik"
   },
   "auth": {
     "login": "Kirish",
@@ -336,6 +337,18 @@
       "filterNotSales": "Savdo emas",
       "filterUnknown": "Tasniflanmagan",
       "emptySalesHint": "Sukut bo'yicha faqat savdo suhbatlari ko'rsatiladi. Boshqa turlar va hali tasniflanmagan qo'ng'iroqlar yashirilgan."
+    },
+    "direction": {
+      "all": "Yo'nalish: barchasi",
+      "inbound": "Kiruvchi",
+      "outbound": "Chiquvchi",
+      "missed": "Javobsiz qolgan (mijoz qo'ng'iroq qildi, javob berilmadi)",
+      "unknown": "javob holati noma'lum"
+    },
+    "answered": {
+      "all": "Javob: barchasi",
+      "yes": "Javob berilgan",
+      "no": "Javobsiz"
     }
   },
   "agents": {
@@ -823,5 +836,51 @@
     "offline": "Internet aloqasi yo'q — ma'lumot yangilanmayapti.",
     "loadFailed": "Ma'lumotni yuklab bo'lmadi ({{count}} ta so'rov). Ekrandagi raqamlar to'liq bo'lmasligi mumkin.",
     "retry": "Qayta urinish"
+  },
+  "activity": {
+    "title": "Qo'ng'iroq faolligi",
+    "subtitle": "Kim kimga qancha qo'ng'iroq qildi va javobsizlarga qaytildimi",
+    "period": {
+      "d1": "1 kun",
+      "d7": "1 hafta",
+      "d15": "15 kun",
+      "d30": "1 oy"
+    },
+    "outbound": "Xodim → mijoz",
+    "outboundHint": "Savdo xodimlari mijozlarga qilgan qo'ng'iroqlar",
+    "inbound": "Mijoz → xodim",
+    "inboundHint": "Mijozlar kompaniyaga qilgan qo'ng'iroqlar",
+    "missed": "Javobsiz qolgan",
+    "missedHint": "Mijoz qo'ng'iroq qildi, javob berilmadi. Bu — QO'NG'IROQ soni; xodim ko'tarmagan chiquvchi bunga kirmaydi",
+    "calledBack": "Qaytib chiqilgan",
+    "calledBackHint": "Javobsiz qolgan raqamga {{hours}} soat ichida qayta qo'ng'iroq qilingan",
+    "answeredOf": "{{count}} ta javob berilgan ({{total}} tadan)",
+    "ofInbound": "kiruvchilarning {{percent}}%",
+    "callbackSub": "{{percent}}% · {{open}} ta hali qaytilmagan",
+    "medianNote": "Javobsiz qo'ng'iroqqa qaytishning medianasi — {{minutes}} daqiqa. O'rtacha emas, median: bitta uzoq kechikish o'rtachani buzadi. Hisobga {{hours}} soat ichidagi qaytishlar olinadi.",
+    "unknownNote": "{{count}} ta qo'ng'iroqda javob holati noma'lum — ular hisobga OLINMAGAN. Bu maydon paydo bo'lishidan oldingi ma'lumot; qo'ng'iroqlarni qayta yuklash to'ldiradi.",
+    "byAgent": "Xodimlar bo'yicha",
+    "myRow": "Mening faolligim",
+    "byAgentHint": "«Javobsiz» — mijoz qo'ng'iroq qilib, javob olmagani. «Ko'tarilmagan» — xodim qo'ng'iroq qilib, mijoz ko'tarmagani",
+    "colOut": "Chiquvchi",
+    "colOutNoAnswer": "Ko'tarilmagan",
+    "colIn": "Kiruvchi",
+    "colMissed": "Javobsiz",
+    "colCalledBack": "Qaytilgan",
+    "colOpen": "Ochiq",
+    "colRate": "Qaytish %",
+    "colTalk": "Suhbat",
+    "totalRow": "Jami",
+    "unreached": "Bog'lanolmagan mijoz",
+    "unreachedHint": "Qo'ng'iroq qilib javob olmagan va {{hours}} soat ichida u bilan ham gaplashilmagan mijozlar. Bir mijozning bir necha urinishi BIR marta sanaladi",
+    "unreachedSub": "{{clients}} mijozdan {{reached}} tasi bilan gaplashilgan ({{percent}}%)",
+    "colClients": "Mijoz",
+    "colUnreached": "Bog'lanmagan",
+    "chartTitle": "Kunlik dinamika",
+    "chartHint": "Qizil chiziq — javobsiz qolgan kiruvchi qo'ng'iroqlar",
+    "hourTitle": "Soatlar bo'yicha yuklama",
+    "hourHint": "Ustun — kiruvchi qo'ng'iroqlar soni, qizil chiziq — javobsizlar foizi (mahalliy vaqt)",
+    "missedRateLabel": "Javobsiz, %",
+    "scope": "{{count}} ta xodim bo'yicha · kim kimga qancha qo'ng'iroq qildi va javobsizlarga qaytildimi"
   }
 }
