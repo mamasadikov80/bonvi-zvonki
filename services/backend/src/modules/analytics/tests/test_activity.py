@@ -519,7 +519,6 @@ async def test_grafik_yigindisi_JAMIGA_teng(xodim) -> None:
     # Soatlik razrez BARCHA 24 soatni qamraydi — aks holda yig'indi
     # kam chiqib, kartadagi son bilan mos kelmasdi
     assert len(report.hours_series) == 24
-    assert sum(h.inbound for h in report.hours_series) == row.inbound_known
     assert sum(h.missed for h in report.hours_series) == row.missed
 
 
@@ -579,3 +578,46 @@ async def test_kompaniya_jamisi_mijozni_IKKI_MARTA_sanamaydi(xodim) -> None:
                 delete(AgentModel).where(AgentModel.id == ikkinchi_id)
             )
             await session.commit()
+
+
+@pytest.mark.asyncio
+async def test_ikki_kesim_BIR_XIL_yigindi_beradi(xodim) -> None:
+    """⚠️ BITTA grafik ikki kesimni ko'rsatadi (kun / soat).
+
+    Ularning ustunlari va yig'indilari BIR XIL bo'lishi shart. Aks holda
+    foydalanuvchi davrni almashtirganda sonlar sakrab, tizimga ishonchi
+    qolmasdi — «qaysi biri to'g'ri?» degan savol paydo bo'lardi.
+
+    Ilgari soatlik razrez faqat kiruvchi va faqat javob holati bilingan
+    qatorlarni olardi, kunlik esa hammasini — ya'ni ikkisi turli narsani
+    o'lchardi."""
+    await _qongiroq(xodim, inbound=True, answered=True, offset_min=0)
+    await _qongiroq(xodim, inbound=True, answered=False, offset_min=30)
+    await _qongiroq(xodim, inbound=True, answered=None, offset_min=45)
+    await _qongiroq(xodim, inbound=False, answered=True, offset_min=60)
+    await _qongiroq(xodim, inbound=False, answered=False, offset_min=90)
+
+    report, row = await _hisobot(xodim)
+
+    for nom, seriya in (("kunlik", report.days_series), ("soatlik", report.hours_series)):
+        assert sum(r.inbound for r in seriya) == row.inbound_total, nom
+        assert sum(r.inbound_answered for r in seriya) == row.inbound_answered, nom
+        assert sum(r.missed for r in seriya) == row.missed, nom
+        assert sum(r.outbound for r in seriya) == row.outbound_total, nom
+        assert sum(r.outbound_no_answer for r in seriya) == row.outbound_no_answer, nom
+
+
+@pytest.mark.asyncio
+async def test_soatlik_foiz_BILINGAN_qatorlardan(xodim) -> None:
+    """Noma'lum qatorlar soatlik foizni ham pasaytirmasligi kerak."""
+    # Bir soat ichida: 1 javobsiz, 1 javobli, 3 noma'lum
+    await _qongiroq(xodim, inbound=True, answered=False, offset_min=0)
+    await _qongiroq(xodim, inbound=True, answered=True, offset_min=5)
+    for i in range(3):
+        await _qongiroq(xodim, inbound=True, answered=None, offset_min=10 + i)
+
+    report, _ = await _hisobot(xodim)
+    soat = next(h for h in report.hours_series if h.inbound)
+    assert soat.inbound == 5, "hajmda hammasi"
+    # 1/2 = 50%, 1/5 = 20% BO'LMAYDI
+    assert soat.missed_rate == 50.0

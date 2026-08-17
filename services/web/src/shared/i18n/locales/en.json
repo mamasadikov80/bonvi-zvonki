@@ -877,10 +877,9 @@
     "colClients": "Customers",
     "colUnreached": "Not reached",
     "chartTitle": "Daily dynamics",
-    "chartHint": "Red line — unanswered inbound calls",
-    "hourTitle": "Load by hour",
-    "hourHint": "Bars — inbound calls, red line — share of missed (local time)",
-    "missedRateLabel": "Missed, %",
-    "scope": "Across {{count}} employees · who called whom, and whether missed calls got a callback"
+    "chartHint": "The breakdown follows the period: one day shows hours, longer shows days. Click a label to hide a line",
+    "scope": "Across {{count}} employees · who called whom, and whether missed calls got a callback",
+    "chartTitleHour": "Hourly dynamics",
+    "hourLabel": "{{hour}}:00"
   }
 }

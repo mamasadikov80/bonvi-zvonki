@@ -876,11 +876,10 @@
     "unreachedSub": "{{clients}} mijozdan {{reached}} tasi bilan gaplashilgan ({{percent}}%)",
     "colClients": "Mijoz",
     "colUnreached": "Bog'lanmagan",
-    "chartTitle": "Kunlik dinamika",
-    "chartHint": "Qizil chiziq — javobsiz qolgan kiruvchi qo'ng'iroqlar",
-    "hourTitle": "Soatlar bo'yicha yuklama",
-    "hourHint": "Ustun — kiruvchi qo'ng'iroqlar soni, qizil chiziq — javobsizlar foizi (mahalliy vaqt)",
-    "missedRateLabel": "Javobsiz, %",
-    "scope": "{{count}} ta xodim bo'yicha · kim kimga qancha qo'ng'iroq qildi va javobsizlarga qaytildimi"
+    "chartTitle": "Kunlar bo'yicha dinamika",
+    "chartHint": "Kesim davrga moslashadi: bir kun tanlansa soatlar, undan uzun bo'lsa kunlar. Yorliqni bosib chiziqni yashirish mumkin",
+    "scope": "{{count}} ta xodim bo'yicha · kim kimga qancha qo'ng'iroq qildi va javobsizlarga qaytildimi",
+    "chartTitleHour": "Soatlar bo'yicha dinamika",
+    "hourLabel": "Soat {{hour}}:00"
   }
 }

@@ -209,8 +209,9 @@ class ActivityDayRow(BaseModel):
     day: date
     inbound: int
     inbound_answered: int
-    outbound: int
     missed: int
+    outbound: int
+    outbound_no_answer: int
 
 
 class ActivityHourRow(BaseModel):
@@ -222,7 +223,10 @@ class ActivityHourRow(BaseModel):
 
     hour: int
     inbound: int
+    inbound_answered: int
     missed: int
+    outbound: int
+    outbound_no_answer: int
     missed_rate: float | None
 
 
@@ -344,8 +348,9 @@ async def activity(
                 day=row.day,
                 inbound=row.inbound,
                 inbound_answered=row.inbound_answered,
-                outbound=row.outbound,
                 missed=row.missed,
+                outbound=row.outbound,
+                outbound_no_answer=row.outbound_no_answer,
             )
             for row in report.days_series
         ],
@@ -353,7 +358,10 @@ async def activity(
             ActivityHourRow(
                 hour=row.hour,
                 inbound=row.inbound,
+                inbound_answered=row.inbound_answered,
                 missed=row.missed,
+                outbound=row.outbound,
+                outbound_no_answer=row.outbound_no_answer,
                 missed_rate=row.missed_rate,
             )
             for row in report.hours_series

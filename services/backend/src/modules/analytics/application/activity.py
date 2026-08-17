@@ -252,8 +252,9 @@ class ActivityDay:
     day: date
     inbound: int = 0
     inbound_answered: int = 0
-    outbound: int = 0
     missed: int = 0
+    outbound: int = 0
+    outbound_no_answer: int = 0
 
 
 @dataclass(slots=True)
@@ -269,13 +270,22 @@ class ActivityHour:
 
     hour: int
     inbound: int = 0
+    inbound_answered: int = 0
     missed: int = 0
+    outbound: int = 0
+    outbound_no_answer: int = 0
 
     @property
     def missed_rate(self) -> float | None:
-        if not self.inbound:
+        """⚠️ Bo'linuvchi — javob holati BILINGAN kiruvchilar.
+
+        `inbound` da noma'lum qatorlar ham bor va ularni bo'linuvchida
+        qoldirish foizni sun'iy pasaytirardi — xato aynan xushomad
+        qiladigan tomonga qarab bo'lardi."""
+        bilingan = self.inbound_answered + self.missed
+        if not bilingan:
             return None
-        return round(self.missed / self.inbound * 100, 1)
+        return round(self.missed / bilingan * 100, 1)
 
 
 @dataclass(slots=True)
@@ -418,16 +428,32 @@ class ActivityService:
             "hour", func.timezone(LOCAL_TZ, CallModel.started_at)
         ).cast(Integer)
         inbound = CallModel.direction == CallDirection.INBOUND
+        outbound = CallModel.direction == CallDirection.OUTBOUND
+
+        # ⚠️ SHAKLI KUNLIK QATOR BILAN AYNAN BIR XIL. Ilgari bu so'rov
+        # faqat kiruvchi va faqat `answered IS NOT NULL` qatorlarni
+        # olardi — natijada soatlik yig'indi kunlik yig'indiga va
+        # kartadagi songa TO'G'RI KELMASDI. Bitta grafik ikki xil
+        # kesimni ko'rsatgani uchun ikkalasi bir xil ustunlarni berishi
+        # SHART: aks holda foydalanuvchi kesimni almashtirganda sonlar
+        # sakrab, tizimga ishonchi qolmaydi.
         stmt = (
             select(
                 soat.label("hour"),
-                func.count().label("inbound"),
-                func.count(case((CallModel.answered.is_(False), 1))).label("missed"),
+                func.count(case((inbound, 1))).label("inbound"),
+                func.count(
+                    case((and_(inbound, CallModel.answered.is_(True)), 1))
+                ).label("inbound_answered"),
+                func.count(
+                    case((and_(inbound, CallModel.answered.is_(False)), 1))
+                ).label("missed"),
+                func.count(case((outbound, 1))).label("outbound"),
+                func.count(
+                    case((and_(outbound, CallModel.answered.is_(False)), 1))
+                ).label("outbound_no_answer"),
             )
             .join(AgentModel, AgentModel.id == CallModel.agent_id)
             .where(
-                inbound,
-                CallModel.answered.is_not(None),
                 CallModel.started_at >= since,
                 CallModel.started_at <= until,
                 AgentModel.archived_at.is_(None),
@@ -443,7 +469,10 @@ class ActivityService:
             int(row.hour): ActivityHour(
                 hour=int(row.hour),
                 inbound=int(row.inbound or 0),
+                inbound_answered=int(row.inbound_answered or 0),
                 missed=int(row.missed or 0),
+                outbound=int(row.outbound or 0),
+                outbound_no_answer=int(row.outbound_no_answer or 0),
             )
             for row in await self._session.execute(stmt)
         }
@@ -485,6 +514,17 @@ class ActivityService:
                 func.count(
                     case((and_(inbound, CallModel.answered.is_(False)), 1))
                 ).label("missed"),
+                func.count(
+                    case(
+                        (
+                            and_(
+                                CallModel.direction == CallDirection.OUTBOUND,
+                                CallModel.answered.is_(False),
+                            ),
+                            1,
+                        )
+                    )
+                ).label("outbound_no_answer"),
             )
             .join(AgentModel, AgentModel.id == CallModel.agent_id)
             .where(
@@ -505,8 +545,9 @@ class ActivityService:
                 day=(row.day.date() if hasattr(row.day, "date") else row.day),
                 inbound=int(row.inbound or 0),
                 inbound_answered=int(row.inbound_answered or 0),
-                outbound=int(row.outbound or 0),
                 missed=int(row.missed or 0),
+                outbound=int(row.outbound or 0),
+                outbound_no_answer=int(row.outbound_no_answer or 0),
             )
             for row in await self._session.execute(stmt)
         }

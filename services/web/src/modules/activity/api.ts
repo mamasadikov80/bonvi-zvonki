@@ -84,8 +84,9 @@ export interface ActivityDay {
   day: string
   inbound: number
   inbound_answered: number
-  outbound: number
   missed: number
+  outbound: number
+  outbound_no_answer: number
 }
 
 /** Soatlik kesim — qaysi soatda mijozlar bog'lanolmaydi.
@@ -94,10 +95,17 @@ export interface ActivityDay {
  *  amaliy narsani ko'rsatadi: o'lchandi, tushlik payti javobsizlar
  *  35%, ertalab 07:00 da 74%. Kunlik o'rtacha 29% bu tafovutni
  *  butunlay yashirardi. */
+/** ⚠️ Shakli `ActivityDay` bilan AYNAN bir xil — bitta grafik
+ *  ikkalasini ham chizadi va kesim almashganda ustunlar o'zgarmasligi
+ *  kerak. Aks holda foydalanuvchi kesimni almashtirganda sonlar sakrab,
+ *  tizimga ishonchi qolmasdi. */
 export interface ActivityHour {
   hour: number
   inbound: number
+  inbound_answered: number
   missed: number
+  outbound: number
+  outbound_no_answer: number
   missed_rate: number | null
 }
 

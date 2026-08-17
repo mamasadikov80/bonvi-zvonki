@@ -26,8 +26,7 @@ import {
   type ActivityRow,
   type Period,
 } from '@/modules/activity/api'
-import { ActivityChart } from '@/modules/activity/ActivityChart'
-import { HourChart } from '@/modules/activity/HourChart'
+import { CallsChart } from '@/modules/activity/CallsChart'
 import type { AnalyticsQuery } from '@/modules/analytics/api'
 import { useAuth } from '@/modules/auth/store'
 import { FilterBar } from '@/modules/dashboard/components/FilterBar'
@@ -97,6 +96,12 @@ export function ActivityPage() {
 
   const activity = useActivity(query)
   const total = activity.data?.total
+
+  /* Kesim DAVRGA qarab tanlanadi: bir kunlik davrda kunlik grafik
+     bitta nuqta bo'lib qolardi — mutlaqo foydasiz. Qaror serverdan
+     kelgan `days` bo'yicha, mahalliy holat bo'yicha emas: aniq sana
+     oralig'i tanlanganda ular farq qilishi mumkin. */
+  const byHour = (activity.data?.days ?? days) <= 1
 
   return (
     <Page>
@@ -245,26 +250,21 @@ export function ActivityPage() {
         </p>
       )}
 
-      {/* ── Kunlik dinamika ───────────────────────────────── */}
+      {/* ── Dinamika: kesim davrga MOSLASHADI ─────────────── */}
       <Card>
-        <CardHeader title={t('activity.chartTitle')} hint={t('activity.chartHint')} />
+        <CardHeader
+          title={byHour ? t('activity.chartTitleHour') : t('activity.chartTitle')}
+          hint={t('activity.chartHint')}
+        />
         <CardBody className="pt-2">
           {activity.isLoading ? (
-            <Skeleton className="h-[260px] w-full" />
+            <Skeleton className="h-[280px] w-full" />
           ) : (
-            <ActivityChart data={activity.data?.days_series ?? []} />
-          )}
-        </CardBody>
-      </Card>
-
-      {/* ── Soatlik razrez ────────────────────────────────── */}
-      <Card>
-        <CardHeader title={t('activity.hourTitle')} hint={t('activity.hourHint')} />
-        <CardBody className="pt-2">
-          {activity.isLoading ? (
-            <Skeleton className="h-[240px] w-full" />
-          ) : (
-            <HourChart data={activity.data?.hours_series ?? []} />
+            <CallsChart
+              days={activity.data?.days_series ?? []}
+              hours={activity.data?.hours_series ?? []}
+              byHour={byHour}
+            />
           )}
         </CardBody>
       </Card>
