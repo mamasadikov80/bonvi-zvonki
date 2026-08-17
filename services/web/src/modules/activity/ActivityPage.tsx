@@ -27,6 +27,7 @@ import {
   type Period,
 } from '@/modules/activity/api'
 import { CallsChart } from '@/modules/activity/CallsChart'
+import { MissedClientsModal } from '@/modules/activity/MissedClientsModal'
 import type { AnalyticsQuery } from '@/modules/analytics/api'
 import { useAuth } from '@/modules/auth/store'
 import { FilterBar } from '@/modules/dashboard/components/FilterBar'
@@ -102,6 +103,11 @@ export function ActivityPage() {
      kelgan `days` bo'yicha, mahalliy holat bo'yicha emas: aniq sana
      oralig'i tanlanganda ular farq qilishi mumkin. */
   const byHour = (activity.data?.days ?? days) <= 1
+
+  /* Tanlangan xodim — tafsilot oynasi uchun. Jadvaldagi son ishonchsiz
+     ko'rinsa («15 javobsiz, lekin 100% qaytish») bosib tekshirish
+     mumkin bo'lishi kerak. */
+  const [picked, setPicked] = useState<{ id: string; name: string } | null>(null)
 
   return (
     <Page>
@@ -301,7 +307,18 @@ export function ActivityPage() {
               </thead>
               <tbody>
                 {activity.data.agents.map((row) => (
-                  <AgentRow key={row.agent_id} row={row} />
+                  <AgentRow
+                    key={row.agent_id}
+                    row={row}
+                    onPick={
+                      /* Javobsizi bo'lmagan xodimda ko'rsatadigan
+                         narsa yo'q — tugma ham bo'lmaydi */
+                      row.missed_clients
+                        ? () =>
+                            setPicked({ id: row.agent_id, name: row.agent_name })
+                        : undefined
+                    }
+                  />
                 ))}
               </tbody>
               {/* Jami qatori jadval ICHIDA — alohida kartada bo'lsa
@@ -332,6 +349,12 @@ export function ActivityPage() {
           </div>
         )}
       </Card>
+      <MissedClientsModal
+        agentId={picked?.id ?? null}
+        agentName={picked?.name ?? ''}
+        query={query}
+        onClose={() => setPicked(null)}
+      />
     </Page>
   )
 }
@@ -385,9 +408,23 @@ function MetricCard({
   )
 }
 
-function AgentRow({ row }: { row: ActivityRow }) {
+function AgentRow({
+  row,
+  onPick,
+}: {
+  row: ActivityRow
+  /** Berilmasa qator bosilmaydi — ko'rsatadigan tafsilot yo'q */
+  onPick?: () => void
+}) {
   return (
-    <tr className="border-b border-border/50 last:border-0">
+    <tr
+      onClick={onPick}
+      className={cn(
+        'border-b border-border/50 last:border-0',
+        onPick && 'cursor-pointer transition-colors hover:bg-surface-2/60',
+      )}
+      title={onPick ? undefined : ''}
+    >
       <Td>
         <div className="flex items-center gap-2.5">
           <Avatar name={row.agent_name} size="sm" />

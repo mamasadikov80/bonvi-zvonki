@@ -861,7 +861,7 @@
     "unknownNote": "{{count}} calls have an unknown answer status — they are NOT counted. This is data from before the field existed; re-importing calls fills it in.",
     "byAgent": "By agent",
     "myRow": "My activity",
-    "byAgentHint": "\"Missed\" — a customer called and got no answer. \"Not picked up\" — the agent called and the customer did not answer",
+    "byAgentHint": "\"Missed\" — a customer called and got no answer. \"Not picked up\" — the agent called and the customer did not answer. Click a row to verify",
     "colOut": "Outbound",
     "colOutNoAnswer": "Not picked up",
     "colIn": "Inbound",
@@ -880,6 +880,15 @@
     "chartHint": "The breakdown follows the period: one day shows hours, longer shows days. Click a label to hide a line",
     "scope": "Across {{count}} employees · who called whom, and whether missed calls got a callback",
     "chartTitleHour": "Hourly dynamics",
-    "hourLabel": "{{hour}}:00"
+    "hourLabel": "{{hour}}:00",
+    "drillHint": "Each customer separately: how many times they called, and who contacted them how long after the last attempt. Contact within {{hours}} hours counts.",
+    "drillClient": "Customer",
+    "drillAttempts": "Attempts",
+    "drillLastMissed": "Last missed",
+    "drillContact": "Contact",
+    "drillNotReached": "Not reached",
+    "drillAfter": "after {{minutes}} min",
+    "drillTotals": "{{clients}} customers · attempts total {{attempts}} (the \"missed\" figure in the table) · not reached {{unreached}}",
+    "noMissed": "No missed calls in this period"
   }
 }

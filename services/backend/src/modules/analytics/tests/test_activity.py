@@ -621,3 +621,83 @@ async def test_soatlik_foiz_BILINGAN_qatorlardan(xodim) -> None:
     assert soat.inbound == 5, "hajmda hammasi"
     # 1/2 = 50%, 1/5 = 20% BO'LMAYDI
     assert soat.missed_rate == 50.0
+
+
+# ══════════════════════════════════════════════════════════════
+#  Tafsilot ro'yxati — RAQAMNI ISBOTLAYDI
+# ══════════════════════════════════════════════════════════════
+
+
+async def _tafsilot(agent_id):
+    async with SessionFactory() as session:
+        return await ActivityService(session).missed_clients(
+            agent_id=agent_id,
+            since=BAZA - timedelta(hours=1),
+            until=BAZA + timedelta(days=2),
+        )
+
+
+@pytest.mark.asyncio
+async def test_tafsilot_JADVAL_BILAN_mos(xodim) -> None:
+    """⚠️ ENG MUHIM SHART: «jadvalda 9, ro'yxatda 8» bo'lishi MUMKIN EMAS.
+
+    Bu ro'yxat raqamni isbotlash uchun qo'yilgan. Agar u jamiga to'g'ri
+    kelmasa, tekshirish vositasi o'zi ishonchni BUZARDI — rahbar oldida
+    eng yomon natija.
+
+    Ikkita tenglik qulflanadi:
+      · qatorlar soni      = «mijoz» ustuni;
+      · urinishlar yig'indi = «javobsiz» ustuni (raqamli mijozlar uchun).
+    """
+    # 1-mijoz: 3 marta urindi, qaytarildi
+    for i in range(3):
+        await _qongiroq(xodim, inbound=True, answered=False, offset_min=i)
+    await _qongiroq(xodim, inbound=False, answered=True, offset_min=10)
+    # 2-mijoz: 2 marta urindi, qaytarilmadi
+    for i in range(2):
+        await _qongiroq(
+            xodim, inbound=True, answered=False, offset_min=100 + i,
+            phone="+998 91 555-44-33",
+        )
+
+    _, row = await _hisobot(xodim)
+    tafsilot = await _tafsilot(xodim)
+
+    assert len(tafsilot) == row.missed_clients == 2
+    assert sum(c.attempts for c in tafsilot) == row.missed == 5
+    assert sum(1 for c in tafsilot if c.contacted_at is None) == row.clients_unreached
+
+
+@pytest.mark.asyncio
+async def test_tafsilot_boglanmaganlarni_YUQORIDA_beradi(xodim) -> None:
+    """Ro'yxat ISH uchun — avval nima qilish kerakligi ko'rinishi kerak."""
+    await _qongiroq(xodim, inbound=True, answered=False, offset_min=0)
+    await _qongiroq(xodim, inbound=False, answered=True, offset_min=5)
+    await _qongiroq(
+        xodim, inbound=True, answered=False, offset_min=60, phone="+998 91 555-44-33"
+    )
+
+    tafsilot = await _tafsilot(xodim)
+    assert tafsilot[0].contacted_at is None, "bog'lanmagan yuqorida turishi kerak"
+
+
+@pytest.mark.asyncio
+async def test_tafsilot_aloqa_YONALISHINI_ajratadi(xodim) -> None:
+    """Mijoz o'zi qayta urinib javob olgani va xodim qaytargani —
+    IKKI BOSHQA holat va ular ajratilishi kerak: birinchisida kompaniya
+    hech nima qilmagan, mijoz o'zi qaytgan."""
+    # Mijoz o'zi qayta urindi va javob oldi
+    await _qongiroq(xodim, inbound=True, answered=False, offset_min=0)
+    await _qongiroq(xodim, inbound=True, answered=True, offset_min=5)
+
+    tafsilot = await _tafsilot(xodim)
+    assert len(tafsilot) == 1
+    assert tafsilot[0].contact_inbound is True, "mijoz o'zi qaytgan"
+    assert tafsilot[0].minutes_to_contact == 5.0
+
+
+@pytest.mark.asyncio
+async def test_tafsilot_oynadan_tashqarini_olmaydi(xodim) -> None:
+    """Oyna asosiy hisobot bilan bir xil bo'lishi shart."""
+    await _qongiroq(xodim, inbound=True, answered=False, offset_min=5 * 24 * 60)
+    assert await _tafsilot(xodim) == []

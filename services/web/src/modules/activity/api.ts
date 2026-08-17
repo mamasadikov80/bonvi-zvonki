@@ -138,3 +138,49 @@ export const useActivity = (query: ActivityQuery, enabled = true) =>
     enabled,
     staleTime: 60_000,
   })
+
+/** Bog'lanolmagan bitta mijoz — TEKSHIRISH uchun tafsilot.
+ *
+ *  Jadvaldagi «100%» yoki «3 mijoz bog'lanmagan» degan son ishonchsiz
+ *  ko'rinishi mumkin: xodimda 15 javobsiz qo'ng'iroq bo'lib, qaytish
+ *  darajasi 100% bo'lishi g'alati tuyuladi. Aslida to'g'ri — 15 hodisa
+ *  9 xil mijozdan kelgan va hammasi bilan gaplashilgan. Buni isbotlab
+ *  ko'rsatmasa raqamga ishonch bo'lmaydi, ayniqsa rahbar oldida. */
+export interface MissedClient {
+  phone: string
+  client_name: string | null
+  /** Necha marta javobsiz qo'ng'iroq qilgan */
+  attempts: number
+  first_missed_at: string
+  last_missed_at: string
+  /** `null` — HALI bog'lanilmagan */
+  contacted_at: string | null
+  /** Kim bilan aloqa bo'lgan. Boshqa xodim bo'lishi mumkin */
+  contacted_by: string | null
+  /** `true` — mijoz o'zi qayta urinib javob olgan; `false` — xodim qaytardi */
+  contact_inbound: boolean | null
+  minutes_to_contact: number | null
+}
+
+export interface MissedClientsReport {
+  agent_id: string
+  agent_name: string
+  date_from: string
+  date_to: string
+  callback_window_hours: number
+  clients: MissedClient[]
+  unreached: number
+}
+
+export const useMissedClients = (agentId: string | null, query: ActivityQuery) =>
+  useQuery({
+    queryKey: ['activity', 'missed-clients', agentId, query],
+    queryFn: () =>
+      api.get<MissedClientsReport>('/analytics/activity/missed-clients', {
+        agent_id: agentId,
+        days: query.days,
+        date_from: query.date_from,
+        date_to: query.date_to,
+      } as never),
+    enabled: Boolean(agentId),
+  })

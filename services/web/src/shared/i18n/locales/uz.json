@@ -861,7 +861,7 @@
     "unknownNote": "{{count}} ta qo'ng'iroqda javob holati noma'lum — ular hisobga OLINMAGAN. Bu maydon paydo bo'lishidan oldingi ma'lumot; qo'ng'iroqlarni qayta yuklash to'ldiradi.",
     "byAgent": "Xodimlar bo'yicha",
     "myRow": "Mening faolligim",
-    "byAgentHint": "«Javobsiz» — mijoz qo'ng'iroq qilib, javob olmagani. «Ko'tarilmagan» — xodim qo'ng'iroq qilib, mijoz ko'tarmagani",
+    "byAgentHint": "«Javobsiz» — mijoz qo'ng'iroq qilib, javob olmagani. «Ko'tarilmagan» — xodim qo'ng'iroq qilib, mijoz ko'tarmagani. Tekshirish uchun qatorni bosing",
     "colOut": "Chiquvchi",
     "colOutNoAnswer": "Ko'tarilmagan",
     "colIn": "Kiruvchi",
@@ -880,6 +880,15 @@
     "chartHint": "Kesim davrga moslashadi: bir kun tanlansa soatlar, undan uzun bo'lsa kunlar. Yorliqni bosib chiziqni yashirish mumkin",
     "scope": "{{count}} ta xodim bo'yicha · kim kimga qancha qo'ng'iroq qildi va javobsizlarga qaytildimi",
     "chartTitleHour": "Soatlar bo'yicha dinamika",
-    "hourLabel": "Soat {{hour}}:00"
+    "hourLabel": "Soat {{hour}}:00",
+    "drillHint": "Har bir mijoz alohida: necha marta urinib ko'rgan, oxirgi urinishdan keyin kim bilan va qancha vaqtdan so'ng gaplashgan. Aloqa {{hours}} soat ichida bo'lsa hisobga olinadi.",
+    "drillClient": "Mijoz",
+    "drillAttempts": "Urinish",
+    "drillLastMissed": "Oxirgi javobsiz",
+    "drillContact": "Aloqa",
+    "drillNotReached": "Bog'lanilmagan",
+    "drillAfter": "{{minutes}} daq keyin",
+    "drillTotals": "{{clients}} mijoz · urinishlar yig'indisi {{attempts}} (jadvaldagi «javobsiz» soni) · bog'lanilmagan {{unreached}}",
+    "noMissed": "Bu davrda javobsiz qolgan qo'ng'iroq yo'q"
   }
 }

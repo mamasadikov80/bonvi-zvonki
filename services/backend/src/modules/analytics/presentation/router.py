@@ -1,6 +1,7 @@
 """Analitika endpointlari — dashboard shu yerdan ma'lumot oladi."""
 
 from datetime import UTC, date, datetime, timedelta
+from zoneinfo import ZoneInfo
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -8,9 +9,11 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 
 from src.core.deps import CurrentUser, DbSession
-from src.core.exceptions import ValidationError
+from src.core.exceptions import ForbiddenError, NotFoundError, ValidationError
+from src.modules.agents.infrastructure.models import AgentModel
 from src.modules.analytics.application.activity import (
     CALLBACK_WINDOW_HOURS,
+    LOCAL_TZ,
     ActivityService,
 )
 from src.modules.analytics.application.services import AnalyticsFilter, AnalyticsService
@@ -45,6 +48,38 @@ def _inclusive_end(date_to: datetime | None) -> datetime | None:
     ):
         return date_to
     return date_to + timedelta(days=1) - timedelta(microseconds=1)
+
+
+def _activity_window(
+    days: int, date_from: datetime | None, date_to: datetime | None
+) -> tuple[datetime | None, datetime | None]:
+    """Faollik oynasi — IKKI endpointda bir xil hisoblanadi.
+
+    ⚠️ Takrorlanmasligi SHART. Asosiy hisobot va tafsilot ro'yxati
+    boshqa-boshqa oyna olsa, tafsilot jamiga to'g'ri kelmasdi va
+    tekshirish vositasi o'zi ishonchni buzardi.
+
+    `(None, None)` qaytsa — chaqiruvchi `days` bilan ishlaydi.
+    """
+    since = _as_utc(date_from)
+    until = _as_utc(_inclusive_end(date_to))
+
+    if since is not None and until is None:
+        until = datetime.now(UTC)
+    if since is not None and until is not None and since >= until:
+        raise ValidationError(
+            "Boshlanish sanasi tugash sanasidan keyin bo'lolmaydi. "
+            "Teskari oraliq jimgina BOSHQA davr ma'lumotini qaytarardi."
+        )
+    if since is None or until is None:
+        # `days` bo'yicha: mahalliy butun kunlarga tekislanadi —
+        # `ActivityService` bilan bir xil qoida
+        hozir = datetime.now(UTC)
+        mahalliy = hozir.astimezone(ZoneInfo(LOCAL_TZ))
+        kun_boshi = mahalliy.replace(hour=0, minute=0, second=0, microsecond=0)
+        since = (kun_boshi - timedelta(days=days - 1)).astimezone(UTC)
+        until = hozir
+    return since, until
 
 
 def _as_utc(moment: datetime | None) -> datetime | None:
@@ -319,19 +354,9 @@ async def activity(
     # `_inclusive_end` — tugash sanasi kun OXIRIGA suriladi. Busiz
     # «17-avgustgacha» tanlovi yarim tunga aylanib, o'sha kunning butun
     # ishi tushib qolardi.
-    since = _as_utc(date_from)
-    until = _as_utc(_inclusive_end(date_to))
-
-    if since is not None and until is None:
-        until = datetime.now(UTC)
-    if since is not None and until is not None and since >= until:
-        raise ValidationError(
-            "Boshlanish sanasi tugash sanasidan keyin bo'lolmaydi. "
-            "Teskari oraliq jimgina BOSHQA davr ma'lumotini qaytarardi."
-        )
+    since, until = _activity_window(days, date_from, date_to)
 
     report = await ActivityService(session).report(
-        days=days,
         since=since,
         until=until,
         agent_ids=scoped,
@@ -368,4 +393,97 @@ async def activity(
         ],
         agents=[_activity_row(row) for row in report.agents],
         total=_activity_row(report.total),
+    )
+
+
+class MissedClientRow(BaseModel):
+    """Bog'lanolmagan bitta mijoz — TEKSHIRISH uchun tafsilot.
+
+    Hisobotdagi «100%» yoki «3 mijoz bog'lanmagan» degan son ishonchsiz
+    ko'rinishi mumkin: xodimda 15 javobsiz qo'ng'iroq bo'lib, qaytish
+    darajasi 100% bo'lishi g'alati tuyuladi. Aslida to'g'ri — 15 hodisa
+    9 xil mijozdan kelgan va hammasi bilan gaplashilgan. Lekin buni
+    ISBOTLAB ko'rsatmasa raqamga ishonch bo'lmaydi, ayniqsa rahbar
+    oldida."""
+
+    phone: str
+    client_name: str | None
+    attempts: int
+    """Necha marta javobsiz qo'ng'iroq qilgan."""
+    first_missed_at: datetime
+    last_missed_at: datetime
+    contacted_at: datetime | None
+    """`null` — HALI bog'lanilmagan."""
+    contacted_by: str | None
+    """Kim bilan aloqa bo'lgan. Boshqa xodim bo'lishi mumkin."""
+    contact_inbound: bool | None
+    """`true` — mijoz o'zi qayta qo'ng'iroq qilib javob olgan;
+    `false` — xodim qaytib qo'ng'iroq qilgan."""
+    minutes_to_contact: float | None
+
+
+class MissedClientsResponse(BaseModel):
+    agent_id: UUID
+    agent_name: str
+    date_from: datetime
+    date_to: datetime
+    callback_window_hours: int
+    clients: list[MissedClientRow]
+    unreached: int
+
+
+@router.get(
+    "/activity/missed-clients",
+    response_model=MissedClientsResponse,
+    summary="Bitta xodimga bog'lanolmagan mijozlar (tekshirish uchun)",
+)
+async def missed_clients(
+    session: DbSession,
+    user: CurrentUser,
+    agent_id: Annotated[UUID, Query(description="Xodim")],
+    days: Annotated[int, Query(ge=1, le=365)] = 7,
+    date_from: Annotated[datetime | None, Query()] = None,
+    date_to: Annotated[datetime | None, Query()] = None,
+) -> MissedClientsResponse:
+    """Jadvaldagi sonni ISBOTLAB ko'rsatadi.
+
+    ⚠️ Oyna va mantiq asosiy hisobot bilan AYNAN bir xil hisoblanadi —
+    aks holda tafsilot jamiga to'g'ri kelmasdi va tekshirish vositasi
+    o'zi ishonchni buzardi («jadvalda 9, ro'yxatda 8» eng yomon holat).
+
+    SALES roli faqat O'ZINING ma'lumotini ko'radi.
+    """
+    if user.role == Role.SALES and user.agent_id != agent_id:
+        raise ForbiddenError("Savdo xodimi faqat o'z ma'lumotini ko'radi")
+
+    since, until = _activity_window(days, date_from, date_to)
+
+    agent = await session.get(AgentModel, agent_id)
+    if agent is None:
+        raise NotFoundError(f"Xodim topilmadi: {agent_id}")
+
+    rows = await ActivityService(session).missed_clients(
+        agent_id=agent_id, since=since, until=until
+    )
+    return MissedClientsResponse(
+        agent_id=agent_id,
+        agent_name=agent.full_name,
+        date_from=since,
+        date_to=until,
+        callback_window_hours=CALLBACK_WINDOW_HOURS,
+        clients=[
+            MissedClientRow(
+                phone=row.phone,
+                client_name=row.client_name,
+                attempts=row.attempts,
+                first_missed_at=row.first_missed_at,
+                last_missed_at=row.last_missed_at,
+                contacted_at=row.contacted_at,
+                contacted_by=row.contacted_by,
+                contact_inbound=row.contact_inbound,
+                minutes_to_contact=row.minutes_to_contact,
+            )
+            for row in rows
+        ],
+        unreached=sum(1 for row in rows if row.contacted_at is None),
     )

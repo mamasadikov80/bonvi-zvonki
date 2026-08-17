@@ -48,6 +48,7 @@ from zoneinfo import ZoneInfo
 from uuid import UUID
 
 from sqlalchemy import Integer, and_, case, func, literal_column, or_, select, text
+from sqlalchemy.orm import aliased
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.modules.agents.infrastructure.models import AgentModel
@@ -313,6 +314,44 @@ class ActivityReport:
     ko'rsatadi."""
 
 
+@dataclass(slots=True)
+class MissedClient:
+    """Bog'lanolmagan bitta mijoz — TEKSHIRISH uchun tafsilot.
+
+    NEGA BU KERAK. Hisobotdagi «100%» yoki «3 mijoz bog'lanmagan» degan
+    son ishonchsiz ko'rinishi mumkin: xodimda 15 javobsiz qo'ng'iroq
+    bo'lib, qaytish darajasi 100% bo'lishi G'ALATI tuyuladi. Aslida bu
+    to'g'ri — 15 hodisa 9 xil mijozdan kelgan va hammasi bilan
+    gaplashilgan. Lekin buni ISBOTLAB ko'rsatmasa, raqamga ishonch
+    bo'lmaydi. Ayniqsa rahbar oldida.
+
+    Shu sabab har bir mijoz alohida ko'rsatiladi: necha marta urinib
+    ko'rgan, oxirgi urinish qachon bo'lgan, keyin kim bilan va qancha
+    vaqtdan so'ng gaplashgan.
+    """
+
+    phone: str
+    client_name: str | None
+    attempts: int
+    """Necha marta javobsiz qo'ng'iroq qilgan."""
+    first_missed_at: datetime
+    last_missed_at: datetime
+    contacted_at: datetime | None
+    """Aloqa payti. `None` — HALI bog'lanilmagan."""
+    contacted_by: str | None
+    """Kim bilan aloqa bo'lgan. Boshqa xodim bo'lishi mumkin."""
+    contact_inbound: bool | None
+    """`True` — mijoz o'zi qayta qo'ng'iroq qilib javob olgan;
+    `False` — xodim qaytib qo'ng'iroq qilgan."""
+
+    @property
+    def minutes_to_contact(self) -> float | None:
+        if self.contacted_at is None:
+            return None
+        delta = self.contacted_at - self.last_missed_at
+        return round(delta.total_seconds() / 60, 1)
+
+
 class ActivityService:
     """Faollik ko'rsatkichlari. Faqat O'QISH."""
 
@@ -478,6 +517,108 @@ class ActivityService:
         }
         # Bo'sh soatlar ham qaytadi — grafikda uzilish bo'lmasin
         return [topilgan.get(h) or ActivityHour(hour=h) for h in WORK_HOURS]
+
+    # ── Bitta xodim bo'yicha tafsilot (tekshirish uchun) ──────
+
+    async def missed_clients(
+        self,
+        *,
+        agent_id: UUID,
+        since: datetime,
+        until: datetime,
+    ) -> list[MissedClient]:
+        """Xodimga bog'lanolmagan mijozlar ro'yxati.
+
+        ⚠️ MANTIQ ASOSIY HISOBOT BILAN AYNAN BIR XIL bo'lishi shart:
+        bir xil oyna, bir xil raqam kaliti, bir xil aloqa ta'rifi,
+        bir xil sanoq nuqtasi (mijozning OXIRGI javobsiz urinishi).
+        Aks holda tafsilot jamiga to'g'ri kelmaydi va tekshirish
+        vositasi o'zi ishonchni buzardi — «jadvalda 9, ro'yxatda 8»
+        degan holat eng yomon natija.
+
+        Bog'lanmaganlar YUQORIDA turadi: ro'yxat ish uchun, ya'ni
+        avval nima qilish kerakligi ko'rinishi kerak.
+        """
+        tail = _phone_tail()
+        missed = (
+            select(
+                tail.label("tail"),
+                func.min(CallModel.client_name).label("client_name"),
+                func.count(CallModel.id).label("attempts"),
+                func.min(CallModel.started_at).label("first_missed"),
+                func.max(CallModel.started_at).label("last_missed"),
+            )
+            .where(
+                CallModel.agent_id == agent_id,
+                CallModel.direction == CallDirection.INBOUND,
+                CallModel.answered.is_(False),
+                CallModel.started_at >= since,
+                CallModel.started_at <= until,
+                func.length(tail) == PHONE_TAIL,
+            )
+            .group_by(tail)
+            .subquery("m")
+        )
+
+        # Oxirgi javobsizdan keyingi eng yaqin aloqa — kim bilan va
+        # qaysi yo'nalishda
+        agent = aliased(AgentModel)
+        contact = (
+            select(
+                CallModel.started_at.label("at"),
+                agent.full_name.label("by_name"),
+                CallModel.direction.label("dir"),
+            )
+            .join(agent, agent.id == CallModel.agent_id)
+            .where(
+                _phone_tail() == missed.c.tail,
+                CallModel.started_at > missed.c.last_missed,
+                CallModel.started_at
+                <= missed.c.last_missed + timedelta(hours=CALLBACK_WINDOW_HOURS),
+                or_(
+                    CallModel.direction == CallDirection.OUTBOUND,
+                    CallModel.answered.is_(True),
+                ),
+            )
+            .order_by(CallModel.started_at)
+            .limit(1)
+            .lateral("c")
+        )
+
+        at = literal_column("c.at")
+        stmt = (
+            select(
+                missed.c.tail,
+                missed.c.client_name,
+                missed.c.attempts,
+                missed.c.first_missed,
+                missed.c.last_missed,
+                at.label("contacted_at"),
+                literal_column("c.by_name").label("contacted_by"),
+                literal_column("c.dir").label("contact_dir"),
+            )
+            .select_from(missed.outerjoin(contact, text("true")))
+            # Bog'lanmaganlar YUQORIDA — ro'yxat ish uchun
+            .order_by(at.is_not(None), missed.c.last_missed.desc())
+        )
+
+        return [
+            MissedClient(
+                phone=row.tail,
+                client_name=row.client_name,
+                attempts=int(row.attempts or 0),
+                first_missed_at=row.first_missed,
+                last_missed_at=row.last_missed,
+                contacted_at=row.contacted_at,
+                contacted_by=row.contacted_by,
+                contact_inbound=(
+                    None
+                    if row.contact_dir is None
+                    else str(row.contact_dir) == CallDirection.INBOUND.value
+                ),
+            )
+            for row in await self._session.execute(stmt)
+        ]
 
     # ── Kunlik dinamika ───────────────────────────────────────
 
