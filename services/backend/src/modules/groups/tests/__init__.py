@@ -1,0 +1,1 @@
+"""Telegram guruhlari moduli testlari."""

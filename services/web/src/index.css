@@ -1,0 +1,231 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ══════════════════════════════════════════════════════════════
+   Dizayn tokenlari — iOS uslubi
+
+   Prinsiplar:
+     • Chegara emas, YUMSHOQ SOYA ajratadi
+     • Yirik radiuslar (16–24px)
+     • Neytral ranglar sof kulrang emas — aksent tomon og'gan
+     • Harakat spring-ga yaqin: cubic-bezier(0.32, 0.72, 0, 1)
+
+   Uch holat:
+     1. :root                       → yorug' (standart)
+     2. prefers-color-scheme: dark  → tizim qorong'i
+     3. [data-theme="dark"|"light"] → foydalanuvchi tanlovi
+   ══════════════════════════════════════════════════════════════ */
+
+@layer base {
+  :root {
+    /* Yuzalar — fon bir oz lavanda tusda, kartalar sof oq */
+    --bg: 214 32% 98%;
+    --surface: 0 0% 100%;
+    --surface-2: 214 28% 96.5%;
+    --border: 214 22% 91%;
+
+    /* Matn */
+    --text: 214 32% 12%;
+    --muted: 214 12% 46%;
+
+    /* Aksent — Bonvi logotipidan olingan navy (#1D4E79) */
+    --accent: 208 62% 34%;
+    --accent-soft: 208 72% 95.5%;
+
+    /* Semantik (aksentdan alohida) */
+    --good: 152 60% 42%;
+    --warn: 36 92% 52%;
+    --bad: 352 78% 58%;
+
+    /* Soya rangi — sof qora emas, aksent tomon og'gan */
+    --shadow: 214 45% 22%;
+
+    color-scheme: light;
+  }
+
+  :root:not([data-theme='light']) {
+    @media (prefers-color-scheme: dark) {
+      --bg: 214 26% 7%;
+      --surface: 214 22% 10.5%;
+      --surface-2: 214 20% 14%;
+      --border: 214 16% 19%;
+
+      --text: 214 24% 96%;
+      --muted: 214 10% 60%;
+
+      /* Qorong'ida navy yorqinlashtiriladi — aks holda o'qilmaydi */
+      --accent: 208 78% 64%;
+      --accent-soft: 208 45% 18%;
+
+      --good: 152 55% 52%;
+      --warn: 36 88% 60%;
+      --bad: 352 76% 66%;
+
+      /* Qorong'ida soya ko'rinmaydi — chuqurroq qora */
+      --shadow: 214 60% 2%;
+
+      color-scheme: dark;
+    }
+  }
+
+  :root[data-theme='dark'] {
+    --bg: 214 26% 7%;
+    --surface: 214 22% 10.5%;
+    --surface-2: 214 20% 14%;
+    --border: 214 16% 19%;
+
+    --text: 214 24% 96%;
+    --muted: 214 10% 60%;
+
+    /* Qorong'ida navy yorqinlashtiriladi — aks holda o'qilmaydi */
+    --accent: 208 78% 64%;
+    --accent-soft: 208 45% 18%;
+
+    --good: 152 55% 52%;
+    --warn: 36 88% 60%;
+    --bad: 352 76% 66%;
+
+    --shadow: 214 60% 2%;
+
+    color-scheme: dark;
+  }
+
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    /* Shaffof qoldirilmaydi — host fonini o'zlashtirmasin */
+    background-color: hsl(var(--bg));
+    color: hsl(var(--text));
+    letter-spacing: -0.011em; /* iOS-ga xos zich tracking */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.021em;
+    text-wrap: balance;
+  }
+
+  /* Raqamlar ustunda tekis tursin */
+  .tnum,
+  table td,
+  table th {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Klaviatura fokusi doim ko'rinadi */
+  :focus-visible {
+    outline: 2px solid hsl(var(--accent));
+    outline-offset: 2px;
+    border-radius: 8px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  /* Nozik skrollbar */
+  ::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted) / 0.22);
+    border-radius: 999px;
+    border: 3.5px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted) / 0.4);
+    background-clip: content-box;
+  }
+}
+
+@layer components {
+  /* Karta — chegara yo'q, soya ajratadi.
+     Qorong'i mavzuda soya ko'rinmagani uchun nozik chegara qo'shiladi. */
+  .card {
+    @apply rounded-2xl bg-surface shadow-soft transition-shadow duration-250 ease-ios;
+  }
+
+  :root[data-theme='dark'] .card,
+  :root:not([data-theme='light']) .card {
+    @apply ring-1 ring-border;
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme='dark']) .card {
+      @apply ring-0;
+    }
+  }
+
+  .card-hover {
+    @apply hover:shadow-lift hover:-translate-y-px;
+  }
+
+  .label-eyebrow {
+    @apply text-2xs font-medium uppercase tracking-wider text-muted;
+  }
+
+  /* Yumshoq ikonka plitkasi (iOS app icon hissi) */
+  .icon-tile {
+    @apply grid place-items-center rounded-xl bg-surface-2 text-muted;
+  }
+
+  /* Segment nazorati (iOS segmented control) */
+  .segment {
+    @apply inline-flex items-center rounded-xl bg-surface-2 p-1;
+  }
+
+  .segment-item {
+    @apply rounded-lg px-3 py-1.5 text-xs font-medium text-muted transition-all duration-250 ease-ios;
+  }
+
+  .segment-item[data-active='true'] {
+    @apply bg-surface text-text shadow-xs;
+  }
+
+  /* Keng kontent o'z konteynerida siljisin */
+  .scroll-x {
+    @apply overflow-x-auto;
+  }
+
+  /* ── Bonvi logotipi ────────────────────────────────────────
+     Logotip monoxrom navy. Qorong'i fonda ko'rinmaydi, shuning
+     uchun oqartiriladi.
+
+     Diqqat: Tailwind'ning `dark:` varianti "system" rejimida
+     ISHLAMAYDI (root'da data-theme atributi yo'q), shuning uchun
+     uchala holat ham qo'lda yoziladi. */
+  .brand-logo {
+    filter: none;
+    transition: filter 250ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) .brand-logo {
+      filter: brightness(0) invert(1);
+    }
+  }
+
+  :root[data-theme='dark'] .brand-logo {
+    filter: brightness(0) invert(1);
+  }
+}

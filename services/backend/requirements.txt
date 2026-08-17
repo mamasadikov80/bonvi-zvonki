@@ -1,0 +1,53 @@
+# ── Web framework ─────────────────────────────────────────────
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+
+# ── Validatsiya / sozlamalar ──────────────────────────────────
+# ⚠️ google-genai>=2.18 pydantic>=2.12.5 talab qiladi. Ishlab turgan
+# muhitdagi haqiqiy versiyaga tenglashtirildi — aks holda obraz
+# qayta yig'ilmaydi («No solution found»), garchi konteyner ishlasa ham.
+pydantic==2.13.4
+pydantic-settings==2.7.1
+email-validator==2.2.0
+
+# ── Ma'lumotlar bazasi ────────────────────────────────────────
+sqlalchemy[asyncio]==2.0.36
+asyncpg==0.30.0
+alembic==1.14.0
+pgvector==0.3.6
+
+# ── Auth / xavfsizlik ─────────────────────────────────────────
+pyjwt==2.10.1
+bcrypt==4.2.1
+
+# ── HTTP klient (ASR / LLM / MoyZvonki) ───────────────────────
+httpx==0.28.1
+
+# ── AI provayderlari — RASMIY SDK'lar ─────────────────────────
+# Har bir vendor uchun o'z rasmiy kutubxonasi ishlatiladi (qo'lda HTTP emas).
+# SDK'lar ish vaqtida, faqat kerak bo'lganda import qilinadi — biri
+# o'rnatilmagan bo'lsa ham backend ko'tariladi.
+anthropic==0.122.0
+openai==3.1.0
+groq==1.6.0
+google-genai==2.18.1
+elevenlabs==2.64.0
+
+# ── Cache / queue ─────────────────────────────────────────────
+# `redis` ikki vazifani bajaradi: ilova keshi (asyncio klienti) va
+# Celery broker transporti. Shuning uchun `celery[redis]` alohida
+# extra sifatida yozilmagan — paket allaqachon bu yerda.
+redis==5.2.1
+celery==5.4.0
+# Worker konteynerida kodni kuzatib qayta ishga tushiradi (hot reload).
+# `uvicorn[standard]` ham shuni tortadi, lekin worker uvicorn'siz
+# ishlaydi — bog'liqlik ochiq yozilsin.
+watchfiles==1.2.0
+
+# ── Rasm qayta ishlash (avatar) ───────────────────────────────
+pillow==11.1.0
+
+# ── Yordamchi ─────────────────────────────────────────────────
+python-dateutil==2.9.0.post0
+structlog==24.4.0

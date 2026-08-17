@@ -1,0 +1,6 @@
+# ── Testlar ───────────────────────────────────────────────────
+# Versiyalar backend'niki bilan BIR XIL: ikkala xizmatda ham bir xil
+# `asyncio_mode = strict` xatti-harakati bo'lsin, aks holda bitta
+# xizmatda o'tgan test ikkinchisida sababsiz yiqilardi.
+pytest==8.3.4
+pytest-asyncio==0.25.2

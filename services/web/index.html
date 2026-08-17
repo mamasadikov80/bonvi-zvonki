@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="uz">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Bonvi — savdo bo'limi sifat analitikasi" />
+    <meta name="theme-color" content="#1D4E79" />
+    <link rel="icon" type="image/png" href="/brand/favicon.png" />
+    <link rel="apple-touch-icon" href="/brand/bonvi-mark.png" />
+    <title>Bonvi · Savdo analitikasi</title>
+    <!-- Telegram Mini App SDK (`/s` sahifasi uchun).
+         `window.Telegram.WebApp` ni yaratadi: imzolangan `initData`,
+         mavzu ranglari, `ready()` / `expand()` / `close()`.
+         Telegram tashqarisida ham xatosiz yuklanadi — `initData` bo'sh
+         qoladi va sahifa «Telegram ichida oching» deb yozadi.
+
+         `defer` MUHIM: skript barcha sahifalarga tushadi, shu jumladan
+         admin paneliga. `defer` siz u renderni to'sib turadi va
+         telegram.org sekinlashsa BUTUN dashboard ochilmay qoladi.
+         Tartib buzilmaydi: `defer` klassik skript ham, `type="module"`
+         ham hujjat tahlilidan keyin YOZILISH TARTIBIDA bajariladi,
+         ya'ni bu skript `main.tsx` dan oldin ishlaydi. -->
+    <script defer src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script>
+      // FOUC oldini olish — mavzu birinchi bo'yoqdan oldin qo'llanadi
+      (function () {
+        var t = localStorage.getItem('zvonki-theme')
+        if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t
+      })()
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,303 @@
+# ZvonkiDashboard — holat
+
+> Yangi seans (`/clear` dan keyin) shu fayldan boshlansin.
+> To'liq tadqiqot va reja: `docs/PLAN.md`. UI konvensiyalari: `README.md`.
+
+Oxirgi yangilanish: 15/08/2026 (3-seans)
+
+---
+
+## 1. Ishga tushirish
+
+```bash
+docker compose up -d      # hammasi konteynerda, kompyuterga hech narsa o'rnatilmaydi
+docker compose logs -f backend
+```
+
+> **`.env` o'zgarsa `restart` yetmaydi.** Compose `env_file` qiymatlarini konteyner
+> yaratilishida biriktiradi. Kerak: `docker compose up -d --force-recreate backend bot`.
+
+| Xizmat   | Konteyner        | Port (host) | Manzil                          |
+| -------- | ---------------- | ----------- | ------------------------------- |
+| web      | `zvonki-web`     | 5180        | http://localhost:5180           |
+| backend  | `zvonki-backend` | 8010        | http://localhost:8010/docs      |
+| postgres | `zvonki-postgres`| 5433        | `zvonki` / bazasi `zvonki`      |
+| redis    | `zvonki-redis`   | 6380        | —                               |
+| bot      | `zvonki-bot`     | —           | aiogram, RedisStorage FSM       |
+| worker   | `zvonki-worker`  | —           | Celery — ASR + baholash         |
+
+Portlar 5173/8000/5432/6379 dan ko'chirilgan — foydalanuvchining `zinnur-v2` loyihasi
+5173 ni band qilgan. Uni umuman tegmaymiz.
+
+### Kirish (seed)
+
+| Rol     | Email                | Parol          |
+| ------- | -------------------- | -------------- |
+| admin   | `admin@zvonki.uz`    | `admin12345`   |
+| manager | `manager@zvonki.uz`  | `manager12345` |
+| sales   | `sardor@zvonki.uz`   | `sardor12345`  |
+| viewer  | `viewer@zvonki.uz`   | `viewer12345`  |
+
+Bazada hozir: **15 savdo xodimi, 135 mijoz, 9 340 qo'ng'iroq + baho,
+503 so'rovnoma, 270 javob** (har xodimda 16+ ta, javob berish darajasi ~54%).
+`python -m src.seed` idempotent — qayta ishga tushirsa nusxa yaratmaydi.
+`--reset` bilan demo ma'lumot tozalanadi, `--agents-only` bilan faqat xodimlar.
+
+---
+
+## 2. Qat'iy konvensiyalar (buzilmasin)
+
+1. **Modal window** — har qanday qo'shish/tahrirlash faqat modalda. Ekranga inline
+   input chiqarilmaydi. `shared/ui/Modal.tsx` + `ModalFields` ishlatiladi.
+2. **To'liq kenglik** — sahifa kontenti `shared/layout/Page.tsx` orqali dinamik
+   egallanadi (`2xl:px-10 3xl:px-14`), 4K/televizorda ham cho'zilib turadi.
+3. **iOS uslubi** — chegara emas, yumshoq soya (`shadow-soft`), katta radius
+   (`rounded-2xl`), `ease-ios` bilan silliq animatsiya.
+4. Backend xizmati nomi — **`backend`**, hech qachon `api` emas.
+5. Docker image/konteyner nomlari professional: `zvonki/backend:dev`, `zvonki-postgres`.
+6. Baza — **PostgreSQL** (pgvector/pg16).
+7. **Sana** admin va manager uchun to'liq: `12/08/2026`. `shared/lib/date.ts` →
+   `useDateFormat()` rolga qarab formatni tanlaydi.
+
+### Ikkita tuzoq (yana tushib qolmaslik uchun)
+
+- **Tailwind `dark:` varianti "system" rejimda ishlamaydi** — `data-theme` atributi
+  bo'lmaydi. Ranglar uchta holatda ham CSS o'zgaruvchisi orqali beriladi:
+  yalang'och `:root`, `@media (prefers-color-scheme: dark)` (`:root:not([data-theme='light'])`
+  bilan himoyalangan) va `:root[data-theme='dark']`.
+- **Chrome `toLocaleDateString('uz-UZ')` oy nomini "M04" deb qaytaradi.** Oy nomlari
+  `shared/lib/date.ts` da qo'lda yozilgan (`MONTHS_UZ`, `MONTHS_UZ_SHORT`).
+- **Jadval nomi `app_settings`**, oddiy `settings` emas.
+- **Guruh a'zolar soniga qarab tasniflanmaydi.** «Keraksiz guruh» degan
+  tur yo'q. Ishchi guruhni HUDUD belgilaydi: hududi bor → so'rovnoma
+  oladi, hududsiz → olmaydi. Sinovda ma'lum bo'ldiki, haqiqiy ishchi
+  guruh «Bonvi works» da atigi 2 a'zo bor — a'zolar soni bo'yicha
+  taxmin qilish uni jimgina o'chirib qo'yardi.
+- **Bot guruh a'zosining telefon raqamini KO'RA OLMAYDI.** Telegram
+  cheklovi, aylanib o'tib bo'lmaydi. Shuning uchun sotuvchi raqamini
+  botga bir marta o'zi yuboradi (`request_contact`), keyin guruhlar
+  avtomatik biriktiriladi.
+- **Call audio bizda SAQLANMAYDI.** MoyZvonki'dan oqim bilan olinadi va
+  uzatiladi. Diskka, bazaga, vaqtinchalik papkaga yozish taqiqlanadi.
+- **`pydantic` versiyasi qotirilgan (2.13.4).** `google-genai>=2.18`
+  `pydantic>=2.12.5` talab qiladi. Pastroq versiya bilan obraz umuman
+  qayta yig'ilmaydi («No solution found»), garchi ishlab turgan
+  konteyner ishlayotgandek ko'rinsa ham.
+- **Hududlar qattiq yozilmaydi.** Yagona manba — `regions` jadvali,
+  `GET /regions`. Kodga viloyat ro'yxatini yozmang: admin viloyatni bir necha
+  hududga bo'lishi mumkin. `groups/domain/entities.py` dagi
+  `SUGGESTION_REGIONS` — ro'yxat emas, faqat guruh nomidan taxmin qilish
+  uchun sinonimlar lug'ati («Nukus» → Qoraqalpog'iston).
+- **`bootstrap.py` `create_all` ishlatadi — mavjud jadvalga ustun qo'shmaydi.**
+  Yangi ustun qo'shsangiz haqiqiy Alembic migratsiyasi yozing yoki qo'lda:
+  `ALTER TABLE ... ADD COLUMN IF NOT EXISTS ...`.
+
+---
+
+## 3. Tayyor bo'lgan qismlar
+
+**Backend** (`services/backend/src/modules/…`, har birida `domain → application →
+infrastructure → presentation`):
+
+- `auth` — JWT (access + refresh), bcrypt to'g'ridan-to'g'ri (passlib **emas**).
+- `users` — 4 rol. `ROLE_PERMISSIONS` bazaviy to'plam + `resolve_permissions(role, access)`
+  sozlamalardan qo'shimcha huquq qo'shadi. Ya'ni admin deploy qilmasdan sales nimani
+  ko'rishini o'zgartira oladi.
+- `agents` — CRUD + **profil rasmi** (`POST`/`DELETE /agents/{id}/avatar`).
+  `avatar_service.py` rasmni 256×256 WebP ga keltiradi (~2 KB), kvadratga kesadi,
+  shaffoflikni oq fonga yopishtiradi. Fayllar `zvonki-media` volumeda,
+  `/media` orqali beriladi. `mimetypes.add_type("image/webp")` `main.py` da.
+- `clients`, `calls`, `scoring` (versiyalanadigan rubrika, bloklar yig'indisi
+  qat'iy 100 bo'lishi tekshiriladi), `surveys` (rolga qarab ko'rinadi),
+  `analytics` (8 ta endpoint, rol bo'yicha cheklov `_scoped()` da),
+  `settings` (`SETTINGS_REGISTRY` — bitta qator qo'shsang UI da yangi sozlama paydo bo'ladi;
+  maxfiy qiymatlar API dan hech qachon qaytmaydi).
+
+**Frontend** (`services/web/src`) — Vite 6 + React 19 + TS + Tailwind + Radix +
+TanStack Query/Table + Recharts + i18next (uz/ru/en) + zustand.
+Tayyor sahifalar: Login, Dashboard, Agents (kartochka/jadval), Agent profili,
+Calls + Call detali, Rubrika, Foydalanuvchilar, Sozlamalar, Monitor (TV uchun).
+
+**Bot** — aiogram 3.17. Jonli: **@bonvisalesdashboardbot** ("Bonvi Sales Dashboard
+Controller"). Tokeni **bazadan** olinadi, `.env` faqat zaxira. `core/runner.py` dagi
+`BotRunner` har 30 soniyada `/settings/bot-config` ni so'raydi va token o'zgargan
+bo'lsa botni o'zi qayta ishga tushiradi — admin panelda almashtirsangiz
+`docker compose restart` **kerak emas**. Noto'g'ri token kiritilsa bot o'chib
+qolmaydi, o'zbekcha ogohlantirish chiqarib to'g'risini kutadi.
+
+### Oxirgi seansda tugatilgani
+
+- **Sana bo'yicha filtr** — `shared/ui/DateRangePicker.tsx`: 7 tayyor davr
+  (7/30/90 kun, shu oy, o'tgan oy, shu chorak, shu yil) + 4 yil chipi +
+  ixtiyoriy boshlanish/tugash sanasi. Dashboard va Agent profilida ulangan.
+  `AnalyticsQuery` ga `date_from`/`date_to` qo'shilgan.
+- **Profil rasmi** — backend + frontend to'liq. `AgentModal` da yuklash/almashtirish/
+  o'chirish; yangi xodimda fayl saqlanib turadi va xodim yaratilgach yuklanadi.
+  `Avatar` komponenti `src` qabul qiladi, bo'lmasa bosh harflarga qaytadi.
+  `avatar_url` leaderboard javobiga ham qo'shilgan, shuning uchun Dashboard,
+  Monitor va TopPerformers da ham rasm ko'rinadi.
+
+Tekshirilgan: TypeScript 0 xato; 900×600 PNG → 256×256 WebP 1.8 KB;
+`/media/...` → `HTTP 200 image/webp`; `text/plain` yuklash → 422;
+sales roli avatar yuklashga urinsa → 403; manager ham 403 (chunki
+`access.manager_manages_agents` sukut bo'yicha o'chiq — admin Sozlamalardan yoqadi).
+
+- **So'rovnoma oqimi** — `POST /surveys/{token}/open` va `/submit`. **Ochiq
+  endpointlar, autentifikatsiyasiz** — token o'zi kalit, chunki javob beruvchi
+  do'kondor hech qachon tizimga kirmaydi. Xatolar o'zbekcha: 404 topilmadi,
+  409 muddati o'tgan, 409 allaqachon baholangan, 422 noto'g'ri qiymat.
+  `telegram_user_id` qabul qilinadi, lekin **ataylab saqlanmaydi** — saqlansa
+  bitta JOIN bilan "kim qanday baho qo'ygani" ochilib, anonimlik va'dasi buzilardi.
+- **Client baholari sahifasi** — `/surveys`. Rolga qarab: admin/manager hammasini
+  ko'radi, sales faqat o'zinikini ("Mening client baholarim"). `ready:false`
+  bo'lsa o'rtacha ko'rsatilmaydi (5 tadan kam javob) — 0 emas, izoh chiqadi.
+- **`GET /surveys`** ga `date_from`/`date_to` qo'shildi, `days` dan ustun turadi.
+- **422 xatolar** endi loyiha konvertida va o'zbekcha (`main.py` dagi
+  `RequestValidationError` handleri) — ochiq endpointlarda xatoni client ko'radi.
+
+---
+
+### 4-seansda qo'shilgani (tungi ish)
+
+- **MoyZvonki ko'prigi** — `modules/moizvonki/`. `GET /calls/{id}/audio`
+  yozuvni MoyZvonki'dan OQIM bilan uzatadi. `Range` qo'llab-quvvatlanadi
+  (206 + `Content-Range`), shuning uchun pleerda oldinga o'tish ishlaydi.
+  **Isbotlangan:** 200 MB oqimda fayl tizimi bayt-baytga o'zgarmadi,
+  xotira +28 KB. `POST /calls/sync` — metadata tortish, idempotent.
+- **AI provayderlari reyestri** — `modules/ai/`. Groq · OpenAI · Gemini ·
+  Claude · ElevenLabs. Ikki rol: ASR va LLM. Admin panelda tanlanadi,
+  kalit kiritiladi, «Tekshirish» bosiladi. Yangi provayder qo'shish =
+  reyestrda bitta yozuv (isbotlangan: 141 fayldan faqat bittasi o'zgardi).
+  Model nomlari erkin matn — provayder yangi model chiqarsa kod
+  o'zgartirilmaydi.
+- **Baholash konveyeri** — `modules/pipeline/` + Celery worker.
+  Audio → ASR → transkript → LLM + rubrika → baho. Audio hech qayerda
+  saqlanmaydi. LLM javobi qat'iy tekshiriladi: bloklar yig'indisi ballga
+  mos kelmasa yoki o'ylab topilgan red flag kaliti bo'lsa — **saqlanmaydi**.
+  Noto'g'ri javobda LLM ga tuzatuvchi ko'rsatma bilan qayta so'raladi.
+  Endpointlar: `/pipeline/run`, `/pipeline/status`, `/pipeline/failures`,
+  `/pipeline/calls/{id}/retry`.
+- **Audio pleer** — `CallDetailPage`. `<audio src>` `Authorization`
+  yubora olmaydi, shuning uchun **Service Worker ko'prigi** ishlatiladi
+  (`public/audio-sw.js`): token SW da qo'shiladi, brauzer o'zi `Range`
+  yuboradi, seek nativ ishlaydi. SW yo'q muhitda blob zaxirasi.
+
+### 3-seansda qo'shilgani
+
+- **Telegram Mini App so'rovnomasi.** Guruh xabarida bitta havola →
+  sahifa Telegram ICHIDA ochiladi (`/s`). Ball, izoh va red flag —
+  hammasi shu yerda. `initData` imzosi bot tokeni bilan tekshiriladi;
+  `user_id` saqlanmaydi, faqat hash. Sahifa doim yorug', ranglar
+  dashboarddan olingan.
+  ⚠️ **Muhim:** rasmiy hujjat chalg'itadi — HMAC tekshiruvida
+  `signature` maydoni CHIQARILMAYDI, faqat `hash`. Aks holda zamonaviy
+  Telegram mijozidan kelgan hech narsa o'tmaydi.
+- **Mini App sozlanmagan bo'lsa** bot eski oqimda ishlaydi: guruhda
+  faqat 1–5 tugmalari (izoh tugmasi olib tashlangan).
+- **Guruhlar avtomatik biriktiriladi** — botni kim qo'shgani, guruh
+  adminlari va guruhda yozganlar bo'yicha. Admin qo'lda o'zgartirgan
+  guruhga (`bound_by="manual"`) avtomatika tegmaydi.
+- **Guruhlar daraxti** — `/groups`: sotuvchi → hudud → guruhlar.
+  Sahifalangan (`page_size` 50, eng ko'pi 200), ochilgandagina yuklanadi.
+  Ommaviy hudud biriktirish/bo'shatish bor.
+- **Sotuvchi alohida baholarni ko'rmaydi** — har guruhda bitta mijoz
+  bo'lgani uchun baho kimniki ekani aniqlanadi. `items` SALES uchun
+  doim bo'sh, `access.sales_client_rating` sozlamasidan qat'i nazar.
+- **Qidiruv** — qo'ng'iroqlar, savdo xodimlari va client baholarida
+  (xodim ismi va hudud bo'yicha).
+- **Sozlamalar bloklari alohida saqlanadi**, har birida o'z tugmasi.
+- **Yuborish tezligi** ~20 xabar/soniya (Telegram chegarasi ~30).
+  1000 guruh ≈ 53 soniya.
+
+### 2-seansda qo'shilgani
+
+- **Guruh asosidagi anonim so'rovnoma.** Bot guruhga qo'shilsa o'zini ro'yxatga
+  oladi (eski guruhda `/bind`). Admin panelda xodim va hudud biriktiriladi.
+  Guruhga 5 tugmali xabar tushadi; ball guruhda, izoh va red flag shaxsiy
+  chatda. Bir kishi bir marta — `respondent_hash` orqali, Telegram ID hech
+  qayerda saqlanmaydi.
+- **Telegram guruhlari sahifasi** — `/groups`. Biriktirilmagan guruhlar
+  ajratib ko'rsatiladi (ular so'rovnoma olmaydi, ya'ni jimgina ishlamaydi).
+  Bitta xodim bir nechta hududni qamrashi ko'rinadi.
+- **Hududlar** — `/regions`, admin boshqaradi. Nom o'zgarsa `agents`,
+  `clients`, `telegram_groups` da kaskad yangilanadi; ishlatilayotgan hudud
+  o'chirilmaydi (409), o'rniga faolsizlantiriladi.
+- **Filtrlar dropdownga o'tdi** (`shared/ui/MultiSelect.tsx`). Til filtri
+  butunlay olib tashlandi — qo'ng'iroqlar deyarli hammasi o'zbekcha.
+- **Davr filtri** to'rt bo'limga bo'lindi: Tayyor · Oy · Yil · Oraliq.
+  Yangi imkoniyat — aniq oy («aprel 2024»).
+- **«Tekshiruv navbati» olib tashlandi** — menyu, marshrut va `review:*`
+  ruxsatlari bilan birga.
+
+---
+
+## 4. Ertalab qilinadigan ishlar (foydalanuvchi uchun)
+
+1. **Tunnel qayta ochish.** Manzil har safar o'zgaradi:
+   `docker run --rm --network zvonki-network mirror.gcr.io/cloudflare/cloudflared:latest tunnel --url http://web:5173`
+   Docker Hub O'zbekistondan to'silgan — `mirror.gcr.io/` prefiksi shart.
+   Yangi manzilni BotFather → Mini App → Web App URL ga `+/s` bilan kiriting.
+2. **MoyZvonki hisobi** — Sozlamalar → MoyZvonki: domen, foydalanuvchi,
+   API kalit. Keyin qo'ng'iroqlarni tortish sinovi.
+3. **AI kalitlari** — Sozlamalar → AI: provayder tanlash + kalit +
+   «Tekshirish» tugmasi.
+4. **Sotuvchilarni botga ulash** — har biri botni ochib «Raqamimni
+   yuborish» bosadi. Shundan keyin guruhlar avtomatik biriktiriladi.
+5. **`survey.min_responses`** hozir **1** da (sinov uchun). Ishlab
+   chiqarishda 5 ga qaytaring.
+
+---
+
+## 5. Keyingi ishlar (navbat bo'yicha)
+
+1. **So'rovnoma dispetcheri** — hozir so'rovnoma faqat qo'lda («So'rovnoma
+   yuborish» tugmasi) yaratiladi. Kadans bo'yicha (14 kun) avtomatik
+   yaratadigan Celery vazifasi kerak.
+2. **MoyZvonki ingest** — yozuvlarni tortib olish; `agents` sahifasidagi "Sync"
+   tugmasi hozircha `disabled`.
+3. **So'rovnoma yuboruvchi** — hozir so'rovnomalar faqat seed orqali yaratiladi.
+   Kadans bo'yicha (har 14 kun) avtomatik yaratib, Telegram guruhga yuboradigan
+   Celery vazifasi kerak. Endpointlar va bot tayyor, yetishmayotgani — dispetcher.
+4. **ASR benchmark (PLAN.md Bosqich 0)** — Groq turbo / Groq large-v3 /
+   ElevenLabs Scribe ni o'zbek-rus aralash 20 ta qo'ng'iroqda solishtirish.
+   Rejadagi tanlov: **ElevenLabs Scribe $0.22/soat** (diarizatsiya narxga kirgan),
+   umumiy stsenariy **B ≈ $554/oy**.
+5. **ASR + diarizatsiya worker**, keyin **LLM baholash worker** (Celery skeleti bor).
+
+---
+
+## 6. Foydali buyruqlar
+
+```bash
+# TypeScript tekshiruvi
+docker compose exec -T web npx tsc --noEmit
+
+# Bazaga kirish
+docker compose exec -T postgres psql -U zvonki -d zvonki
+
+# Demo ma'lumotni qayta yaratish
+docker compose exec -T backend python -m src.seed --reset
+
+# Backendni qayta ishga tushirish (model o'zgarsa)
+docker compose restart backend
+
+# .env o'zgarganda (restart yetmaydi!)
+docker compose up -d --force-recreate backend bot
+```
+
+---
+
+## 7. Maxfiy qiymatlar
+
+`.env` gitignore qilingan, hammasi shu yerda:
+
+| Kalit                 | Nima uchun                                                    |
+| --------------------- | ------------------------------------------------------------- |
+| `TELEGRAM_BOT_TOKEN`  | Bot tokeni — **zaxira**. Asosiysi bazada, admin panelda.       |
+| `INTERNAL_API_TOKEN`  | Bot ↔ backend orasidagi ichki kalit (`X-Internal-Token`).      |
+
+`GET /settings/bot-config` haqiqiy, maskalanmagan tokenni qaytaradi — shuning uchun
+u foydalanuvchi JWT si bilan emas, `X-Internal-Token` bilan himoyalangan va
+fail-closed: `INTERNAL_API_TOKEN` bo'sh bo'lsa hamma uchun 401.
+**"Docker tarmog'i ichida" himoya emas** — 8010-port host'ga chiqarilgan.
+Loglarda tokenlar hech qachon to'liq chiqmaydi, faqat oxirgi 4 belgi.

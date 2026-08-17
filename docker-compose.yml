@@ -1,0 +1,222 @@
+# ══════════════════════════════════════════════════════════════
+#  ZvonkiDashboard — Development stack
+#
+#  Kompyuteringizga hech narsa o'rnatilmaydi: Python, Node,
+#  PostgreSQL, Redis — hammasi konteyner ichida.
+#
+#  Ishga tushirish:  make init
+# ══════════════════════════════════════════════════════════════
+
+name: zvonki
+
+x-labels: &labels
+  org.opencontainers.image.title: ZvonkiDashboard
+  org.opencontainers.image.vendor: Zvonki
+  com.zvonki.environment: development
+
+services:
+  # ─────────────────────────────────────────────────────────────
+  #  DATA LAYER
+  # ─────────────────────────────────────────────────────────────
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: zvonki-postgres
+    hostname: postgres
+    labels: *labels
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-zvonki}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-zvonki_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-zvonki}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - zvonki-postgres-data:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
+    networks: [zvonki]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-zvonki} -d ${POSTGRES_DB:-zvonki}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  redis:
+    image: redis:7-alpine
+    container_name: zvonki-redis
+    hostname: redis
+    labels: *labels
+    restart: unless-stopped
+    command: redis-server --appendonly yes --save 60 1
+    ports:
+      - "${REDIS_PORT:-6380}:6379"
+    volumes:
+      - zvonki-redis-data:/data
+    networks: [zvonki]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ─────────────────────────────────────────────────────────────
+  #  APPLICATION LAYER
+  # ─────────────────────────────────────────────────────────────
+
+  backend:
+    build:
+      context: ./services/backend
+      target: dev
+    image: zvonki/backend:dev
+    container_name: zvonki-backend
+    hostname: backend
+    labels: *labels
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-zvonki}:${POSTGRES_PASSWORD:-zvonki_dev_password}@postgres:5432/${POSTGRES_DB:-zvonki}
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "${API_PORT:-8010}:8000"
+    volumes:
+      - ./services/backend/src:/app/src
+      - ./services/backend/migrations:/app/migrations
+      - ./services/backend/alembic.ini:/app/alembic.ini
+      # Testlar sozlamasi — `make test` uni /app dan qidiradi
+      - ./services/backend/pytest.ini:/app/pytest.ini
+      # Yuklangan rasmlar konteyner qayta qurilganda yo'qolmasin
+      - zvonki-media:/app/media
+    networks: [zvonki]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    command: >
+      sh -c "python -m src.bootstrap &&
+             alembic upgrade head &&
+             python -m src.seed &&
+             uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/src"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://localhost:8000/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+  # AI quvuri: yozuvni MoyZvonki'dan oqim bilan olib ASR ga beradi,
+  # keyin transkriptni rubrika bo'yicha LLM ga baholatadi.
+  # Backend bilan BIR XIL image — kod ham, bog'liqliklar ham o'sha.
+  worker:
+    build:
+      context: ./services/backend
+      target: dev
+    image: zvonki/worker:dev
+    container_name: zvonki-worker
+    hostname: worker
+    labels: *labels
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-zvonki}:${POSTGRES_PASSWORD:-zvonki_dev_password}@postgres:5432/${POSTGRES_DB:-zvonki}
+      REDIS_URL: redis://redis:6379/0
+      # Redis bazalari bo'lingan: /0 ilova, /1 bot FSM, /2 broker, /3 natija
+      CELERY_BROKER_URL: redis://redis:6379/2
+      CELERY_RESULT_BACKEND: redis://redis:6379/3
+      # ── Vendor chegaralari (429 ga urilmaslik uchun) ────────
+      PIPELINE_CONCURRENCY: ${PIPELINE_CONCURRENCY:-4}
+      PIPELINE_ASR_RPM: ${PIPELINE_ASR_RPM:-60}
+      PIPELINE_LLM_RPM: ${PIPELINE_LLM_RPM:-120}
+      PIPELINE_MAX_RETRIES: ${PIPELINE_MAX_RETRIES:-4}
+      PIPELINE_INVALID_RETRIES: ${PIPELINE_INVALID_RETRIES:-2}
+      PIPELINE_MIN_DURATION_SEC: ${PIPELINE_MIN_DURATION_SEC:-30}
+    volumes:
+      - ./services/backend/src:/app/src
+    networks: [zvonki]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      backend: { condition: service_started }
+    # Hot reload: boshqa xizmatlardagidek `watchfiles` kuzatadi.
+    #
+    # `--beat` — davriy vazifalar (so'rovnoma kadansi) shu jarayonning
+    # o'zida yuritiladi, alohida konteyner shart emas. Bitta worker
+    # uchun to'g'ri: beat ikki nusxada ishlasa vazifa ikki marta
+    # yuborilardi. Nusxalar sonini oshirishda beat'ni ALOHIDA
+    # xizmatga ajratish kerak.
+    #
+    # Beat jadvalni `/tmp/celerybeat-schedule` ga yozadi. Fayl
+    # yo'qolsa vazifa qayta yuborilishi mumkin — bu XAVFSIZ, chunki
+    # `surveys.cadence` takrorlanishni bazadan tekshiradi
+    # (qarang: src/worker.py dagi izoh).
+    command: >
+      watchfiles --filter python
+      "celery -A src.worker.celery_app worker --loglevel=INFO --concurrency=2 -Q pipeline -n worker@%h --beat --schedule=/tmp/celerybeat-schedule"
+      /app/src
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A src.worker.celery_app inspect ping -d worker@$$(hostname) -t 10 || exit 1"]
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 40s
+
+  bot:
+    build:
+      context: ./services/bot
+      target: dev
+    image: zvonki/bot:dev
+    container_name: zvonki-bot
+    hostname: bot
+    labels: *labels
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      API_BASE_URL: http://backend:8000
+      REDIS_URL: redis://redis:6379/1
+    volumes:
+      - ./services/bot/src:/app/src
+      # Testlar sozlamasi — pytest uni /app dan qidiradi
+      - ./services/bot/pytest.ini:/app/pytest.ini
+    networks: [zvonki]
+    depends_on:
+      backend: { condition: service_started }
+      redis: { condition: service_healthy }
+    command: watchfiles --filter python "python -m src.main" /app/src
+
+  web:
+    build:
+      context: ./services/web
+      target: dev
+    image: zvonki/web:dev
+    container_name: zvonki-web
+    hostname: web
+    labels: *labels
+    restart: unless-stopped
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8010}
+      # macOS / Windows Docker'da fayl kuzatuvi uchun
+      CHOKIDAR_USEPOLLING: "true"
+    ports:
+      - "${WEB_PORT:-5180}:5173"
+    volumes:
+      - ./services/web:/app
+      # node_modules konteyner ichida qoladi — host toza turadi
+      - zvonki-web-modules:/app/node_modules
+    networks: [zvonki]
+    depends_on:
+      - backend
+    command: npm run dev -- --host 0.0.0.0 --port 5173
+
+networks:
+  zvonki:
+    name: zvonki-network
+    driver: bridge
+
+volumes:
+  zvonki-postgres-data:
+    name: zvonki-postgres-data
+  zvonki-redis-data:
+    name: zvonki-redis-data
+  zvonki-web-modules:
+    name: zvonki-web-modules
+  zvonki-media:
+    name: zvonki-media
