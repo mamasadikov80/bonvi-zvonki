@@ -423,7 +423,6 @@ class ActivityService:
             row.missed_called_back = callbacks.events_closed.get(row.agent_id, 0)
             row.missed_addressable = callbacks.addressable.get(row.agent_id, 0)
 
-        report.callback_median_minutes = callbacks.median_minutes
         report.total = _sum_rows(rows)
 
         # ⚠️ MIJOZLAR SONI XODIMLAR YIG'INDISIDAN OLINMAYDI.
@@ -441,6 +440,16 @@ class ActivityService:
         )
         report.total.missed_clients = sum(company.clients.values())
         report.total.clients_reached = sum(company.reached.values())
+
+        # ⚠️ MEDIAN HAM KOMPANIYA kesimidan olinadi, xodim kesimidan emas.
+        #
+        # Xodim kesimida bitta mijoz bir necha xodimga qo'ng'iroq qilgan
+        # bo'lsa bir necha marta sanaladi va medianani siljitadi. Kartada
+        # esa yonma-yon ikki son turadi: qaytish darajasi (mijoz bo'yicha)
+        # va median. Ular boshqa-boshqa birlikdan hisoblansa, son
+        # o'z-o'ziga zid bo'lardi — o'lchandi: 15-avgust uchun xodim
+        # kesimida 5,1 daqiqa, mijoz bo'yicha 4,1.
+        report.callback_median_minutes = company.median_minutes
         report.days_series = await self._series(since, until, agent_ids, regions)
         report.hours_series = await self._hours(since, until, agent_ids, regions)
         return report
@@ -704,21 +713,21 @@ class ActivityService:
             kunlar.append(topilgan.get(kursor) or ActivityDay(day=kursor))
             kursor += timedelta(days=1)
 
-        # ⚠️ CHEKKALARDAGI bo'sh kunlar olib tashlanadi, O'RTADAGILAR
-        # QOLADI.
+        # ⚠️ BO'SH KUNLAR OLIB TASHLANMAYDI — hech qaysi biri.
         #
-        # Chekkada nol kun — oyna chegarasining artefakti: oraliq
-        # mahalliy kunning bir necha soatini qamragan bo'lsa, o'sha kun
-        # ro'yxatga tushadi-yu, ichida qo'ng'iroq bo'lmaydi. Grafikda bu
-        # «faollik nolga tushdi» degan SOXTA manzara beradi.
+        # Ilgari chekkadagi bo'sh kunlar qirqilardi: oyna UTC da
+        # qurilganda mahalliy kunning bir necha soatini qamrab, bo'sh
+        # ustun paydo bo'lardi. Endi oyna `days` bilan MAHALLIY yarim
+        # tunga tekislanadi, ya'ni bunday artefakt umuman yo'q.
         #
-        # O'rtadagi nol kun esa HAQIQIY ma'lumot: dam olish kuni yoki
-        # ishlamagan kun. Uni tashlash grafikni uzluksiz qilib, «har
-        # kuni bir xil ishlayapti» degan yolg'on taassurot berardi.
-        while kunlar and kunlar[0].inbound == 0 and kunlar[0].outbound == 0:
-            kunlar.pop(0)
-        while kunlar and kunlar[-1].inbound == 0 and kunlar[-1].outbound == 0:
-            kunlar.pop()
+        # Qirqish esa zarar qila boshlagan edi: ertalab «7 kun»
+        # tanlansa va bugun hali qo'ng'iroq bo'lmasa, bugungi ustun
+        # yo'qolib, grafik 6 ustun ko'rsatardi — davr esa 7 kun deb
+        # yozilardi. Son bilan grafik bir-biriga zid bo'lardi.
+        #
+        # Bo'sh kun — HAQIQIY ma'lumot: dam olish kuni, ishlamagan kun
+        # yoki hali boshlanmagan bugun. Uni ko'rsatish yashirishdan
+        # yaxshiroq.
         return kunlar
 
     # ── Xodim kesimi ──────────────────────────────────────────

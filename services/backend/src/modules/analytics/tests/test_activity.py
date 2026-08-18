@@ -523,10 +523,11 @@ async def test_grafik_yigindisi_JAMIGA_teng(xodim) -> None:
 
 
 @pytest.mark.asyncio
-async def test_grafik_ortasidagi_bosh_kun_QOLADI(xodim) -> None:
-    """O'rtadagi nol kun — HAQIQIY ma'lumot (dam olish kuni). Uni
-    tashlash grafikni uzluksiz qilib, «har kuni bir xil ishlayapti»
-    degan yolg'on taassurot berardi."""
+async def test_grafikda_bosh_kun_QOLADI(xodim) -> None:
+    """Bo'sh kun — HAQIQIY ma'lumot: dam olish kuni yoki hali
+    boshlanmagan bugun. Uni yashirish grafikni uzluksiz qilib, «har
+    kuni bir xil ishlayapti» degan yolg'on taassurot berardi; ustunlar
+    soni ham davrga to'g'ri kelmay qolardi."""
     await _qongiroq(xodim, inbound=True, answered=True, offset_min=0)
     # Bir kun tashlab
     await _qongiroq(xodim, inbound=True, answered=True, offset_min=2 * 24 * 60)
@@ -701,3 +702,88 @@ async def test_tafsilot_oynadan_tashqarini_olmaydi(xodim) -> None:
     """Oyna asosiy hisobot bilan bir xil bo'lishi shart."""
     await _qongiroq(xodim, inbound=True, answered=False, offset_min=5 * 24 * 60)
     assert await _tafsilot(xodim) == []
+
+
+# ══════════════════════════════════════════════════════════════
+#  Davr chegarasi va aloqa oynasi
+# ══════════════════════════════════════════════════════════════
+
+
+@pytest.mark.asyncio
+async def test_keyingi_kundagi_aloqa_HISOBGA_olinadi(xodim) -> None:
+    """⚠️ ATAYLAB SHUNDAY: aloqa qidiruvi DAVR chegarasidan chiqadi.
+
+    Mijoz 15-kuni kechqurun qo'ng'iroq qilib javob olmagan, 16-kuni
+    ertalab qaytarilgan bo'lsa — u 15-kun hisobotida «bog'langan»
+    bo'lishi kerak. Mijoz xizmat OLGAN va uni «bog'lanmagan» deb
+    yozish haqiqatga zid bo'lardi.
+
+    Haqiqiy ma'lumotda 15-avgustda 11 ta shunday holat bor.
+    """
+    kech = BAZA + timedelta(hours=14)  # kunning oxiri
+    await _qongiroq(xodim, inbound=True, answered=False, offset_min=14 * 60)
+    # Ertasi ertalab qaytarildi — DAVRDAN TASHQARIDA
+    await _qongiroq(xodim, inbound=False, answered=True, offset_min=23 * 60)
+
+    async with SessionFactory() as session:
+        report = await ActivityService(session).report(
+            since=BAZA,
+            # Davr javobsiz qo'ng'iroqdan keyin TUGAYDI
+            until=kech + timedelta(minutes=30),
+            agent_ids=[xodim],
+        )
+    row = report.agents[0]
+    assert row.missed == 1
+    assert row.clients_reached == 1, (
+        "davrdan tashqaridagi aloqa ham hisobga olinishi kerak"
+    )
+    assert row.clients_unreached == 0
+
+
+@pytest.mark.asyncio
+async def test_javobsiz_qongiroq_faqat_DAVR_ichidan_olinadi(xodim) -> None:
+    """Aloqa qidiruvi kengaysa ham, JAVOBSIZ qo'ng'iroqning o'zi
+    tanlangan davrdan olinadi — aks holda hisobot boshqa kunning
+    muammosini ko'rsatardi."""
+    # Davrdan KEYIN javobsiz qoldi
+    await _qongiroq(xodim, inbound=True, answered=False, offset_min=30 * 60)
+
+    async with SessionFactory() as session:
+        report = await ActivityService(session).report(
+            since=BAZA, until=BAZA + timedelta(hours=12), agent_ids=[xodim]
+        )
+    assert report.agents[0].missed == 0
+
+
+@pytest.mark.asyncio
+async def test_tafsilot_ham_keyingi_kunni_KORSATADI(xodim) -> None:
+    """⚠️ Jamlanma va tafsilot BIR XIL qoida bilan ishlashi shart.
+
+    Tafsilot ro'yxati raqamni isbotlash uchun. Agar u davr chegarasida
+    to'xtasa, jamlanmada «bog'langan» deb turgan mijoz ro'yxatda
+    «bog'lanmagan» bo'lib chiqardi — tekshirish vositasi o'zi
+    ishonchni buzardi."""
+    await _qongiroq(xodim, inbound=True, answered=False, offset_min=14 * 60)
+    await _qongiroq(xodim, inbound=False, answered=True, offset_min=23 * 60)
+
+    async with SessionFactory() as session:
+        tafsilot = await ActivityService(session).missed_clients(
+            agent_id=xodim,
+            since=BAZA,
+            until=BAZA + timedelta(hours=14, minutes=30),
+        )
+    assert len(tafsilot) == 1
+    assert tafsilot[0].contacted_at is not None, "keyingi kundagi aloqa ko'rinishi kerak"
+    assert tafsilot[0].minutes_to_contact == 540.0
+
+
+@pytest.mark.asyncio
+async def test_median_MIJOZ_boyicha_hisoblanadi(xodim) -> None:
+    """Kartada qaytish darajasi (mijoz bo'yicha) va median yonma-yon
+    turadi. Ular boshqa-boshqa birlikdan hisoblansa son o'z-o'ziga zid
+    bo'lardi — o'lchandi: xodim kesimida 5,1 daqiqa, mijoz bo'yicha 4,1."""
+    await _qongiroq(xodim, inbound=True, answered=False, offset_min=0)
+    await _qongiroq(xodim, inbound=False, answered=True, offset_min=10)
+
+    report, _ = await _hisobot(xodim)
+    assert report.callback_median_minutes == 10.0
