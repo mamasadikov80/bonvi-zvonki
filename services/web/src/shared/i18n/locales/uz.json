@@ -342,13 +342,13 @@
       "all": "Yo'nalish: barchasi",
       "inbound": "Kiruvchi",
       "outbound": "Chiquvchi",
-      "missed": "Javobsiz qolgan (mijoz qo'ng'iroq qildi, javob berilmadi)",
+      "missed": "Xodim ko'tarmadi — mijoz qo'ng'iroq qildi, javob berilmadi",
       "unknown": "javob holati noma'lum"
     },
     "answered": {
       "all": "Javob: barchasi",
-      "yes": "Javob berilgan",
-      "no": "Javobsiz"
+      "yes": "Gaplashilgan",
+      "no": "Gaplashilmagan"
     }
   },
   "agents": {
@@ -847,11 +847,11 @@
       "d30": "1 oy"
     },
     "outbound": "Xodim → mijoz",
-    "outboundHint": "Savdo xodimlari mijozlarga qilgan qo'ng'iroqlar",
+    "outboundHint": "Xodim mijozlarga qilgan qo'ng'iroqlar. Mijoz ko'tarmagani alohida ustunda",
     "inbound": "Mijoz → xodim",
     "inboundHint": "Mijozlar kompaniyaga qilgan qo'ng'iroqlar",
-    "missed": "Javobsiz qolgan",
-    "missedHint": "Mijoz qo'ng'iroq qildi, javob berilmadi. Bu — QO'NG'IROQ soni; xodim ko'tarmagan chiquvchi bunga kirmaydi",
+    "missed": "Xodim ko'tarmadi",
+    "missedHint": "Mijoz qo'ng'iroq qildi, xodim javob bermadi. Bu — bizning javobgarligimiz",
     "calledBack": "Qaytib chiqilgan",
     "calledBackHint": "Javobsiz qolgan raqamga {{hours}} soat ichida qayta qo'ng'iroq qilingan",
     "answeredOf": "{{count}} ta javob berilgan ({{total}} tadan)",
@@ -861,11 +861,11 @@
     "unknownNote": "{{count}} ta qo'ng'iroqda javob holati noma'lum — ular hisobga OLINMAGAN. Bu maydon paydo bo'lishidan oldingi ma'lumot; qo'ng'iroqlarni qayta yuklash to'ldiradi.",
     "byAgent": "Xodimlar bo'yicha",
     "myRow": "Mening faolligim",
-    "byAgentHint": "«Javobsiz» — mijoz qo'ng'iroq qilib, javob olmagani. «Ko'tarilmagan» — xodim qo'ng'iroq qilib, mijoz ko'tarmagani. Tekshirish uchun qatorni bosing",
+    "byAgentHint": "«Xodim ko'tarmadi» — mijoz qo'ng'iroq qilib javob olmagani, bu bizning javobgarligimiz. «Mijoz ko'tarmadi» — xodim qo'ng'iroq qilib mijoz javob bermagani, bunga xodim javobgar emas. Tekshirish uchun qatorni bosing",
     "colOut": "Chiquvchi",
-    "colOutNoAnswer": "Ko'tarilmagan",
+    "colOutNoAnswer": "Mijoz ko'tarmadi",
     "colIn": "Kiruvchi",
-    "colMissed": "Javobsiz",
+    "colMissed": "Xodim ko'tarmadi",
     "colCalledBack": "Qaytilgan",
     "colOpen": "Ochiq",
     "colRate": "Qaytish %",
@@ -889,6 +889,14 @@
     "drillNotReached": "Bog'lanilmagan",
     "drillAfter": "{{minutes}} daq keyin",
     "drillTotals": "{{clients}} mijoz · urinishlar yig'indisi {{attempts}} (jadvaldagi «javobsiz» soni) · bog'lanilmagan {{unreached}}",
-    "noMissed": "Bu davrda javobsiz qolgan qo'ng'iroq yo'q"
+    "noMissed": "Bu davrda javobsiz qolgan qo'ng'iroq yo'q",
+    "tipOut": "Xodim mijozlarga qilgan qo'ng'iroqlar",
+    "tipOutNoAnswer": "Xodim qo'ng'iroq qildi, mijoz javob bermadi. Xodimning aybi emas",
+    "tipIn": "Mijozlar xodimga qilgan qo'ng'iroqlar",
+    "tipMissed": "Mijoz qo'ng'iroq qildi, xodim javob bermadi",
+    "tipClients": "Necha NAFAR mijoz javob ololmagan. Bir odamning takroriy urinishlari bir marta sanaladi",
+    "tipUnreached": "Ulardan qanchasi bilan 24 soat ichida keyin ham gaplashilmagan",
+    "tipRate": "Javob ololmagan mijozlarning qanchasi bilan keyin gaplashilgan",
+    "tipTalk": "Jami suhbat vaqti"
   }
 }

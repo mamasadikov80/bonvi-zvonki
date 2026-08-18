@@ -295,14 +295,33 @@ export function ActivityPage() {
               <thead>
                 <tr className="border-b border-border text-left">
                   <Th>{t('table.agent')}</Th>
-                  <Th right>{t('activity.colOut')}</Th>
-                  <Th right>{t('activity.colOutNoAnswer')}</Th>
-                  <Th right>{t('activity.colIn')}</Th>
-                  <Th right>{t('activity.colMissed')}</Th>
-                  <Th right>{t('activity.colClients')}</Th>
-                  <Th right>{t('activity.colUnreached')}</Th>
-                  <Th right>{t('activity.colRate')}</Th>
-                  <Th right>{t('activity.colTalk')}</Th>
+                  {/* Har yo'nalish JUFT ustun bilan keladi: jami va
+                      javobsiz qolgani. Tartib shunday bo'lishi kerak,
+                      aks holda «kim ko'tarmadi» degan savol qoladi. */}
+                  <Th right tip={t('activity.tipOut')}>
+                    {t('activity.colOut')}
+                  </Th>
+                  <Th right tip={t('activity.tipOutNoAnswer')}>
+                    {t('activity.colOutNoAnswer')}
+                  </Th>
+                  <Th right tip={t('activity.tipIn')}>
+                    {t('activity.colIn')}
+                  </Th>
+                  <Th right tip={t('activity.tipMissed')}>
+                    {t('activity.colMissed')}
+                  </Th>
+                  <Th right tip={t('activity.tipClients')}>
+                    {t('activity.colClients')}
+                  </Th>
+                  <Th right tip={t('activity.tipUnreached')}>
+                    {t('activity.colUnreached')}
+                  </Th>
+                  <Th right tip={t('activity.tipRate')}>
+                    {t('activity.colRate')}
+                  </Th>
+                  <Th right tip={t('activity.tipTalk')}>
+                    {t('activity.colTalk')}
+                  </Th>
                 </tr>
               </thead>
               <tbody>
@@ -465,12 +484,27 @@ function AgentRow({
   )
 }
 
-function Th({ children, right }: { children: React.ReactNode; right?: boolean }) {
+function Th({
+  children,
+  right,
+  tip,
+}: {
+  children: React.ReactNode
+  right?: boolean
+  /** To'liq tushuntirish — sichqoncha ustiga kelganda.
+   *
+   *  Ustun nomi QISQA bo'lishi kerak (aks holda jadval o'qilmaydi),
+   *  lekin qisqa nom hamma narsani ayta olmaydi. Izoh shu ikki
+   *  talabni birlashtiradi. */
+  tip?: string
+}) {
   return (
     <th
+      title={tip}
       className={cn(
         'whitespace-nowrap px-3 py-2.5 text-2xs font-medium uppercase tracking-wide text-muted',
         right && 'text-right',
+        tip && 'cursor-help',
       )}
     >
       {children}

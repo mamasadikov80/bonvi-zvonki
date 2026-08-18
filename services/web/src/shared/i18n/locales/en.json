@@ -342,13 +342,13 @@
       "all": "Direction: all",
       "inbound": "Inbound",
       "outbound": "Outbound",
-      "missed": "Missed (customer called, no answer)",
+      "missed": "Agent didn't answer — a customer called and got no reply",
       "unknown": "answer status unknown"
     },
     "answered": {
       "all": "Answer: all",
-      "yes": "Answered",
-      "no": "Unanswered"
+      "yes": "Connected",
+      "no": "Not connected"
     }
   },
   "agents": {
@@ -847,11 +847,11 @@
       "d30": "1 month"
     },
     "outbound": "Agent → customer",
-    "outboundHint": "Calls made by sales agents to customers",
+    "outboundHint": "Calls agents made to customers. Ones the customer did not answer are a separate column",
     "inbound": "Customer → agent",
     "inboundHint": "Calls customers made to the company",
-    "missed": "Missed",
-    "missedHint": "A customer called and got no answer. This is a CALL count; outbound calls the customer did not pick up are not included",
+    "missed": "Agent didn't answer",
+    "missedHint": "A customer called and the agent did not answer. This is our responsibility",
     "calledBack": "Called back",
     "calledBackHint": "The missed number was called back within {{hours}} hours",
     "answeredOf": "{{count}} answered (of {{total}})",
@@ -861,11 +861,11 @@
     "unknownNote": "{{count}} calls have an unknown answer status — they are NOT counted. This is data from before the field existed; re-importing calls fills it in.",
     "byAgent": "By agent",
     "myRow": "My activity",
-    "byAgentHint": "\"Missed\" — a customer called and got no answer. \"Not picked up\" — the agent called and the customer did not answer. Click a row to verify",
+    "byAgentHint": "\"Agent didn't answer\" — a customer called and got no answer; that is our responsibility. \"Customer didn't answer\" — the agent called and the customer did not pick up; the agent is not at fault. Click a row to verify",
     "colOut": "Outbound",
-    "colOutNoAnswer": "Not picked up",
+    "colOutNoAnswer": "Customer didn't answer",
     "colIn": "Inbound",
-    "colMissed": "Missed",
+    "colMissed": "Agent didn't answer",
     "colCalledBack": "Called back",
     "colOpen": "Open",
     "colRate": "Callback %",
@@ -889,6 +889,14 @@
     "drillNotReached": "Not reached",
     "drillAfter": "after {{minutes}} min",
     "drillTotals": "{{clients}} customers · attempts total {{attempts}} (the \"missed\" figure in the table) · not reached {{unreached}}",
-    "noMissed": "No missed calls in this period"
+    "noMissed": "No missed calls in this period",
+    "tipOut": "Calls the agent made to customers",
+    "tipOutNoAnswer": "The agent called, the customer did not answer. Not the agent's fault",
+    "tipIn": "Calls customers made to the agent",
+    "tipMissed": "A customer called, the agent did not answer",
+    "tipClients": "How many PEOPLE could not get through. Repeat attempts by one customer count once",
+    "tipUnreached": "How many of them were still not contacted within 24 hours",
+    "tipRate": "Share of unreachable customers who were contacted afterwards",
+    "tipTalk": "Total talk time"
   }
 }
