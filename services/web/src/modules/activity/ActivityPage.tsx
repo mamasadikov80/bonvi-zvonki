@@ -37,6 +37,22 @@ import { cn, formatDuration, formatNumber } from '@/shared/lib/utils'
 import { Avatar } from '@/shared/ui/dataviz'
 import { Card, CardBody, CardHeader, EmptyState, Segmented, Skeleton } from '@/shared/ui/primitives'
 
+/** Jadval ustunlari — nom va izoh BIR JOYDA.
+ *
+ *  Ikki alohida ro'yxat qilinsa ular vaqt o'tib bir-biridan ajralib
+ *  ketardi: ustun qo'shilib, izohi unutilardi va hech narsa buni
+ *  ko'rsatmasdi. */
+const COLUMNS = [
+  { key: 'out', label: 'activity.colOut', tip: 'activity.tipOut' },
+  { key: 'outNo', label: 'activity.colOutNoAnswer', tip: 'activity.tipOutNoAnswer' },
+  { key: 'in', label: 'activity.colIn', tip: 'activity.tipIn' },
+  { key: 'missed', label: 'activity.colMissed', tip: 'activity.tipMissed' },
+  { key: 'clients', label: 'activity.colClients', tip: 'activity.tipClients' },
+  { key: 'unreached', label: 'activity.colUnreached', tip: 'activity.tipUnreached' },
+  { key: 'rate', label: 'activity.colRate', tip: 'activity.tipRate' },
+  { key: 'talk', label: 'activity.colTalk', tip: 'activity.tipTalk' },
+] as const
+
 /** «Oxirgi N kun» oralig'i — tez tugmachalar uchun.
  *
  *  `resolvePreset` ISHLATILMAYDI: undagi tayyor davrlar 7/30/45/90 va
@@ -108,6 +124,13 @@ export function ActivityPage() {
      ko'rinsa («15 javobsiz, lekin 100% qaytish») bosib tekshirish
      mumkin bo'lishi kerak. */
   const [picked, setPicked] = useState<{ id: string; name: string } | null>(null)
+
+  /* Sichqoncha qaysi ustun ustida turibdi.
+     ⚠️ Brauzerning o'z maslahatnomasi (`title`) ISHLAMAYDI: jadval
+     `overflow-x: auto` konteyner ichida va u ikkala o'qni ham qirqadi,
+     ya'ni maslahatnoma ko'rinmay qoladi. Shuning uchun izoh jadvaldan
+     TASHQARIDA, doimiy joyda chiqadi. */
+  const [hovered, setHovered] = useState<string | null>(null)
 
   return (
     <Page>
@@ -279,8 +302,22 @@ export function ActivityPage() {
       <Card>
         <CardHeader
           title={isSales ? t('activity.myRow') : t('activity.byAgent')}
-          hint={t('activity.byAgentHint')}
         />
+        {/* Ustun izohi — jadvaldan TASHQARIDA, shuning uchun qirqilmaydi.
+            Bo'sh bo'lganda umumiy tushuntirish turadi, ya'ni joy
+            sakramaydi. */}
+        <div className="px-5 pb-1">
+          <p
+            className={cn(
+              'min-h-[2.6rem] text-2xs leading-relaxed transition-colors',
+              hovered ? 'font-medium text-text' : 'text-muted',
+            )}
+          >
+            {hovered
+              ? t(COLUMNS.find((c) => c.key === hovered)?.tip ?? '')
+              : t('activity.byAgentHint')}
+          </p>
+        </div>
         {activity.isLoading ? (
           <CardBody className="space-y-2">
             {Array.from({ length: 8 }).map((_, i) => (
@@ -295,33 +332,17 @@ export function ActivityPage() {
               <thead>
                 <tr className="border-b border-border text-left">
                   <Th>{t('table.agent')}</Th>
-                  {/* Har yo'nalish JUFT ustun bilan keladi: jami va
-                      javobsiz qolgani. Tartib shunday bo'lishi kerak,
-                      aks holda «kim ko'tarmadi» degan savol qoladi. */}
-                  <Th right tip={t('activity.tipOut')}>
-                    {t('activity.colOut')}
-                  </Th>
-                  <Th right tip={t('activity.tipOutNoAnswer')}>
-                    {t('activity.colOutNoAnswer')}
-                  </Th>
-                  <Th right tip={t('activity.tipIn')}>
-                    {t('activity.colIn')}
-                  </Th>
-                  <Th right tip={t('activity.tipMissed')}>
-                    {t('activity.colMissed')}
-                  </Th>
-                  <Th right tip={t('activity.tipClients')}>
-                    {t('activity.colClients')}
-                  </Th>
-                  <Th right tip={t('activity.tipUnreached')}>
-                    {t('activity.colUnreached')}
-                  </Th>
-                  <Th right tip={t('activity.tipRate')}>
-                    {t('activity.colRate')}
-                  </Th>
-                  <Th right tip={t('activity.tipTalk')}>
-                    {t('activity.colTalk')}
-                  </Th>
+                  {COLUMNS.map((column) => (
+                    <Th
+                      key={column.key}
+                      right
+                      active={hovered === column.key}
+                      onHover={() => setHovered(column.key)}
+                      onLeave={() => setHovered(null)}
+                    >
+                      {t(column.label)}
+                    </Th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -487,27 +508,41 @@ function AgentRow({
 function Th({
   children,
   right,
-  tip,
+  active,
+  onHover,
+  onLeave,
 }: {
   children: React.ReactNode
   right?: boolean
-  /** To'liq tushuntirish — sichqoncha ustiga kelganda.
-   *
-   *  Ustun nomi QISQA bo'lishi kerak (aks holda jadval o'qilmaydi),
-   *  lekin qisqa nom hamma narsani ayta olmaydi. Izoh shu ikki
-   *  talabni birlashtiradi. */
-  tip?: string
+  /** Izohi hozir ko'rsatilayotgan ustun */
+  active?: boolean
+  onHover?: () => void
+  onLeave?: () => void
 }) {
+  const explainable = Boolean(onHover)
   return (
     <th
-      title={tip}
+      onMouseEnter={onHover}
+      onMouseLeave={onLeave}
+      /* Sensorli ekranda sichqoncha yo'q — bosish ham ishlaydi */
+      onClick={onHover}
       className={cn(
-        'whitespace-nowrap px-3 py-2.5 text-2xs font-medium uppercase tracking-wide text-muted',
+        'whitespace-nowrap px-3 py-2.5 text-2xs font-medium uppercase tracking-wide',
         right && 'text-right',
-        tip && 'cursor-help',
+        explainable && 'cursor-help transition-colors',
+        active ? 'text-accent' : 'text-muted',
       )}
     >
-      {children}
+      {/* Nuqtali chiziq — ustun izohlanishi mumkinligini KO'RSATADI.
+          Belgisiz foydalanuvchi sichqonchani olib borishni o'ylamaydi. */}
+      <span
+        className={cn(
+          explainable && 'underline decoration-dotted decoration-from-font underline-offset-4',
+          active && 'decoration-solid',
+        )}
+      >
+        {children}
+      </span>
     </th>
   )
 }
