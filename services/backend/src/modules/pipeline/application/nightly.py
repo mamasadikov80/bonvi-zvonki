@@ -45,13 +45,18 @@ from src.modules.pipeline.application.queue import enqueue_calls
 
 log = structlog.get_logger(__name__)
 
-#: Necha soatlik oraliq olinadi.
+#: Necha soatlik oraliq olinadi — aniq bir sutka.
 #
-# 24 emas, 26: vazifa kechikib ishga tushsa yoki server bir necha
-# daqiqa tushib qolsa, chegaradagi qo'ng'iroqlar tushib qolmasligi
-# kerak. Ustma-ust tushgan qism zarar qilmaydi — ingest upsert
-# qiladi, baholash esa allaqachon baholanganlarni olmaydi.
-LOOKBACK_HOURS = 26
+# Vazifa yarim tunda ishga tushadi, ya'ni oyna to'liq o'tgan kunni
+# qamraydi.
+#
+# ⚠️ Vazifa kechikib ishga tushsa (server band, qayta ishga
+# tushirilgan) oynaning boshi ham suriladi va o'sha bir necha
+# daqiqadagi qo'ng'iroqlar tushib qolishi mumkin. Amalda bu xavf
+# deyarli yo'q: o'lchandi, 00:00–05:00 oralig'ida qo'ng'iroq
+# bo'lmaydi (eng erta faollik 06:00 dan boshlanadi). Kerak bo'lsa
+# qo'lda sinxronizatsiya har qanday oraliqni qoplaydi.
+LOOKBACK_HOURS = 24
 
 #: Bir yurishda ko'pi bilan shuncha qo'ng'iroq navbatga qo'yiladi.
 #

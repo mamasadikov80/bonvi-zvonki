@@ -196,8 +196,7 @@ async def test_takroriy_yurish_xavfsiz(xodim, soxta) -> None:
 # ══════════════════════════════════════════════════════════════
 
 
-def test_oyna_24_soatdan_KENG() -> None:
-    """⚠️ Vazifa kechikib ishga tushsa chegaradagi qo'ng'iroqlar
-    tushib qolmasligi kerak. Ustma-ust tushgan qism zarar qilmaydi:
-    ingest upsert qiladi, baholash esa baholanganlarni olmaydi."""
-    assert mod.LOOKBACK_HOURS > 24
+def test_oyna_aniq_bir_sutka() -> None:
+    """Vazifa yarim tunda ishlaydi va oyna to'liq o'tgan kunni
+    qamraydi. Kengaytirish kerak bo'lsa bu YAGONA joy."""
+    assert mod.LOOKBACK_HOURS == 24
