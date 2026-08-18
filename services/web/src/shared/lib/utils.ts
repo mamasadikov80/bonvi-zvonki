@@ -12,22 +12,35 @@ export function formatDuration(seconds: number): string {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
-/** Uzoq davomiylik — "5 s 42 daq" ko'rinishida.
+/** Uzoq davomiylik — "5 soat 42 daq" ko'rinishida.
  *
  *  ⚠️ JAMLANMA uchun `formatDuration` YARAMAYDI. U daqiqa:soniya
  *  shaklini beradi va oylik yig'indida «20468:17» chiqadi — «Suhbat»
  *  sarlavhasi ostida bu son soat emas, MIQDOR bo'lib o'qiladi.
- *  O'lchandi: 30 kunlik jami aynan shunday ko'rinardi. */
+ *  O'lchandi: 30 kunlik jami aynan shunday ko'rinardi.
+ *
+ *  ⚠️ Soat «s» deb qisqartirilmaydi: «7 s 1 daq» ni odam «7 sekund
+ *  1 daqiqa» deb o'qiydi va jami suhbat vaqti bir necha soniyaday
+ *  ko'rinadi. Birliklar doim kattadan kichikka: soat → daq → son. */
 export function formatLongDuration(seconds: number): string {
-  if (seconds < 60) return `${Math.round(seconds)} son`
-  const soat = Math.floor(seconds / 3600)
-  const daq = Math.round((seconds % 3600) / 60)
-  if (!soat) return `${daq} daq`
-  // Daqiqa 60 ga yaxlitlansa soatga qo'shiladi — «5 s 60 daq» bo'lmasin
-  return daq === 60 ? `${soat + 1} s` : daq ? `${soat} s ${daq} daq` : `${soat} s`
+  const jami = Math.round(seconds)
+  if (jami < 60) return `${jami} son`
+  const soat = Math.floor(jami / 3600)
+  if (!soat) {
+    const daq = Math.floor(jami / 60)
+    const son = jami % 60
+    return son ? `${daq} daq ${son} son` : `${daq} daq`
+  }
+  const daq = Math.round((jami % 3600) / 60)
+  // Daqiqa 60 ga yaxlitlansa soatga qo'shiladi — «5 soat 60 daq» bo'lmasin
+  return daq === 60
+    ? `${soat + 1} soat`
+    : daq
+      ? `${soat} soat ${daq} daq`
+      : `${soat} soat`
 }
 
-/** Daqiqani odam o'qiydigan shaklga: 42 → "42 daq", 158.7 → "2 s 39 daq".
+/** Daqiqani odam o'qiydigan shaklga: 42 → "42 daq", 158.7 → "2 soat 39 daq".
  *
  *  ⚠️ Katta qiymat daqiqada qolsa o'qilmaydi: «158,7 daq» ni odam
  *  soatga o'zi aylantirishi kerak bo'ladi. Haqiqiy ma'lumotda median
