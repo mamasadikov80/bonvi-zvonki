@@ -21,6 +21,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.modules.calls.infrastructure.models import CallModel
+from src.modules.pipeline.application.orchestrator import resolve_min_duration
 from src.modules.pipeline.domain.config import load_config
 from src.modules.pipeline.domain.entities import PipelineStage
 from src.modules.pipeline.infrastructure.models import CallPipelineStateModel
@@ -212,6 +213,13 @@ async def recent_failures(
 
 async def full_status(session: AsyncSession) -> dict[str, Any]:
     config = load_config()
+    # ⚠️ `config.min_duration_sec` — MUHIT qiymati, quvur esa SOZLAMANI
+    # ishlatadi. Ular farq qilardi (30 va 10) va admin holat panelida
+    # 30 ni ko'rib «10–29 soniyali qo'ng'iroqlar baholanmaydi» degan
+    # xulosaga kelardi — aslida baholanardi. `resolve_min_duration`
+    # aynan shu ikkilanishni yo'q qilish uchun yozilgan edi, bu joy
+    # esa e'tibordan chetda qolgan.
+    min_duration = await resolve_min_duration(session, config)
     depth, workers, database = await asyncio.gather(
         broker_depth(), worker_snapshot(), db_snapshot(session)
     )
@@ -226,7 +234,7 @@ async def full_status(session: AsyncSession) -> dict[str, Any]:
             "asr_rpm": config.asr_rpm,
             "llm_rpm": config.llm_rpm,
             "max_retries": config.max_retries,
-            "min_duration_sec": config.min_duration_sec,
+            "min_duration_sec": min_duration,
         },
         **database,
     }

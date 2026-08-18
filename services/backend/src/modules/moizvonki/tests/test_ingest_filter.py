@@ -173,9 +173,12 @@ async def test_xodimi_topilmagan_qongiroq_saqlanmaydi(xodim) -> None:
         SoxtaKlient((_call(uuid.uuid4().hex[:8], user_id="notanish", recording=""),))
     )
 
-    # Audiosi yo'q — bu ham to'g'ri sanaladi
-    assert report.skipped_no_recording == 1
-    # ...lekin saqlanmasligining SABABI xodim, audio emas
+    # ⚠️ Audio soniga TUSHMAYDI. `skipped_no_recording` «saqlandi,
+    # lekin baholanmaydi» degani — bu qator esa umuman saqlanmadi.
+    # Ikkalasiga qo'shish hisobot kataklarini `fetched` ga
+    # yig'ilmaydigan qilardi.
+    assert report.skipped_no_recording == 0
+    # Saqlanmasligining sababi — xodim, audio emas
     assert report.skipped_no_agent == 1
     assert report.created == 0
     assert report.unmatched, "admin kimning identifikatorini to'ldirishni bilishi kerak"
@@ -315,3 +318,78 @@ async def test_javobsiz_qongiroq_belgisi_saqlanadi(xodim) -> None:
     assert rows[f"{token}-a"].answered is False
     assert rows[f"{token}-a"].duration_sec == 0
     assert rows[f"{token}-b"].answered is True
+
+
+@pytest.mark.asyncio
+async def test_qayta_sinxronizatsiya_answered_ni_OCHIRMAYDI(xodim) -> None:
+    """⚠️ Bilingan javob holati `NULL` bilan bosib ketilmasligi kerak.
+
+    MoyZvonki `answered` maydonini ba'zi davrlarda umuman bermaydi —
+    bu haqiqiy ma'lumotda tasdiqlangan. `coalesce` bo'lmasa o'sha
+    davrni qayta sinxronlash bilingan `false` ni `NULL` ga aylantirardi,
+    hisobot esa `NULL` ni sanamaydi: javobsizlar soni JIMGINA kamayardi.
+
+    Xato «yaxshi tomonga» qarab bo'lgani uchun uni hech kim sezmasdi —
+    ko'rsatkich yaxshilangandek ko'rinardi."""
+    token = uuid.uuid4().hex[:8]
+    # Birinchi yurish: javobsiz ekani ANIQ
+    await _run(
+        SoxtaKlient((_call(f"{token}-a", recording="", answered=0, duration=0),))
+    )
+    (row,) = await _rows(xodim)
+    assert row.answered is False
+
+    # Ikkinchi yurish: MoyZvonki maydonni BERMADI
+    await _run(SoxtaKlient((_call(f"{token}-a", recording=""),)))
+
+    (row,) = await _rows(xodim)
+    assert row.answered is False, (
+        "bilingan qiymat saqlanishi kerak — `NULL` uni bosib ketmasin"
+    )
+
+
+@pytest.mark.asyncio
+async def test_nomalum_qiymat_keyin_TOLDIRILADI(xodim) -> None:
+    """Teskari yo'nalish ochiq qolishi kerak: `NULL` qator qayta
+    sinxronlashda haqiqiy qiymat bilan to'ldirilsin."""
+    token = uuid.uuid4().hex[:8]
+    await _run(SoxtaKlient((_call(f"{token}-a", recording="records/a.mp3"),)))
+    (row,) = await _rows(xodim)
+    assert row.answered is None
+
+    await _run(
+        SoxtaKlient((_call(f"{token}-a", recording="records/a.mp3", answered=1),))
+    )
+    (row,) = await _rows(xodim)
+    assert row.answered is True
+
+
+@pytest.mark.asyncio
+async def test_hisobot_sonlari_IKKI_MARTA_sanamaydi(xodim) -> None:
+    """⚠️ Audiosi ham, xodimi ham yo'q qo'ng'iroq BITTA songa tushadi.
+
+    Ilgari audio hisobi xodim tekshiruvidan OLDIN turardi va bunday
+    qator ikkala songa birdan qo'shilardi — hisobotdagi kataklar
+    `fetched` ga yig'ilmay qolardi va admin sonlar nega mos
+    kelmayotganini tushunmasdi."""
+    report = await _run(
+        SoxtaKlient(
+            (
+                # Xodimi yo'q + audiosi yo'q
+                _call(uuid.uuid4().hex[:8], user_id="notanish", recording=""),
+                # Xodimi bor + audiosi yo'q
+                _call(uuid.uuid4().hex[:8], recording="", answered=0),
+                # Xodimi bor + audiosi bor
+                _call(uuid.uuid4().hex[:8], recording="records/a.mp3"),
+            )
+        )
+    )
+
+    assert report.fetched == 3
+    assert report.skipped_no_agent == 1
+    assert report.skipped_no_recording == 1, (
+        "faqat SAQLANGAN, lekin baholanmaydigan qator sanalishi kerak"
+    )
+    assert report.created == 2
+    # Kataklar `fetched` ga yig'iladi
+    assert report.created + report.skipped_no_agent == report.fetched - 0

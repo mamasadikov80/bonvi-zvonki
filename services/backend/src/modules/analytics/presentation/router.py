@@ -72,12 +72,8 @@ def _activity_window(
             "Teskari oraliq jimgina BOSHQA davr ma'lumotini qaytarardi."
         )
     if since is None or until is None:
-        # `days` bo'yicha: mahalliy butun kunlarga tekislanadi —
-        # `ActivityService` bilan bir xil qoida
         hozir = datetime.now(UTC)
-        mahalliy = hozir.astimezone(ZoneInfo(LOCAL_TZ))
-        kun_boshi = mahalliy.replace(hour=0, minute=0, second=0, microsecond=0)
-        since = (kun_boshi - timedelta(days=days - 1)).astimezone(UTC)
+        since = last_days_start(days, hozir)
         until = hozir
     return since, until
 
@@ -97,6 +93,25 @@ def _as_utc(moment: datetime | None) -> datetime | None:
     return moment.astimezone(UTC)
 
 
+def last_days_start(days: int, now: datetime | None = None) -> datetime:
+    """«Oxirgi N kun» ning boshlanishi — YAGONA TA'RIF.
+
+    ⚠️ NEGA BITTA JOYDA. Ilgari «30 kun» ikki xil hisoblanardi:
+    analitika `hozir − 30×24 soat` (aylanuvchi oyna), faollik esa
+    mahalliy yarim tundan boshlangan butun kunlar. Natijada bir xil
+    davr uchun ikki ekranda ikki xil son chiqardi — o'lchandi, 22 003
+    va 21 513. Menejer buni nosozlik deb o'qirdi va u haq bo'lardi.
+
+    Butun kunlar tanlangan, chunki odam «oxirgi 7 kun» deganda
+    kalendar kunlarni tushunadi, «168 soat» ni emas. Kunlik grafik
+    ham shu bilan to'g'ri chiziladi.
+    """
+    hozir = now or datetime.now(UTC)
+    mahalliy = hozir.astimezone(ZoneInfo(LOCAL_TZ))
+    kun_boshi = mahalliy.replace(hour=0, minute=0, second=0, microsecond=0)
+    return (kun_boshi - timedelta(days=days - 1)).astimezone(UTC)
+
+
 def build_filter(
     date_from: Annotated[datetime | None, Query(description="Boshlanish sanasi")] = None,
     date_to: Annotated[datetime | None, Query(description="Tugash sanasi")] = None,
@@ -113,7 +128,7 @@ def build_filter(
     """
     now = datetime.now(UTC)
     return AnalyticsFilter(
-        date_from=date_from or (now - timedelta(days=days)),
+        date_from=date_from or last_days_start(days, now),
         date_to=_inclusive_end(date_to) or now,
         agent_ids=list(agent_ids) if agent_ids else None,
         regions=list(regions) if regions else None,

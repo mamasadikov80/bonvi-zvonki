@@ -79,7 +79,6 @@
     "trendHint": "Diverging lines mean something needs a look",
     "distribution": "Score distribution",
     "blocks": "Rubric blocks",
-    "regions": "By region",
     "redFlagTypes": "Red flag types",
     "aiScore": "AI score",
     "clientRating": "Client rating",
@@ -274,7 +273,7 @@
     "sync": {
       "action": "Pull calls",
       "title": "Pull calls from MoyZvonki",
-      "hint": "Calls in the selected period that have audio are copied into the database",
+      "hint": "All calls in the selected period are copied into the database. Ones without audio are not scored by AI but count in the activity report",
       "period": "Period",
       "periodHint": "Which date range to pull",
       "supervised": "All employees",
@@ -288,7 +287,7 @@
       "updated": "Updated",
       "fetched": "Reviewed",
       "skippedAgent": "No employee",
-      "skippedRecording": "No audio — not pulled",
+      "skippedRecording": "No audio — stored, not scored",
       "truncated": "Limit reached — split the period into smaller ranges and retry",
       "unmatched": "Owners without an employee",
       "notConfigured": "MoyZvonki is not connected yet",
@@ -890,11 +889,11 @@
     "tipIn": "Calls customers made to the agent",
     "tipMissed": "A customer called, the agent did not answer",
     "tipClients": "How many PEOPLE could not get through. Repeat attempts by one customer count once",
-    "tipUnreached": "How many of them were still not contacted within 24 hours",
+    "tipUnreached": "How many of them were still not contacted within {{hours}} hours",
     "tipRate": "Share of unreachable customers who were contacted afterwards",
     "tipTalk": "Total talk time",
     "colMedian": "Callback time",
     "tipMedian": "How long the agent takes to call back (median). The rate shows how many were called back; this shows how long they waited",
-    "minutesShort": "{{minutes}} min"
+    "allHidden": "All lines are hidden — click a label to bring one back"
   }
 }

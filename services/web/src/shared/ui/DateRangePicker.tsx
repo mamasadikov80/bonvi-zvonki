@@ -136,6 +136,9 @@ export function DateRangePicker({
       setBrowseYear(value.year ?? CURRENT_YEAR)
       setFrom(toInputValue(value.from))
       setTo(toInputValue(value.to))
+      /* Oyna ochilganda ham yangilanadi: aks holda shunchaki ochib
+         yopish ham keraksiz so'rov yuborardi */
+      applied.current = `${toInputValue(value.from)}|${toInputValue(value.to)}`
     }
     setOpen(next)
   }
@@ -174,7 +177,15 @@ export function DateRangePicker({
      `onChange` ref'da saqlanadi: ota-komponent uni inline funksiya
      sifatida uzatsa, har renderda yangi bo'lib chiqadi va taymer
      qayta-qayta tiklanib hech qachon ishlamay qolardi. */
-  const applied = useRef('')
+  /* ⚠️ JORIY QIYMAT bilan boshlanadi, bo'sh satr bilan EMAS.
+     Bo'sh bo'lsa birinchi renderdayoq «o'zgardi» deb hisoblanib,
+     500 ms dan keyin `onChange` bejiz chaqirilardi. Natijada
+     foydalanuvchi hech narsaga tegmagan bo'lsa ham butun sahifa
+     qaytadan yuklanardi: kartalar, grafik va jadval yana skeletonga
+     aylanardi va analitika so'rovi ikki marta ketardi.
+     Faqat boshlang'ich davri «Oraliq» bo'lgan sahifalarda ko'rinardi —
+     Faollik bo'limi aynan shunday. */
+  const applied = useRef(`${toInputValue(value.from)}|${toInputValue(value.to)}`)
   const latestChange = useRef(onChange)
   latestChange.current = onChange
   // `earliest` — har renderda yangi `Date` obyekti bo'lishi mumkin,

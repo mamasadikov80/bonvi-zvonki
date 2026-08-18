@@ -15,7 +15,13 @@
  * nohaq ayblardi (o'lchandi: 7 kunda 983 va 1047).
  */
 
-import { ArrowDownLeft, ArrowUpRight, PhoneMissed, UserX } from 'lucide-react'
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  ChevronRight,
+  PhoneMissed,
+  UserX,
+} from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -33,7 +39,12 @@ import { useAuth } from '@/modules/auth/store'
 import { FilterBar } from '@/modules/dashboard/components/FilterBar'
 import { Page, PageHeader } from '@/shared/layout/Page'
 import { customRange, type DateRange } from '@/shared/lib/date'
-import { cn, formatDuration, formatNumber } from '@/shared/lib/utils'
+import {
+  cn,
+  formatLongDuration,
+  formatMinutes,
+  formatNumber,
+} from '@/shared/lib/utils'
 import { Avatar } from '@/shared/ui/dataviz'
 import { Card, CardBody, CardHeader, EmptyState, Segmented, Skeleton } from '@/shared/ui/primitives'
 
@@ -323,7 +334,7 @@ export function ActivityPage() {
         {/* Ustun izohi — jadvaldan TASHQARIDA, shuning uchun qirqilmaydi.
             Bo'sh bo'lganda umumiy tushuntirish turadi, ya'ni joy
             sakramaydi. */}
-        <div className="px-5 pb-1">
+        <div className="px-6 pb-1">
           <p
             className={cn(
               'min-h-[2.6rem] text-2xs leading-relaxed transition-colors',
@@ -400,12 +411,10 @@ export function ActivityPage() {
                     </Td>
                     <Td right>
                       {activity.data?.callback_median_minutes != null
-                        ? t('activity.minutesShort', {
-                            minutes: activity.data.callback_median_minutes,
-                          })
+                        ? formatMinutes(activity.data.callback_median_minutes)
                         : '—'}
                     </Td>
-                    <Td right>{formatDuration(total.talk_seconds)}</Td>
+                    <Td right>{formatLongDuration(total.talk_seconds)}</Td>
                   </tr>
                 </tfoot>
               )}
@@ -480,25 +489,42 @@ function AgentRow({
   /** Berilmasa qator bosilmaydi — ko'rsatadigan tafsilot yo'q */
   onPick?: () => void
 }) {
-  const { t } = useTranslation()
   return (
     <tr
       onClick={onPick}
+      /* Klaviatura yo'li: `tr` o'zi fokuslanmaydi, shuning uchun
+         ochiq belgilanadi. Busiz tafsilot oynasi faqat sichqoncha
+         bilan ochilardi. */
+      tabIndex={onPick ? 0 : undefined}
+      role={onPick ? 'button' : undefined}
+      onKeyDown={
+        onPick
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                onPick()
+              }
+            }
+          : undefined
+      }
       className={cn(
         'border-b border-border/50 last:border-0',
-        onPick && 'cursor-pointer transition-colors hover:bg-surface-2/60',
+        onPick &&
+          'cursor-pointer transition-colors hover:bg-surface-2/60 focus-visible:bg-surface-2/60',
       )}
-      title={onPick ? undefined : ''}
     >
       <Td>
         <div className="flex items-center gap-2.5">
           <Avatar name={row.agent_name} size="sm" />
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <div className="truncate font-medium">{row.agent_name}</div>
             {row.region && (
               <div className="truncate text-2xs text-muted">{row.region}</div>
             )}
           </div>
+          {/* Belgi bo'lmasa tafsilot oynasi TOPILMAYDI: yagona ishora
+              sichqoncha ustiga kelgandagi kursor edi */}
+          {onPick && <ChevronRight className="size-4 shrink-0 text-muted" />}
         </div>
       </Td>
       <Td right>{formatNumber(row.outbound_total)}</Td>
@@ -528,11 +554,11 @@ function AgentRow({
           bitta ko'rsatkichdek ko'rsatardi. */}
       <Td right className={cn('font-medium', medianTone(row.callback_median_minutes))}>
         {row.callback_median_minutes != null
-          ? t('activity.minutesShort', { minutes: row.callback_median_minutes })
+          ? formatMinutes(row.callback_median_minutes)
           : '—'}
       </Td>
       <Td right className="text-muted">
-        {formatDuration(row.talk_seconds)}
+        {formatLongDuration(row.talk_seconds)}
       </Td>
     </tr>
   )
@@ -555,27 +581,37 @@ function Th({
   const explainable = Boolean(onHover)
   return (
     <th
-      onMouseEnter={onHover}
-      onMouseLeave={onLeave}
-      /* Sensorli ekranda sichqoncha yo'q — bosish ham ishlaydi */
-      onClick={onHover}
       className={cn(
         'whitespace-nowrap px-3 py-2.5 text-2xs font-medium uppercase tracking-wide',
         right && 'text-right',
-        explainable && 'cursor-help transition-colors',
         active ? 'text-accent' : 'text-muted',
       )}
     >
-      {/* Nuqtali chiziq — ustun izohlanishi mumkinligini KO'RSATADI.
-          Belgisiz foydalanuvchi sichqonchani olib borishni o'ylamaydi. */}
-      <span
-        className={cn(
-          explainable && 'underline decoration-dotted decoration-from-font underline-offset-4',
-          active && 'decoration-solid',
-        )}
-      >
-        {children}
-      </span>
+      {explainable ? (
+        /* ⚠️ HAQIQIY tugma, `th` ga osilgan hodisa emas.
+           `th` fokuslanmaydi, ya'ni klaviatura bilan izohni ochib
+           bo'lmasdi. Bosish esa `onHover` ga bog'langan edi va
+           izohni faqat YOQARDI — sensorli ekranda u yopishib
+           qolardi, chunki «sichqoncha chiqdi» hodisasi yo'q. */
+        <button
+          type="button"
+          onMouseEnter={onHover}
+          onMouseLeave={onLeave}
+          onFocus={onHover}
+          onBlur={onLeave}
+          onClick={() => (active ? onLeave?.() : onHover?.())}
+          aria-expanded={active}
+          className={cn(
+            'cursor-help underline decoration-dotted decoration-from-font underline-offset-4',
+            'transition-colors',
+            active && 'decoration-solid',
+          )}
+        >
+          {children}
+        </button>
+      ) : (
+        children
+      )}
     </th>
   )
 }

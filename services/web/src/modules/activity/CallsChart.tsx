@@ -110,6 +110,12 @@ export function CallsChart({
       }))
 
   if (!rows.length) return <EmptyState message={t('common.noData')} />
+  /* Hamma qator o'chirilsa grafik bo'sh quti bo'lib qoladi va u
+     «ma'lumot yo'q» dan farq qilmaydi — foydalanuvchi o'zi
+     o'chirganini unutgan bo'lishi mumkin */
+  if (hidden.size === SERIES.length) {
+    return <EmptyState message={t('activity.allHidden')} />
+  }
 
   return (
     <div>

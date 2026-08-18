@@ -445,8 +445,11 @@ class SyncResult(BaseModel):
     skipped_not_selected: int = 0
     """Admin tanlamagan xodimga tegishli — xato emas, filtr natijasi."""
     skipped_no_recording: int
-    """Audiosi yo'q — bazaga umuman yozilmadi (javobsiz qo'ng'iroq,
-    muddati o'tgan yozuv). Bu ham xato emas, asosiy filtr natijasi."""
+    """Audiosi yo'q — SAQLANDI, lekin AI bilan baholanmaydi.
+
+    ⚠️ Nom aldamchi: bu qatorlar tashlab ketilgani EMAS. Ular faollik
+    hisoboti uchun kerak (javobsizlar soni, qaytib aloqaga chiqish) va
+    javobsiz qo'ng'iroqda yozuv hech qachon bo'lmaydi."""
     truncated: bool
     unmatched: list[UnmatchedOwner]
     message: str
@@ -568,8 +571,10 @@ async def sync_window() -> SyncWindow:
 async def sync_calls(payload: SyncRequest, session: DbSession) -> SyncResult:
     """Sana oralig'idagi qo'ng'iroqlarni `calls` jadvaliga ko'chiradi.
 
-    Faqat AUDIOSI BOR qo'ng'iroqlar saqlanadi — qolganlari baholanmaydi,
-    demak ro'yxatda ham kerak emas.
+    BARCHA qo'ng'iroqlar saqlanadi. Audiosi yo'qlari AI bilan
+    baholanmaydi, lekin faollik hisobotida sanaladi — javobsiz
+    qo'ng'iroqda yozuv hech qachon bo'lmaydi va ularsiz «nechta
+    propushenniy bo'ldi» degan savolga javob berib bo'lmasdi.
 
     Qayta-qayta ishga tushirish xavfsiz: `external_id` (MoyZvonki
     `db_call_id`) bo'yicha UNIQUE upsert qilinadi.
@@ -632,8 +637,9 @@ async def sync_calls(payload: SyncRequest, session: DbSession) -> SyncResult:
         # Bu son hisobot kartochkasida ham bor, lekin xulosa qatorida
         # aytilmasa «nega 400 tadan 90 tasi keldi?» degan savol qoladi
         message += (
-            f". {report.skipped_no_recording} tasida audio yo'q edi "
-            "(javobsiz yoki muddati o'tgan) — ular olinmadi"
+            f". {report.skipped_no_recording} tasida audio yo'q "
+            "(javobsiz yoki muddati o'tgan) — saqlandi, lekin AI bilan "
+            "baholanmaydi"
         )
 
     return SyncResult(

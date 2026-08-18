@@ -184,8 +184,11 @@ class IngestService:
     ) -> IngestReport:
         """Sana oralig'idagi qo'ng'iroqlarni ko'chiradi.
 
-        Saqlanish sharti uchta: audiosi bor + xodimi topilgan + admin
-        tanlagan ro'yxatda. Uchalasi ham hisobotda alohida sanaladi.
+        Saqlanish sharti ikkita: xodimi topilgan + admin tanlagan
+        ro'yxatda. Audio SHART EMAS — javobsiz qo'ng'iroqlarda u hech
+        qachon bo'lmaydi va ular faollik hisoboti uchun kerak.
+        `skipped_no_recording` esa saqlangan, lekin BAHOLANMAYDIGAN
+        qatorlarni sanaydi.
 
         `agent_ids` — FAQAT shu xodimlarning qo'ng'iroqlari saqlanadi.
         Berilmasa — `external_id` si bor barcha xodimlarniki.
@@ -236,17 +239,23 @@ class IngestService:
                     # baholanmaydi (`select_calls` da `audio_key IS NOT NULL`
                     # sharti bor) va ro'yxatda sukut bo'yicha savdo turi
                     # ko'rsatiladi, ular esa tasniflanmagan bo'lib qoladi.
-                    if not call.has_recording:
-                        # Bu XATO emas va tashlab ketish ham emas — hisobotda
-                        # «audiosi yo'q, demak baholanmaydi» degan son
-                        report.skipped_no_recording += 1
-
                     agent_id = directory.agent_for(call)
                     if agent_id is None:
                         # JIMGINA tashlab ketilmaydi — hisobotga tushadi
                         report.skipped_no_agent += 1
                         report.note_unmatched(call)
                         continue
+
+                    # ⚠️ Audio hisobi XODIM TEKSHIRUVIDAN KEYIN.
+                    #
+                    # Ilgari u oldinda turardi va xodimi ham, audiosi
+                    # ham yo'q qo'ng'iroq IKKI SONGA birdan qo'shilardi —
+                    # hisobotdagi kataklar `fetched` ga yig'ilmay
+                    # qolardi. Bu son «saqlandi, lekin baholanmaydi»
+                    # degani, ya'ni faqat haqiqatan saqlangan
+                    # qatorlarga tegishli bo'lishi kerak.
+                    if not call.has_recording:
+                        report.skipped_no_recording += 1
 
                     # Admin aniq xodimlarni tanlagan bo'lsa — qolganlari
                     # o'tkazib yuboriladi. Bu «xodimi topilmadi» EMAS,
@@ -332,10 +341,29 @@ class IngestService:
                 "direction": stmt.excluded.direction,
                 "started_at": stmt.excluded.started_at,
                 "duration_sec": stmt.excluded.duration_sec,
-                # `coalesce` QO'YILMAYDI: `answered` — MoyZvonki'dagi
-                # joriy haqiqat va u har doim keladi. Eski qatordagi
-                # `NULL` ni aynan shu yangilanish to'ldiradi.
-                "answered": stmt.excluded.answered,
+                # ⚠️ `coalesce` MAJBURIY — «u har doim keladi» degan
+                # taxmin XATO bo'lib chiqdi.
+                #
+                # `_flag_or_none` maydon umuman kelmaganda `None`
+                # qaytaradi va MoyZvonki buni AMALDA qiladi: bazadagi
+                # `answered IS NULL` qatorlarning hammasi bitta kunga
+                # (2026-07-03) tegishli va ular ustun paydo
+                # bo'lgandan KEYIN yozilgan. Ya'ni bu «eski ma'lumot»
+                # emas, provayderning o'sha davr uchun xatti-harakati.
+                #
+                # `coalesce` siz o'sha davrni qayta sinxronlash
+                # bilingan `true`/`false` ni `NULL` bilan bosib
+                # ketardi. Hisobot esa `NULL` ni HECH QAYERDA
+                # sanamaydi — javobsizlar soni JIMGINA kamayardi.
+                # Xato «yaxshi tomonga» qarab bo'lgani uchun uni hech
+                # kim sezmasdi: ko'rsatkich yaxshilangandek ko'rinardi.
+                #
+                # `coalesce` yangi qiymat kelganda uni oladi, ya'ni
+                # `NULL` ni to'ldirish imkoniyati saqlanib qoladi —
+                # faqat teskarisi to'siladi.
+                "answered": func.coalesce(
+                    stmt.excluded.answered, CallModel.answered
+                ),
                 # Muddati o'tgan yozuv havolasini saqlab qolishning
                 # ASOSIY kafolati — yuqoridagi filtr: `recording` si
                 # bo'sh qo'ng'iroq bu yergacha yetib kelmaydi, ya'ni

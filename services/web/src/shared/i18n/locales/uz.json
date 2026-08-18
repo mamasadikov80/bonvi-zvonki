@@ -79,7 +79,6 @@
     "trendHint": "Ikki chiziq bir-biridan uzoqlashsa — tekshirish kerak",
     "distribution": "Ball taqsimoti",
     "blocks": "Rubrika bloklari",
-    "regions": "Hududlar bo'yicha",
     "redFlagTypes": "Qoidabuzarlik turlari",
     "aiScore": "AI bahosi",
     "clientRating": "Client bahosi",
@@ -274,7 +273,7 @@
     "sync": {
       "action": "Qo'ng'iroqlarni olish",
       "title": "MoyZvonki'dan qo'ng'iroqlarni olish",
-      "hint": "Tanlangan davrdagi, audiosi bor qo'ng'iroqlar bazaga ko'chiriladi",
+      "hint": "Tanlangan davrdagi barcha qo'ng'iroqlar bazaga ko'chiriladi. Audiosi yo'qlari AI bilan baholanmaydi, lekin faollik hisobotida sanaladi",
       "period": "Davr",
       "periodHint": "Qaysi sanalar oralig'i tortib olinadi",
       "supervised": "Barcha xodimlar",
@@ -288,7 +287,7 @@
       "updated": "Yangilandi",
       "fetched": "Ko'rib chiqildi",
       "skippedAgent": "Xodimsiz",
-      "skippedRecording": "Audiosiz — olinmadi",
+      "skippedRecording": "Audiosiz — saqlandi, baholanmaydi",
       "truncated": "Chegaraga yetildi — davrni kichikroq bo'laklarga bo'lib qayta ishga tushiring",
       "unmatched": "Xodimga bog'lanmagan egalar",
       "notConfigured": "MoyZvonki hali ulanmagan",
@@ -890,11 +889,11 @@
     "tipIn": "Mijozlar xodimga qilgan qo'ng'iroqlar",
     "tipMissed": "Mijoz qo'ng'iroq qildi, xodim javob bermadi",
     "tipClients": "Necha NAFAR mijoz javob ololmagan. Bir odamning takroriy urinishlari bir marta sanaladi",
-    "tipUnreached": "Ulardan qanchasi bilan 24 soat ichida keyin ham gaplashilmagan",
+    "tipUnreached": "Ulardan qanchasi bilan {{hours}} soat ichida keyin ham gaplashilmagan",
     "tipRate": "Javob ololmagan mijozlarning qanchasi bilan keyin gaplashilgan",
     "tipTalk": "Jami suhbat vaqti",
     "colMedian": "Qaytish vaqti",
     "tipMedian": "Xodim javobsiz qo'ng'iroqqa qancha vaqtda qaytadi (median). Daraja «nechtasiga qaytdi» ni, bu esa «qancha kuttirdi» ni ko'rsatadi",
-    "minutesShort": "{{minutes}} daq"
+    "allHidden": "Barcha qatorlar yashirilgan — yorliqni bosib qaytaring"
   }
 }

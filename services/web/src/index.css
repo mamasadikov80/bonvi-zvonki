@@ -34,9 +34,15 @@
     --accent-soft: 208 72% 95.5%;
 
     /* Semantik (aksentdan alohida) */
-    --good: 152 60% 42%;
-    --warn: 36 92% 52%;
-    --bad: 352 78% 58%;
+    /* ⚠️ MATN sifatida ishlatiladi, shuning uchun oq fonda o'qilishi
+       SHART. Avvalgi qiymatlar kontrast bo'yicha yiqilardi:
+       good 2,92:1 · warn 2,19:1 · bad 3,97:1 (talab — 4,5:1).
+       Eng yomoni sariq edi: «qaytish 78%» degan muhim son deyarli
+       ko'rinmasdi va aynan YORUG' rejim sukut holati.
+       Yangi qiymatlar: 4,92 · 4,73 · 5,51. */
+    --good: 152 62% 31%;
+    --warn: 30 95% 36%;
+    --bad: 352 74% 46%;
 
     /* Soya rangi — sof qora emas, aksent tomon og'gan */
     --shadow: 214 45% 22%;
@@ -204,7 +210,10 @@
 
   /* Keng kontent o'z konteynerida siljisin */
   .scroll-x {
-    @apply overflow-x-auto;
+    /* `rounded-b-2xl` — karta ichidagi jadval kartaning yumaloq
+       burchagidan chiqib ketardi: to'g'ri burchakli scroll qutisi va
+       uning gorizontal aylantirgichi radius ustiga chizilardi */
+    @apply overflow-x-auto rounded-b-2xl;
   }
 
   /* ── Bonvi logotipi ────────────────────────────────────────

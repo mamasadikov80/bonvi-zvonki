@@ -189,7 +189,21 @@ class AnalyticsService:
         Shuning uchun faqat qo'ng'iroqning O'ZIGA tegishli filtrlar
         qo'llanadi: sana, xodim, hudud.
         """
-        conditions = [CallModel.status == CallStatus.COMPLETED]
+        # ⚠️ `status = COMPLETED` SHARTI ATAYLAB YO'Q.
+        #
+        # Bu razrez HAJMni ko'rsatadi, sifatni emas. Holat sharti
+        # qo'yilsa u funksiyaning butun maqsadini teskarisiga
+        # aylantiradi: baholanmagan qo'ng'iroqlar (audiosizlar va
+        # navbatdagilar) chiqib qolib, menejer 22 000 ta qo'ng'iroq
+        # bo'lgan oyda «72» degan raqamni ko'radi — ya'ni aynan
+        # «tizim ma'lumot yo'qotdi» degan taassurot paydo bo'ladi.
+        #
+        # O'lchandi: shart bilan 72, shartsiz 22 026. Yonidagi
+        # «Faollik» bo'limi esa 21 513 deb ko'rsatadi — bir xil davr,
+        # 300 barobar farq. Ikki ekran bir-biriga zid bo'lardi.
+        #
+        # Tasniflanmaganlar `unknown` katagiga tushadi va yo'qolmaydi.
+        conditions = []
         if f.date_from:
             conditions.append(CallModel.started_at >= f.date_from)
         if f.date_to:
@@ -204,7 +218,7 @@ class AnalyticsService:
                 select(CallModel.call_type, func.count(CallModel.id))
                 .select_from(CallModel)
                 .join(AgentModel, AgentModel.id == CallModel.agent_id)
-                .where(and_(*conditions))
+                .where(and_(True, *conditions))
                 .group_by(CallModel.call_type)
             )
         ).all()
