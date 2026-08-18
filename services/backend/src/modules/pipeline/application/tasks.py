@@ -71,3 +71,15 @@ def process_batch_task(call_ids: list[str], force: bool = False) -> dict[str, An
 def health_task() -> dict[str, str]:
     """Worker tirikligini tekshirish uchun eng arzon vazifa."""
     return {"status": "ok", "stage": PipelineStage.QUEUED.value}
+
+
+@shared_task(name="pipeline.nightly", acks_late=True)
+def nightly_task() -> dict[str, Any]:
+    """Kunlik yurish: MoyZvonki'dan tortish + baholashga qo'yish.
+
+    Har kuni Toshkent vaqti bilan yarim tunda ishga tushadi
+    (`beat_schedule`). Qo'lda ham chaqirsa bo'ladi — idempotent.
+    """
+    from src.modules.pipeline.application.nightly import run_nightly
+
+    return run_async(run_nightly())

@@ -110,6 +110,24 @@ celery_app.conf.beat_schedule = {
         "schedule": crontab(minute="0", hour="10-18"),
         "options": {"queue": PIPELINE_QUEUE},
     },
+    # ── Kunlik yurish ─────────────────────────────────────────
+    #
+    # Har kuni yarim tunda: oxirgi sutkadagi qo'ng'iroqlarni
+    # MoyZvonki'dan tortadi va baholashga qo'yadi.
+    #
+    # Vaqt mintaqasi yuqorida `Asia/Tashkent` deb belgilangan, ya'ni
+    # `hour=0` aynan Toshkent yarim tuni (UTC 19:00). Buni UTC deb
+    # o'ylab qo'yish 5 soatlik siljish berardi — natijalar ertalab
+    # emas, kunduzi tayyor bo'lardi.
+    #
+    # Nega kechasi: kunduzi xodimlar ishlaydi va MoyZvonki so'rovlari
+    # ularga xalaqit qilmasligi kerak; AI chegaralari ham tiklangan
+    # bo'ladi; natijalar esa ertalabgacha tayyor bo'ladi.
+    "nightly-pipeline": {
+        "task": "pipeline.nightly",
+        "schedule": crontab(minute="0", hour="0"),
+        "options": {"queue": PIPELINE_QUEUE},
+    },
 }
 
 
