@@ -1,0 +1,785 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Javobsiz qo'ng'iroqlar qanday sanaladi</title>
+
+<style>
+  /* ── Ranglar «Bonvi baholash tizimi» hujjati bilan BIR XIL ────
+     Ikkala hujjat bir oilaga tegishli bo'lishi kerak. Bu yerga
+     faqat qo'ng'iroq yo'nalishlari uchun ma'noli ranglar qo'shildi:
+     ular bezak emas, mazmunning o'zi. */
+  :root {
+    --ground: #f3f6fa;
+    --surface: #ffffff;
+    --ink: #121a24;
+    --ink-soft: #58657a;
+    --hair: #dee4ee;
+
+    --navy: #1d4e79;
+    --navy-soft: #e7eff7;
+    --gold: #a9741a;
+    --gold-soft: #faf0dc;
+
+    /* Ma'noli ranglar — qo'ng'iroq turlari */
+    --in: #1d4e79;          /* kiruvchi: mijoz bizga */
+    --in-soft: #e7eff7;
+    --out: #1f7a58;         /* chiquvchi: biz mijozga */
+    --out-soft: #e2f1ea;
+    --miss: #a8332a;        /* javobsiz qolgan */
+    --miss-soft: #f8e7e5;
+    --idle: #8b98aa;        /* hisobga olinmaydi */
+    --on-navy: #ffffff;     /* navy fon ustidagi matn */
+
+    --sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
+            "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+            "Liberation Mono", monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0d131b;
+      --surface: #151d27;
+      --ink: #e8edf4;
+      --ink-soft: #9aa6b7;
+      --hair: #25303e;
+      --navy: #7cb2de;
+      --navy-soft: #16283a;
+      --gold: #d8a44e;
+      --gold-soft: #2b2417;
+      --in: #7cb2de;
+      --in-soft: #16283a;
+      --out: #57c497;
+      --out-soft: #132a22;
+      --miss: #e2857b;
+      --miss-soft: #2e1a18;
+      --idle: #6d7b8d;
+      --on-navy: #0d131b;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0d131b;
+    --surface: #151d27;
+    --ink: #e8edf4;
+    --ink-soft: #9aa6b7;
+    --hair: #25303e;
+    --navy: #7cb2de;
+    --navy-soft: #16283a;
+    --gold: #d8a44e;
+    --gold-soft: #2b2417;
+    --in: #7cb2de;
+    --in-soft: #16283a;
+    --out: #57c497;
+    --out-soft: #132a22;
+    --miss: #e2857b;
+    --miss-soft: #2e1a18;
+    --idle: #6d7b8d;
+    --on-navy: #0d131b;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 940px; margin: 0 auto; padding: 0 24px 96px; }
+  .col { max-width: 68ch; }
+
+  /* ── Sarlavha ───────────────────────────────────────────── */
+  header {
+    padding: 72px 0 40px;
+    border-bottom: 3px solid var(--navy);
+    margin-bottom: 48px;
+  }
+  .eyebrow {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin: 0 0 14px;
+  }
+  h1 {
+    font-size: clamp(30px, 5vw, 46px);
+    line-height: 1.12;
+    letter-spacing: -.022em;
+    font-weight: 800;
+    margin: 0 0 18px;
+    text-wrap: balance;
+  }
+  .lede { font-size: 18px; color: var(--ink-soft); margin: 0; max-width: 60ch; }
+
+  h2 {
+    font-size: clamp(21px, 3vw, 27px);
+    line-height: 1.25;
+    letter-spacing: -.015em;
+    font-weight: 750;
+    margin: 64px 0 6px;
+    text-wrap: balance;
+  }
+  h2 + .sub { color: var(--ink-soft); margin: 0 0 24px; font-size: 15px; }
+  h3 { font-size: 17px; font-weight: 700; margin: 32px 0 8px; letter-spacing: -.01em; }
+  p { margin: 0 0 16px; }
+  strong { font-weight: 700; }
+
+  .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  /* ── Asosiy raqam ───────────────────────────────────────── */
+  .headline {
+    background: var(--surface);
+    border: 1px solid var(--hair);
+    border-left: 5px solid var(--miss);
+    border-radius: 4px;
+    padding: 26px 28px;
+    margin: 32px 0;
+  }
+  .headline .big {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    font-size: clamp(38px, 7vw, 56px);
+    font-weight: 700;
+    line-height: 1;
+    color: var(--miss);
+    letter-spacing: -.03em;
+  }
+  .headline .what { font-size: 17px; font-weight: 650; margin: 10px 0 4px; }
+  .headline .note { font-size: 14px; color: var(--ink-soft); margin: 0; }
+
+  /* ── Jadval ─────────────────────────────────────────────── */
+  .tablewrap { overflow-x: auto; margin: 24px 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 15px; }
+  th, td { padding: 11px 14px; text-align: right; white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  thead th {
+    font-size: 11.5px; font-weight: 700; letter-spacing: .07em;
+    text-transform: uppercase; color: var(--ink-soft);
+    border-bottom: 2px solid var(--hair);
+  }
+  tbody tr { border-bottom: 1px solid var(--hair); }
+  tbody tr:last-child { border-bottom: 0; }
+  td.n { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  td.key { font-weight: 700; color: var(--miss); }
+
+  /* ── Qo'ng'iroq jurnali — sahifaning asosiy vositasi ──────
+     Har misol HAQIQIY jurnal ko'rinishida: vaqt, yo'nalish, natija.
+     Diagramma emas, dalilning o'zi. */
+  .log {
+    background: var(--surface);
+    border: 1px solid var(--hair);
+    border-radius: 4px;
+    margin: 18px 0 28px;
+    overflow: hidden;
+  }
+  .log-head {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px;
+    padding: 13px 18px;
+    border-bottom: 1px solid var(--hair);
+    background: var(--ground);
+  }
+  .log-head .who {
+    font-family: var(--mono); font-size: 14px; font-weight: 700;
+  }
+  .log-head .when { font-size: 13px; color: var(--ink-soft); }
+  .log-rows { overflow-x: auto; }
+  .row {
+    display: grid;
+    grid-template-columns: 92px 22px 1fr auto;
+    gap: 14px;
+    align-items: baseline;
+    padding: 9px 18px 9px 14px;
+    border-left: 4px solid transparent;
+    border-top: 1px solid var(--hair);
+    font-size: 14.5px;
+    min-width: 480px;
+  }
+  .row:first-child { border-top: 0; }
+  .row .t {
+    font-family: var(--mono); font-variant-numeric: tabular-nums;
+    color: var(--ink-soft); font-size: 13.5px;
+  }
+  .row .arrow { font-family: var(--mono); font-weight: 700; }
+  .row .tag {
+    font-size: 12px; font-weight: 700; letter-spacing: .04em;
+    text-transform: uppercase; white-space: nowrap;
+  }
+
+  .row.in  { border-left-color: var(--in); }
+  .row.in  .arrow { color: var(--in); }
+  .row.out { border-left-color: var(--out); }
+  .row.out .arrow { color: var(--out); }
+  .row.miss { border-left-color: var(--miss); background: var(--miss-soft); }
+  .row.miss .arrow, .row.miss .tag { color: var(--miss); }
+  .row.skip { border-left-color: var(--idle); color: var(--idle); }
+  .row.skip .arrow, .row.skip .tag { color: var(--idle); }
+  .row.anchor { box-shadow: inset 0 0 0 2px var(--miss); }
+  .row.contact { background: var(--out-soft); border-left-color: var(--out); }
+  .row.contact .tag { color: var(--out); }
+
+  .verdict {
+    padding: 13px 18px;
+    border-top: 2px solid var(--hair);
+    font-size: 14.5px;
+    background: var(--ground);
+  }
+  .verdict b { font-weight: 700; }
+  .verdict .yes { color: var(--out); font-weight: 700; }
+  .verdict .no { color: var(--miss); font-weight: 700; }
+
+  /* ── Qoidalar ro'yxati ──────────────────────────────────── */
+  .rules { counter-reset: r; list-style: none; padding: 0; margin: 24px 0; }
+  .rules > li {
+    counter-increment: r;
+    position: relative;
+    padding: 0 0 0 52px;
+    margin: 0 0 26px;
+  }
+  .rules > li::before {
+    content: counter(r);
+    position: absolute; left: 0; top: 1px;
+    width: 34px; height: 34px;
+    display: grid; place-items: center;
+    border-radius: 50%;
+    background: var(--navy); color: var(--on-navy);
+    font-family: var(--mono); font-size: 15px; font-weight: 700;
+  }
+  .rules h3 { margin: 0 0 4px; }
+  .rules p { margin: 0; color: var(--ink-soft); font-size: 15px; }
+
+  /* ── Ikki ustunli taqqoslash ────────────────────────────── */
+  .split { display: grid; gap: 16px; margin: 24px 0; }
+  @media (min-width: 720px) { .split { grid-template-columns: 1fr 1fr; } }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--hair);
+    border-radius: 4px;
+    padding: 20px 22px;
+  }
+  .card.in-card { border-top: 4px solid var(--miss); }
+  .card.out-card { border-top: 4px solid var(--idle); }
+  .card .label {
+    font-size: 12px; font-weight: 700; letter-spacing: .09em;
+    text-transform: uppercase; margin: 0 0 8px;
+  }
+  .card.in-card .label { color: var(--miss); }
+  .card.out-card .label { color: var(--ink-soft); }
+  .card .desc { font-size: 15px; margin: 0 0 12px; }
+  .card .verdict-line { font-size: 14px; font-weight: 650; margin: 0; }
+
+  /* ── Qo'shimcha bloklar ─────────────────────────────────── */
+  .callout {
+    background: var(--gold-soft);
+    border-left: 4px solid var(--gold);
+    border-radius: 0 4px 4px 0;
+    padding: 18px 22px;
+    margin: 28px 0;
+    font-size: 15px;
+  }
+  .callout p:last-child { margin-bottom: 0; }
+  .callout .h {
+    font-weight: 700; margin: 0 0 6px; color: var(--gold);
+    font-size: 13px; letter-spacing: .06em; text-transform: uppercase;
+  }
+
+  .nope { list-style: none; padding: 0; margin: 20px 0; }
+  .nope li {
+    display: grid; grid-template-columns: 26px 1fr; gap: 12px;
+    padding: 13px 0; border-bottom: 1px solid var(--hair);
+    font-size: 15px;
+  }
+  .nope li:last-child { border-bottom: 0; }
+  .nope .x { color: var(--idle); font-weight: 700; font-family: var(--mono); }
+  .nope b { display: block; }
+  .nope span { color: var(--ink-soft); font-size: 14px; }
+
+  footer {
+    margin-top: 72px; padding-top: 24px;
+    border-top: 1px solid var(--hair);
+    font-size: 13.5px; color: var(--ink-soft);
+  }
+
+  @media print {
+    body { background: #fff; font-size: 12pt; }
+    .wrap { max-width: none; padding: 0; }
+    h2 { page-break-after: avoid; }
+    .log, .headline, .card, .callout { page-break-inside: avoid; }
+    header { padding-top: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <p class="eyebrow">Bonvi &middot; Qo&#39;ng&#39;iroqlar tahlili</p>
+  <h1>Javobsiz qo&#39;ng&#39;iroqlar qanday sanaladi</h1>
+  <p class="lede">
+    Tizim &laquo;mijoz bizga bog&#39;lanolmadi&raquo; degan xulosani qanday
+    chiqaradi &mdash; haqiqiy qo&#39;ng&#39;iroq jurnallari va aniq
+    vaqtlar bilan.
+  </p>
+</header>
+
+<div class="col">
+  <h2>Asosiy savol</h2>
+  <p class="sub">Hisobot bitta narsani o&#39;lchaydi</p>
+  <p>
+    Har oyda necha nafar mijoz bizga qo&#39;ng&#39;iroq qilib, javob
+    ololmagan va keyin ham u bilan gaplashilmagan? Bu &mdash;
+    yo&#39;qotilgan savdo imkoniyati, va u <strong>odamlar</strong>
+    bilan o&#39;lchanadi, qo&#39;ng&#39;iroqlar soni bilan emas.
+  </p>
+</div>
+
+<div class="headline">
+  <div class="big">264</div>
+  <p class="what">mijoz oxirgi 30 kunda bizga bog&#39;lanolmadi</p>
+  <p class="note">
+    Ular qo&#39;ng&#39;iroq qildi, javob berilmadi va 24 soat ichida
+    ular bilan hech kim bog&#39;lanmadi. Jami 1&nbsp;020 mijoz javobsiz
+    qolgan, ulardan 756 tasi bilan keyin gaplashilgan &mdash; 74,1%.
+  </p>
+</div>
+
+<div class="col">
+  <h2>Oxirgi 30 kun</h2>
+  <p class="sub">39 xodim &middot; MoyZvonki ma&#39;lumoti</p>
+</div>
+
+<div class="tablewrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Ko&#39;rsatkich</th>
+        <th>7 kun</th>
+        <th>30 kun</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>Jami qo&#39;ng&#39;iroq</td><td class="n">4 965</td><td class="n">21 513</td></tr>
+      <tr><td>Xodim &rarr; mijoz</td><td class="n">2 292</td><td class="n">9 853</td></tr>
+      <tr><td>Mijoz &rarr; xodim</td><td class="n">2 673</td><td class="n">11 660</td></tr>
+      <tr><td>Javobsiz qolgan qo&#39;ng&#39;iroq</td><td class="n">813</td><td class="n">3 445</td></tr>
+      <tr><td>Bog&#39;lanolmagan mijoz</td><td class="n">344</td><td class="n">1 020</td></tr>
+      <tr><td>Ulardan keyin ham gaplashilmagan</td><td class="n key">75</td><td class="n key">264</td></tr>
+      <tr><td>Qaytib aloqaga chiqish</td><td class="n">78,2%</td><td class="n">74,1%</td></tr>
+      <tr><td>Qaytish vaqti (median)</td><td class="n">4,6 daq</td><td class="n">5,3 daq</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="col">
+  <p>
+    E&#39;tibor bering: <strong>3&nbsp;445</strong> javobsiz
+    qo&#39;ng&#39;iroq, lekin <strong>1&nbsp;020</strong> mijoz. Sababi
+    oddiy &mdash; bog&#39;lanolmagan odam qayta-qayta uriniadi. Bitta
+    mijoz o&#39;rtacha 3,4 marta qo&#39;ng&#39;iroq qiladi.
+  </p>
+
+  <h2>Ikki so&#39;z, ikki boshqa ma&#39;no</h2>
+  <p class="sub">Bu farq butun hisobotning asosi</p>
+</div>
+
+<div class="split">
+  <div class="card in-card">
+    <p class="label">Javobsiz</p>
+    <p class="desc">
+      Mijoz bizga qo&#39;ng&#39;iroq qildi, biz javob bermadik.
+    </p>
+    <p class="verdict-line">Bu &mdash; <b>bizning javobgarligimiz.</b></p>
+  </div>
+  <div class="card out-card">
+    <p class="label">Ko&#39;tarilmagan</p>
+    <p class="desc">
+      Xodim mijozga qo&#39;ng&#39;iroq qildi, mijoz ko&#39;tarmadi
+      (band, telefoni o&#39;chiq).
+    </p>
+    <p class="verdict-line">Bu xodimning aybi <b>emas.</b></p>
+  </div>
+</div>
+
+<div class="col">
+  <div class="callout">
+    <p class="h">Nega ajratilgan</p>
+    <p>
+      Ikkalasini qo&#39;shib &laquo;javobsiz&raquo; deb ko&#39;rsatish
+      raqamni deyarli ikki barobar oshirardi va xodimlarni nohaq
+      ayblardi. 30 kunda: mijoz javob olmagani <span class="num">3 445</span>,
+      mijoz ko&#39;tarmagani <span class="num">3 653</span> marta.
+    </p>
+  </div>
+
+  <h2>Mijoz qanday hisoblanadi</h2>
+  <p class="sub">Tizim har javobsiz qo&#39;ng&#39;iroq uchun shu besh bosqichdan o&#39;tadi</p>
+
+  <ol class="rules">
+    <li>
+      <h3>Faqat kiruvchi qo&#39;ng&#39;iroq olinadi</h3>
+      <p>Mijoz qo&#39;ng&#39;iroq qilib javob olmagan hodisa. Chiquvchi
+         javobsiz qo&#39;ng&#39;iroq bu ro&#39;yxatga kirmaydi.</p>
+    </li>
+    <li>
+      <h3>Bir raqamdan kelganlari birlashtiriladi</h3>
+      <p>Bitta odam necha marta urinsa ham &mdash; bitta mijoz. Raqam
+         oxirgi 9 raqami bo&#39;yicha taqqoslanadi, ya&#39;ni yozilish
+         shakli ahamiyatsiz.</p>
+    </li>
+    <li>
+      <h3>Sanoq nuqtasi &mdash; oxirgi urinish</h3>
+      <p>Mijozning eng oxirgi javobsiz qo&#39;ng&#39;irog&#39;i olinadi.
+         Birinchisidan hisoblansa, keyingi muammolar yashirinib
+         qolardi.</p>
+    </li>
+    <li>
+      <h3>Aloqa ikki xil bo&#39;ladi</h3>
+      <p>Xodim mijozga qaytib qo&#39;ng&#39;iroq qildi, <em>yoki</em>
+         mijoz o&#39;zi qayta urinib bu safar javob oldi. Ikkalasi ham
+         &laquo;bog&#39;landi&raquo; hisoblanadi.</p>
+    </li>
+    <li>
+      <h3>Muddat &mdash; 24 soat</h3>
+      <p>Oxirgi javobsiz urinishdan keyingi bir sutka ichida aloqa
+         bo&#39;lishi kerak. Kechroq bo&#39;lsa &mdash; sanalmaydi.</p>
+    </li>
+  </ol>
+
+  <h2>Misollar</h2>
+  <p class="sub">Hammasi haqiqiy ma&#39;lumot, vaqtlar Toshkent bo&#39;yicha</p>
+</div>
+
+<!-- 1 -->
+<div class="log">
+  <div class="log-head">
+    <span class="who">+998 ** 770 30 31</span>
+    <span class="when">17-avgust &middot; Toshkent bo&#39;limi</span>
+  </div>
+  <div class="log-rows">
+    <div class="row miss anchor">
+      <span class="t">19:49:35</span><span class="arrow">&larr;</span>
+      <span>Mijoz qo&#39;ng&#39;iroq qildi</span><span class="tag">Javobsiz</span>
+    </div>
+    <div class="row contact">
+      <span class="t">19:51:24</span><span class="arrow">&rarr;</span>
+      <span>Xodim qaytib qo&#39;ng&#39;iroq qildi &middot; 41 soniya gaplashildi</span>
+      <span class="tag">Aloqa</span>
+    </div>
+    <div class="row in">
+      <span class="t">19:54:18</span><span class="arrow">&larr;</span>
+      <span>Mijoz yana qo&#39;ng&#39;iroq qildi &middot; javob berildi</span><span class="tag"></span>
+    </div>
+  </div>
+  <div class="verdict">
+    <b>1</b> javobsiz &middot; <b>1</b> mijoz &middot;
+    <span class="yes">bog&#39;landi</span>, 1,8 daqiqada.
+  </div>
+</div>
+
+<!-- 2 -->
+<div class="log">
+  <div class="log-head">
+    <span class="who">+998 ** 909 33 84 34</span>
+    <span class="when">17-avgust &middot; Toshkent bo&#39;limi</span>
+  </div>
+  <div class="log-rows">
+    <div class="row skip">
+      <span class="t">09:52:31</span><span class="arrow">&rarr;</span>
+      <span>Xodim qo&#39;ng&#39;iroq qildi, mijoz ko&#39;tarmadi</span>
+      <span class="tag">Sanalmaydi</span>
+    </div>
+    <div class="row miss">
+      <span class="t">10:15:23</span><span class="arrow">&larr;</span>
+      <span>Mijoz qo&#39;ng&#39;iroq qildi</span><span class="tag">Javobsiz 1</span>
+    </div>
+    <div class="row skip">
+      <span class="t">10:17:22</span><span class="arrow">&rarr;</span>
+      <span>Xodim qaytarishga urindi, mijoz ko&#39;tarmadi</span>
+      <span class="tag">Sanalmaydi</span>
+    </div>
+    <div class="row in">
+      <span class="t">10:17:57</span><span class="arrow">&larr;</span>
+      <span>Mijoz o&#39;zi qayta urindi &middot; 4 daqiqa 25 soniya gaplashildi</span>
+      <span class="tag"></span>
+    </div>
+    <div class="row in">
+      <span class="t">16:05:45</span><span class="arrow">&larr;</span>
+      <span>Mijoz qo&#39;ng&#39;iroq qildi &middot; javob berildi</span><span class="tag"></span>
+    </div>
+    <div class="row miss anchor">
+      <span class="t">17:29:20</span><span class="arrow">&larr;</span>
+      <span>Mijoz qo&#39;ng&#39;iroq qildi</span><span class="tag">Javobsiz 2</span>
+    </div>
+    <div class="row contact">
+      <span class="t">17:33:54</span><span class="arrow">&rarr;</span>
+      <span>Xodim qaytib qo&#39;ng&#39;iroq qildi &middot; 27 soniya</span>
+      <span class="tag">Aloqa</span>
+    </div>
+  </div>
+  <div class="verdict">
+    <b>2</b> javobsiz &middot; <b>1</b> mijoz &middot;
+    <span class="yes">bog&#39;landi</span>, 4,6 daqiqada.
+    Sanoq oxirgi urinishdan &mdash; <span class="num">17:29:20</span>.
+  </div>
+</div>
+
+<div class="col">
+  <p>
+    Mana shu misol jadvaldagi eng ko&#39;p so&#39;raladigan savolga
+    javob beradi: nega &laquo;javobsiz 15, mijoz 9&raquo;. 15 ta
+    qo&#39;ng&#39;iroq &mdash; 9 nafar odamdan.
+  </p>
+</div>
+
+<!-- 3 -->
+<div class="log">
+  <div class="log-head">
+    <span class="who">+998 ** 339 63 88 88</span>
+    <span class="when">16-avgust &middot; mijoz o&#39;zi qaytdi</span>
+  </div>
+  <div class="log-rows">
+    <div class="row miss anchor">
+      <span class="t">13:30:05</span><span class="arrow">&larr;</span>
+      <span>Mijoz qo&#39;ng&#39;iroq qildi</span><span class="tag">Javobsiz</span>
+    </div>
+    <div class="row contact">
+      <span class="t">13:57:21</span><span class="arrow">&larr;</span>
+      <span>Mijoz <b>o&#39;zi</b> qayta urindi &middot; javob berildi</span>
+      <span class="tag">Aloqa</span>
+    </div>
+    <div class="row in">
+      <span class="t">14:59:51</span><span class="arrow">&larr;</span>
+      <span>Yana qo&#39;ng&#39;iroq &middot; javob berildi</span><span class="tag"></span>
+    </div>
+  </div>
+  <div class="verdict">
+    <span class="yes">Bog&#39;landi</span> &mdash; garchi biz qaytib
+    qo&#39;ng&#39;iroq qilmagan bo&#39;lsak ham. Mijoz gaplashdi, xizmat
+    oldi. Hisobotda bunday holat alohida belgi bilan ko&#39;rsatiladi.
+  </div>
+</div>
+
+<!-- 4 -->
+<div class="log">
+  <div class="log-head">
+    <span class="who">+998 ** 990 44 96 56</span>
+    <span class="when">13&ndash;14-avgust &middot; nega sanoq oxirgi urinishdan</span>
+  </div>
+  <div class="log-rows">
+    <div class="row miss">
+      <span class="t">13-avg 15:42</span><span class="arrow">&larr;</span>
+      <span>Mijoz qo&#39;ng&#39;iroq qildi</span><span class="tag">Javobsiz 1</span>
+    </div>
+    <div class="row out">
+      <span class="t">13-avg 15:43</span><span class="arrow">&rarr;</span>
+      <span>Xodim qaytardi &middot; gaplashildi</span><span class="tag"></span>
+    </div>
+    <div class="row miss">
+      <span class="t">13-avg 21:45</span><span class="arrow">&larr;</span>
+      <span>Mijoz yana qo&#39;ng&#39;iroq qildi</span><span class="tag">Javobsiz 2</span>
+    </div>
+    <div class="row out">
+      <span class="t">13-avg 21:54</span><span class="arrow">&rarr;</span>
+      <span>Xodim qaytardi &middot; gaplashildi</span><span class="tag"></span>
+    </div>
+    <div class="row miss anchor">
+      <span class="t">14-avg 11:21</span><span class="arrow">&larr;</span>
+      <span>Mijoz uchinchi marta qo&#39;ng&#39;iroq qildi</span>
+      <span class="tag">Javobsiz 3</span>
+    </div>
+    <div class="row skip">
+      <span class="t">&mdash;</span><span class="arrow">&nbsp;</span>
+      <span>Keyin hech kim bog&#39;lanmadi</span><span class="tag">24 soat o&#39;tdi</span>
+    </div>
+  </div>
+  <div class="verdict">
+    <span class="no">Bog&#39;lanmadi.</span> Agar sanoq <b>birinchi</b>
+    urinishdan olinganda, bu mijoz &laquo;bog&#39;landi&raquo; bo&#39;lib
+    chiqardi &mdash; 13-avgustda qaytarilgan-ku. O&#39;shanda
+    14-avgustdagi haqiqiy muammo butunlay yashirinardi.
+  </div>
+</div>
+
+<!-- 5 -->
+<div class="log">
+  <div class="log-head">
+    <span class="who">+998 ** 339 82 20 00</span>
+    <span class="when">16-avgust &middot; hamkasb qaytardi</span>
+  </div>
+  <div class="log-rows">
+    <div class="row miss anchor">
+      <span class="t">17:43:57</span><span class="arrow">&larr;</span>
+      <span>Mijoz <b>Buxoro</b> bo&#39;limiga qo&#39;ng&#39;iroq qildi</span>
+      <span class="tag">Javobsiz</span>
+    </div>
+    <div class="row contact">
+      <span class="t">18:02:04</span><span class="arrow">&rarr;</span>
+      <span><b>Qarshi</b> bo&#39;limi qaytib qo&#39;ng&#39;iroq qildi</span>
+      <span class="tag">Aloqa</span>
+    </div>
+  </div>
+  <div class="verdict">
+    <span class="yes">Bog&#39;landi</span> &mdash; mijoz xizmat oldi,
+    kim qilgani ikkinchi darajali. Lekin javobsizlik telefoni
+    jiringlagan bo&#39;limga (Buxoro) yoziladi: javobgarlik o&#39;shanda.
+  </div>
+</div>
+
+<!-- 6 -->
+<div class="log">
+  <div class="log-head">
+    <span class="who">+998 ** 334 86 00 70</span>
+    <span class="when">14&ndash;17-avgust &middot; muddat o&#39;tgan</span>
+  </div>
+  <div class="log-rows">
+    <div class="row miss anchor">
+      <span class="t">14-avg 17:10</span><span class="arrow">&larr;</span>
+      <span>Mijoz qo&#39;ng&#39;iroq qildi</span><span class="tag">Javobsiz</span>
+    </div>
+    <div class="row skip">
+      <span class="t">17-avg 17:19</span><span class="arrow">&rarr;</span>
+      <span>Aloqa &mdash; lekin 72 soat keyin</span>
+      <span class="tag">Kech</span>
+    </div>
+  </div>
+  <div class="verdict">
+    <span class="no">Bog&#39;lanmadi.</span> Chegara bo&#39;lmasa, uch
+    kundan keyin butunlay boshqa sabab bilan qilingan qo&#39;ng&#39;iroq
+    ham &laquo;javob qaytardik&raquo; bo&#39;lib hisoblanardi va
+    ko&#39;rsatkich 100% ga yaqinlashib, hech narsani
+    o&#39;lchamay qo&#39;yardi.
+  </div>
+</div>
+
+<div class="col">
+  <div class="callout">
+    <p class="h">24 soat qayerdan olingan</p>
+    <p>
+      Bu taxmin emas. Haqiqiy ma&#39;lumot o&#39;lchandi: qaytishlarning
+      71% i bir soat ichida bo&#39;ladi, o&#39;rtacha vaqt 5 daqiqa.
+      Ya&#39;ni 24 soat &mdash; amaldagi ish tartibidan ancha keng, lekin
+      &laquo;hech qachon&raquo; dan aniq farq qiladi.
+    </p>
+  </div>
+
+  <h2>Nima sanalmaydi</h2>
+  <p class="sub">Uchta holat ataylab hisobdan chiqarilgan</p>
+
+  <ul class="nope">
+    <li>
+      <span class="x">&times;</span>
+      <div>
+        <b>Xodim qo&#39;ng&#39;iroq qilib, mijoz ko&#39;tarmagani</b>
+        <span>Mijoz band bo&#39;lishi yoki telefoni o&#39;chiq bo&#39;lishi mumkin &mdash; bunga xodim javobgar emas.</span>
+      </div>
+    </li>
+    <li>
+      <span class="x">&times;</span>
+      <div>
+        <b>Raqami noma&#39;lum javobsiz qo&#39;ng&#39;iroq</b>
+        <span>Kimga qaytish kerakligi bilinmaydi, shuning uchun xodimni &laquo;qaytarmadi&raquo; deb ayblab bo&#39;lmaydi.</span>
+      </div>
+    </li>
+    <li>
+      <span class="x">&times;</span>
+      <div>
+        <b>Javob holati noma&#39;lum qatorlar</b>
+        <span>Taxmin qilib &laquo;javobsiz&raquo; ga qo&#39;shish sonni sun&#39;iy oshirardi. Hozir bunday qatorlar deyarli qolmagan.</span>
+      </div>
+    </li>
+  </ul>
+
+  <h2>Hisobot nimani ko&#39;rsatadi</h2>
+  <p class="sub">O&#39;rtacha son yashiradigan narsalar</p>
+
+  <h3>Kun davomida yuklama teng emas</h3>
+  <p>
+    Kunlik o&#39;rtacha 29,5%, lekin ayrim soatlarda holat ancha
+    yomon. Bu &mdash; smenani qayta taqsimlash uchun aniq ko&#39;rsatma.
+  </p>
+</div>
+
+<div class="tablewrap">
+  <table>
+    <thead>
+      <tr><th>Soat</th><th>Kiruvchi</th><th>Javobsiz</th><th>Ulush</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>19:00</td><td class="n">399</td><td class="n">160</td><td class="n key">40,1%</td></tr>
+      <tr><td>20:00</td><td class="n">256</td><td class="n">95</td><td class="n key">37,1%</td></tr>
+      <tr><td>12:00 &mdash; tushlik</td><td class="n">825</td><td class="n">295</td><td class="n key">35,8%</td></tr>
+      <tr><td>08:00</td><td class="n">501</td><td class="n">173</td><td class="n key">34,5%</td></tr>
+      <tr><td>18:00</td><td class="n">676</td><td class="n">229</td><td class="n key">33,9%</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="col">
+  <h3>Bo&#39;limlar orasidagi farq katta</h3>
+  <p>
+    Bir xil sharoitda ishlaydigan bo&#39;limlar orasida ikki barobar
+    farq bor. Bu &mdash; tajriba almashish uchun aniq manzil.
+  </p>
+</div>
+
+<div class="tablewrap">
+  <table>
+    <thead>
+      <tr><th>Bo&#39;lim</th><th>Bog&#39;lanolmagan mijoz</th><th>Keyin ham gaplashilmagan</th><th>Qaytish</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Toshkent</td><td class="n">102</td><td class="n">7</td><td class="n">93,1%</td></tr>
+      <tr><td>Koll-markaz</td><td class="n">179</td><td class="n">19</td><td class="n">89,4%</td></tr>
+      <tr><td>Jizzax</td><td class="n">47</td><td class="n">5</td><td class="n">89,4%</td></tr>
+      <tr><td>Velozapchast</td><td class="n">56</td><td class="n key">24</td><td class="n key">57,1%</td></tr>
+      <tr><td>Navoiy ombor</td><td class="n">27</td><td class="n key">12</td><td class="n key">55,6%</td></tr>
+      <tr><td>Avtoshina</td><td class="n">22</td><td class="n key">11</td><td class="n key">50,0%</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="col">
+  <h2>Har bir raqamni tekshirish mumkin</h2>
+  <p class="sub">Hisobot &laquo;ishonavering&raquo; demaydi</p>
+  <p>
+    Jadvalda xodim qatorini bosish yetarli &mdash; o&#39;sha davrdagi
+    <strong>har bir mijoz</strong> ro&#39;yxati ochiladi: necha marta
+    urinib ko&#39;rgan, oxirgi urinish qachon bo&#39;lgan, keyin kim
+    bilan va qancha vaqtdan so&#39;ng gaplashgan.
+  </p>
+  <p>
+    Ro&#39;yxat oxirida tenglik ochiq yozilgan: qatorlar soni
+    &laquo;mijoz&raquo; ustuniga, urinishlar yig&#39;indisi
+    &laquo;javobsiz&raquo; ustuniga teng. Ya&#39;ni jadvaldagi son
+    qayerdan kelgani ko&#39;rinib turadi.
+  </p>
+
+  <div class="callout">
+    <p class="h">Ma&#39;lumot qamrovi</p>
+    <p>
+      Hisobot 39 xodim bo&#39;yicha tuzilgan. MoyZvonki&#39;dagi
+      bir necha hisob (kadrlar bo&#39;limi va boshqa kompaniya) bizning
+      xodimlar ro&#39;yxatiga bog&#39;lanmagan, shuning uchun ularning
+      qo&#39;ng&#39;iroqlari bu hisobotga kirmaydi &mdash; taxminan 4%.
+      Kerak bo&#39;lsa ularni ham qo&#39;shish mumkin.
+    </p>
+  </div>
+
+  <footer>
+    Ma&#39;lumot manbai: MoyZvonki, faqat o&#39;qish rejimida.
+    Hisob-kitob mustaqil ravishda qayta tekshirilgan: MoyZvonki&#39;dan
+    olingan xom ma&#39;lumot bo&#39;yicha alohida hisoblab, tizim
+    natijasi bilan solishtirilgan &mdash; 20 ta mantiqiy tenglik
+    to&#39;g&#39;ri chiqdi.
+  </footer>
+</div>
+
+</div>
+</body>
+</html>
