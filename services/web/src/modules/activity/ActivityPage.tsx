@@ -50,6 +50,7 @@ const COLUMNS = [
   { key: 'clients', label: 'activity.colClients', tip: 'activity.tipClients' },
   { key: 'unreached', label: 'activity.colUnreached', tip: 'activity.tipUnreached' },
   { key: 'rate', label: 'activity.colRate', tip: 'activity.tipRate' },
+  { key: 'median', label: 'activity.colMedian', tip: 'activity.tipMedian' },
   { key: 'talk', label: 'activity.colTalk', tip: 'activity.tipTalk' },
 ] as const
 
@@ -78,6 +79,22 @@ function callbackTone(rate: number | null): string {
   if (rate === null) return 'text-muted'
   if (rate >= 90) return 'text-good'
   if (rate >= 60) return 'text-warn'
+  return 'text-bad'
+}
+
+/** Qaytish VAQTINING rangi.
+ *
+ *  Chegaralar haqiqiy ma'lumotdan: eng tez bo'limlar 2–3 daqiqa, eng
+ *  sekini 43 daqiqa, kompaniya medianasi 6 daqiqa. Ya'ni 10 va 30
+ *  daqiqa — o'ylab topilgan emas, haqiqiy tafovutning chegaralari.
+ *
+ *  ⚠️ Daraja rangidan MUSTAQIL: yuqori daraja sekinlikni oqlamaydi.
+ *  «Колл центр» 89% qaytaradi, lekin medianasi 43 daqiqa — mijoz
+ *  yarim soatdan ko'p kutadi va buni daraja ko'rsatmaydi. */
+function medianTone(minutes: number | null): string {
+  if (minutes === null) return 'text-muted'
+  if (minutes <= 10) return 'text-good'
+  if (minutes <= 30) return 'text-warn'
   return 'text-bad'
 }
 
@@ -381,6 +398,13 @@ export function ActivityPage() {
                     <Td right className={callbackTone(total.callback_rate)}>
                       {total.callback_rate != null ? `${total.callback_rate}%` : '—'}
                     </Td>
+                    <Td right>
+                      {activity.data?.callback_median_minutes != null
+                        ? t('activity.minutesShort', {
+                            minutes: activity.data.callback_median_minutes,
+                          })
+                        : '—'}
+                    </Td>
                     <Td right>{formatDuration(total.talk_seconds)}</Td>
                   </tr>
                 </tfoot>
@@ -456,6 +480,7 @@ function AgentRow({
   /** Berilmasa qator bosilmaydi — ko'rsatadigan tafsilot yo'q */
   onPick?: () => void
 }) {
+  const { t } = useTranslation()
   return (
     <tr
       onClick={onPick}
@@ -497,6 +522,14 @@ function AgentRow({
       </Td>
       <Td right className={cn('font-semibold', callbackTone(row.callback_rate))}>
         {row.callback_rate != null ? `${row.callback_rate}%` : '—'}
+      </Td>
+      {/* Vaqt DARAJADAN mustaqil rang oladi: yuqori daraja sekinlikni
+          oqlamaydi va aksincha. Ikkalasini bir xil bo'yash ularni
+          bitta ko'rsatkichdek ko'rsatardi. */}
+      <Td right className={cn('font-medium', medianTone(row.callback_median_minutes))}>
+        {row.callback_median_minutes != null
+          ? t('activity.minutesShort', { minutes: row.callback_median_minutes })
+          : '—'}
       </Td>
       <Td right className="text-muted">
         {formatDuration(row.talk_seconds)}

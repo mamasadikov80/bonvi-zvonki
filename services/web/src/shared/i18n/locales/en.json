@@ -852,11 +852,8 @@
     "inboundHint": "Calls customers made to the company",
     "missed": "Agent didn't answer",
     "missedHint": "A customer called and the agent did not answer. This is our responsibility",
-    "calledBack": "Called back",
-    "calledBackHint": "The missed number was called back within {{hours}} hours",
     "answeredOf": "{{count}} answered (of {{total}})",
     "ofInbound": "{{percent}}% of inbound",
-    "callbackSub": "{{percent}}% · {{open}} still open",
     "medianNote": "Median callback time — {{minutes}} min. Median, not average: one long delay skews the average. Callbacks within {{hours}} hours are counted.",
     "unknownNote": "{{count}} calls have an unknown answer status — they are NOT counted. This is data from before the field existed; re-importing calls fills it in.",
     "byAgent": "By agent",
@@ -866,8 +863,6 @@
     "colOutNoAnswer": "Customer didn't answer",
     "colIn": "Inbound",
     "colMissed": "Agent didn't answer",
-    "colCalledBack": "Called back",
-    "colOpen": "Open",
     "colRate": "Callback %",
     "colTalk": "Talk time",
     "totalRow": "Total",
@@ -897,6 +892,9 @@
     "tipClients": "How many PEOPLE could not get through. Repeat attempts by one customer count once",
     "tipUnreached": "How many of them were still not contacted within 24 hours",
     "tipRate": "Share of unreachable customers who were contacted afterwards",
-    "tipTalk": "Total talk time"
+    "tipTalk": "Total talk time",
+    "colMedian": "Callback time",
+    "tipMedian": "How long the agent takes to call back (median). The rate shows how many were called back; this shows how long they waited",
+    "minutesShort": "{{minutes}} min"
   }
 }

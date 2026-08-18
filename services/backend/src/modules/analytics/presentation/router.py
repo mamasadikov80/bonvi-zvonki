@@ -220,6 +220,12 @@ class AgentActivityRow(BaseModel):
     """Bog'lanolmagan mijozlarning qancha foiziga qaytilgan (MIJOZ
     darajasida, hodisa darajasida emas)."""
 
+    callback_median_minutes: float | None
+    """Shu xodim qancha vaqtda qaytadi (median).
+
+    ⚠️ Daraja va vaqt IKKI BOSHQA savol: xodim 100% qaytarishi mumkin,
+    lekin har birini uch soatdan keyin — daraja buni ko'rsatmaydi."""
+
     total: int
     talk_seconds: int
     unknown_in: int
@@ -298,6 +304,7 @@ def _activity_row(row) -> AgentActivityRow:
         clients_unreached=row.clients_unreached,
         missed_rate=row.missed_rate,
         callback_rate=row.callback_rate,
+        callback_median_minutes=row.callback_median_minutes,
         total=row.total,
         talk_seconds=row.talk_seconds,
         unknown=row.unknown,

@@ -65,9 +65,10 @@ PERIODS: tuple[int, ...] = (1, 7, 15, 30)
 # sabab bilan qilingani ham. O'shanda ko'rsatkich 100% ga yaqin bo'lib,
 # hech narsani o'lchamaydigan holga kelardi.
 #
-# 24 soat tanlandi, chunki o'lchov shuni ko'rsatdi: qaytishlarning 71% i
-# bir soat ichida, medianasi 12 daqiqa. Ya'ni 24 soat — haqiqiy ish
-# amaliyotidan ancha keng, lekin «hech qachon» dan aniq farq qiladi.
+# 24 soat tanlandi, chunki o'lchov shuni ko'rsatdi: 30 kunlik haqiqiy
+# ma'lumotda qaytishlarning 76% i BIR SOAT ichida bo'ladi, medianasi
+# esa 6 daqiqa. Ya'ni 24 soat — amaldagi ish tartibidan ancha keng,
+# lekin «hech qachon» dan aniq farq qiladi.
 CALLBACK_WINDOW_HOURS = 24
 
 #: Telefon raqamini solishtirish uchun oxirgi necha raqam olinadi.
@@ -174,6 +175,20 @@ class AgentActivity:
     bo'lmasdi — son o'z-o'ziga zid ko'rinardi."""
 
     talk_seconds: int = 0
+
+    callback_median_minutes: float | None = None
+    """Shu XODIM javobsiz qo'ng'iroqqa qancha vaqtda qaytadi (median).
+
+    ⚠️ Qaytish DARAJASI (`callback_rate`) va qaytish VAQTI ikki boshqa
+    savolga javob beradi va ikkalasi ham kerak:
+      · daraja — nechta mijozga umuman qaytilgan;
+      · median vaqt — qaytilganda qancha KUTTIRILGAN.
+    Xodim 100% qaytarishi mumkin, lekin har birini uch soatdan keyin —
+    daraja buni ko'rsatmaydi.
+
+    O'rtacha EMAS, median: bitta kechqurungi qo'ng'iroq ertalab
+    qaytarilsa (14 soat) o'rtachani buzadi, median esa odatiy holatni
+    ko'rsatadi."""
 
     @property
     def total(self) -> int:
@@ -422,6 +437,7 @@ class ActivityService:
             row.clients_reached = callbacks.reached.get(row.agent_id, 0)
             row.missed_called_back = callbacks.events_closed.get(row.agent_id, 0)
             row.missed_addressable = callbacks.addressable.get(row.agent_id, 0)
+            row.callback_median_minutes = callbacks.medians.get(row.agent_id)
 
         report.total = _sum_rows(rows)
 
@@ -944,6 +960,16 @@ class ActivityService:
                 func.coalesce(
                     func.sum(case((at.is_not(None), m.c.attempts), else_=0)), 0
                 ).label("events_closed"),
+                # Har XODIM uchun qaytish vaqti medianasi.
+                #
+                # ⚠️ Bu daraja (`callback_rate`) dan BOSHQA savolga javob
+                # beradi va ikkalasi ham kerak: daraja «nechtasiga
+                # qaytdi» ni, median «qancha kuttirdi» ni ko'rsatadi.
+                # Xodim 100% qaytarishi mumkin, lekin har birini uch
+                # soatdan keyin — daraja buni ko'rsatmaydi.
+                func.percentile_cont(0.5)
+                .within_group(func.extract("epoch", at - m.c.last_missed) / 60)
+                .label("median_minutes"),
             )
             .select_from(m.outerjoin(contact, text("true")))
             .group_by(m.c.agent_id)
@@ -977,6 +1003,11 @@ class ActivityService:
             addressable={
                 row.agent_id: int(row.addressable or 0) for row in rows
             },
+            medians={
+                row.agent_id: round(float(row.median_minutes), 1)
+                for row in rows
+                if row.median_minutes is not None
+            },
         )
 
 
@@ -990,6 +1021,8 @@ class _CallbackStats:
     """Yopilgan javobsiz HODISALAR soni."""
     addressable: dict[UUID, int]
     """Raqami bor javobsiz hodisalar — `missed_open` shundan hisoblanadi."""
+    medians: dict[UUID, float]
+    """Har xodimning qaytish vaqti medianasi (daqiqa)."""
     median_minutes: float | None
 
 

@@ -63,6 +63,14 @@ export interface ActivityRow {
   /** Javobsizlarning qancha foiziga qaytilgan. `null` — javobsiz yo'q */
   callback_rate: number | null
 
+  /** Shu xodim qancha vaqtda qaytadi (median, daqiqa).
+   *
+   *  ⚠️ Daraja va vaqt IKKI BOSHQA savol: xodim 100% qaytarishi
+   *  mumkin, lekin har birini uch soatdan keyin — daraja buni
+   *  ko'rsatmaydi. O'lchandi: «Колл центр» 89% da 43 daqiqa,
+   *  «Тошкент» 93% da 2,5 daqiqa. */
+  callback_median_minutes: number | null
+
   total: number
   talk_seconds: number
   /** `answered` noma'lum qatorlar — hisobda SANALMAYDI. Ustun paydo

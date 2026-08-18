@@ -852,11 +852,8 @@
     "inboundHint": "Mijozlar kompaniyaga qilgan qo'ng'iroqlar",
     "missed": "Xodim ko'tarmadi",
     "missedHint": "Mijoz qo'ng'iroq qildi, xodim javob bermadi. Bu — bizning javobgarligimiz",
-    "calledBack": "Qaytib chiqilgan",
-    "calledBackHint": "Javobsiz qolgan raqamga {{hours}} soat ichida qayta qo'ng'iroq qilingan",
     "answeredOf": "{{count}} ta javob berilgan ({{total}} tadan)",
     "ofInbound": "kiruvchilarning {{percent}}%",
-    "callbackSub": "{{percent}}% · {{open}} ta hali qaytilmagan",
     "medianNote": "Javobsiz qo'ng'iroqqa qaytishning medianasi — {{minutes}} daqiqa. O'rtacha emas, median: bitta uzoq kechikish o'rtachani buzadi. Hisobga {{hours}} soat ichidagi qaytishlar olinadi.",
     "unknownNote": "{{count}} ta qo'ng'iroqda javob holati noma'lum — ular hisobga OLINMAGAN. Bu maydon paydo bo'lishidan oldingi ma'lumot; qo'ng'iroqlarni qayta yuklash to'ldiradi.",
     "byAgent": "Xodimlar bo'yicha",
@@ -866,8 +863,6 @@
     "colOutNoAnswer": "Mijoz ko'tarmadi",
     "colIn": "Kiruvchi",
     "colMissed": "Xodim ko'tarmadi",
-    "colCalledBack": "Qaytilgan",
-    "colOpen": "Ochiq",
     "colRate": "Qaytish %",
     "colTalk": "Suhbat",
     "totalRow": "Jami",
@@ -897,6 +892,9 @@
     "tipClients": "Necha NAFAR mijoz javob ololmagan. Bir odamning takroriy urinishlari bir marta sanaladi",
     "tipUnreached": "Ulardan qanchasi bilan 24 soat ichida keyin ham gaplashilmagan",
     "tipRate": "Javob ololmagan mijozlarning qanchasi bilan keyin gaplashilgan",
-    "tipTalk": "Jami suhbat vaqti"
+    "tipTalk": "Jami suhbat vaqti",
+    "colMedian": "Qaytish vaqti",
+    "tipMedian": "Xodim javobsiz qo'ng'iroqqa qancha vaqtda qaytadi (median). Daraja «nechtasiga qaytdi» ni, bu esa «qancha kuttirdi» ni ko'rsatadi",
+    "minutesShort": "{{minutes}} daq"
   }
 }

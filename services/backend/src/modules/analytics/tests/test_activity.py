@@ -787,3 +787,35 @@ async def test_median_MIJOZ_boyicha_hisoblanadi(xodim) -> None:
 
     report, _ = await _hisobot(xodim)
     assert report.callback_median_minutes == 10.0
+
+
+@pytest.mark.asyncio
+async def test_har_xodimning_MEDIANI_alohida(xodim) -> None:
+    """⚠️ Daraja va VAQT ikki boshqa savolga javob beradi.
+
+    Xodim 100% qaytarishi mumkin, lekin har birini uch soatdan keyin —
+    daraja buni KO'RSATMAYDI. Haqiqiy ma'lumotda o'lchandi: «Колл
+    центр» 89,4% qaytaradi, lekin medianasi 43 daqiqa; «Тошкент» esa
+    93,1% da 2,5 daqiqa. Rahbarga ikkalasi ham kerak."""
+    # Ikki mijoz: biri 5 daqiqada, ikkinchisi 15 daqiqada qaytarilgan
+    await _qongiroq(xodim, inbound=True, answered=False, offset_min=0)
+    await _qongiroq(xodim, inbound=False, answered=True, offset_min=5)
+    await _qongiroq(
+        xodim, inbound=True, answered=False, offset_min=100, phone="+998 91 555-44-33"
+    )
+    await _qongiroq(
+        xodim, inbound=False, answered=True, offset_min=115, phone="+998 91 555-44-33"
+    )
+
+    _, row = await _hisobot(xodim)
+    assert row.callback_rate == 100.0, "ikkalasiga ham qaytarilgan"
+    assert row.callback_median_minutes == 10.0, "median (5 va 15) = 10 daqiqa"
+
+
+@pytest.mark.asyncio
+async def test_qaytarilmagan_xodimda_median_YOQ(xodim) -> None:
+    """Median bo'lmasa `None` — nol EMAS. Nol «darhol qaytardi» degan
+    ma'no berardi, holbuki umuman qaytarilmagan."""
+    await _qongiroq(xodim, inbound=True, answered=False)
+    _, row = await _hisobot(xodim)
+    assert row.callback_median_minutes is None
