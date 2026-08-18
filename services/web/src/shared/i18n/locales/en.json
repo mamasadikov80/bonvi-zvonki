@@ -274,7 +274,11 @@
       "action": "Pull calls",
       "title": "Pull calls from MoyZvonki",
       "hint": "All calls in the selected period are copied into the database. Ones without audio are not scored by AI but count in the activity report",
-      "period": "Period",
+      "period": {
+        "d7": "7 days",
+        "d30": "1 month",
+        "d45": "45 days"
+      },
       "periodHint": "Which date range to pull",
       "supervised": "All employees",
       "supervisedHint": "If off, only the API key owner's calls are pulled",

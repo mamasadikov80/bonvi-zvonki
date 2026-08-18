@@ -19,19 +19,42 @@ import { useSyncCalls, useSyncWindow, type SyncResult } from '@/modules/calls/ap
 import { ApiError } from '@/shared/api/client'
 import {
   localDate,
+  customRange,
   rangeToQuery,
-  resolvePreset,
   type DateRange,
 } from '@/shared/lib/date'
 import { cn, formatNumber } from '@/shared/lib/utils'
-import { DateRangePicker } from '@/shared/ui/DateRangePicker'
 import { Modal } from '@/shared/ui/Modal'
 import { MultiSelect, type MultiSelectOption } from '@/shared/ui/MultiSelect'
-import { Badge, Button, Label, Skeleton } from '@/shared/ui/primitives'
+import {
+  Badge,
+  Button,
+  Label,
+  Segmented,
+  Skeleton,
+} from '@/shared/ui/primitives'
 
 interface Problem {
   code: string
   message: string
+}
+
+/** Sinxronizatsiya davrlari (kun).
+ *
+ *  ⚠️ 45 dan kattasi YO'Q va bo'lmaydi: MoyZvonki yozuvni cheklangan
+ *  muddat saqlaydi, undan narisida audio deyarli qolmaydi. Kengroq
+ *  oraliq tanlash imkoniyati faqat uzoq kutish va bo'sh natijaga olib
+ *  kelardi — backend ham so'rovni 45 kunga qisqartiradi. */
+const SYNC_PERIODS = [7, 30, 45] as const
+type SyncDays = (typeof SYNC_PERIODS)[number]
+
+/** «Oxirgi N kun» — bugun ham to'liq kiradi. */
+function lastDays(days: SyncDays): DateRange {
+  const to = new Date()
+  const from = new Date(to)
+  from.setDate(from.getDate() - (days - 1))
+  from.setHours(0, 0, 0, 0)
+  return customRange(from, to)
 }
 
 export function SyncModal({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -48,7 +71,11 @@ export function SyncModal({ open, onClose }: { open: boolean; onClose: () => voi
      oldin» deb hisoblanib, ro'yxatdan tushib qolardi. */
   const earliest = window.data ? localDate(window.data.earliest) : null
 
-  const [range, setRange] = useState<DateRange>(() => resolvePreset('last7'))
+  /* Faqat uch variant. Murakkab sana tanlagich bu yerda keraksiz:
+     MoyZvonki yozuvni cheklangan muddat saqlaydi va 45 kundan
+     narisida audio deyarli qolmaydi — ya'ni kengroq oraliq tanlash
+     imkoniyati faqat bo'sh urinishga olib kelardi. */
+  const [days, setDays] = useState<SyncDays>(7)
   /* Qaysi xodimlarning qo'ng'iroqlari saqlanadi. Bo'sh — hammasi.
 
      ⚠️ Ilgari bu yerda `supervised` tugmachasi turardi. U MoyZvonki'ning
@@ -84,7 +111,7 @@ export function SyncModal({ open, onClose }: { open: boolean; onClose: () => voi
   // oraliqqa tegishlidek ko'rinib qolmasin
   useEffect(() => {
     if (!open) return
-    setRange(resolvePreset('last7'))
+    setDays(7)
     setAgentIds([])
     setResult(null)
     setProblem(null)
@@ -92,7 +119,7 @@ export function SyncModal({ open, onClose }: { open: boolean; onClose: () => voi
 
   const run = () => {
     setProblem(null)
-    const query = rangeToQuery(range)
+    const query = rangeToQuery(lastDays(days))
     sync.mutate(
       {
         date_from: query.date_from,
@@ -143,7 +170,14 @@ export function SyncModal({ open, onClose }: { open: boolean; onClose: () => voi
               <Label className="mb-0.5">{t('calls.sync.period')}</Label>
               <p className="text-2xs text-muted">{t('calls.sync.periodHint')}</p>
             </div>
-            <DateRangePicker value={range} onChange={setRange} earliest={earliest} />
+            <Segmented
+              value={String(days)}
+              onChange={(value) => setDays(Number(value) as SyncDays)}
+              items={SYNC_PERIODS.map((d) => ({
+                value: String(d),
+                label: t(`calls.sync.period.d${d}`),
+              }))}
+            />
           </div>
 
           {agentOptions.length > 1 && (

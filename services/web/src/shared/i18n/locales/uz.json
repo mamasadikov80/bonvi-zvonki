@@ -274,7 +274,11 @@
       "action": "Qo'ng'iroqlarni olish",
       "title": "MoyZvonki'dan qo'ng'iroqlarni olish",
       "hint": "Tanlangan davrdagi barcha qo'ng'iroqlar bazaga ko'chiriladi. Audiosi yo'qlari AI bilan baholanmaydi, lekin faollik hisobotida sanaladi",
-      "period": "Davr",
+      "period": {
+        "d7": "7 kun",
+        "d30": "1 oy",
+        "d45": "45 kun"
+      },
       "periodHint": "Qaysi sanalar oralig'i tortib olinadi",
       "supervised": "Barcha xodimlar",
       "supervisedHint": "O'chirilsa, faqat API kalit egasining qo'ng'iroqlari olinadi",
