@@ -1,10 +1,15 @@
 import {
   AlertTriangle,
+  ArrowLeftRight,
   ChevronLeft,
   ChevronRight,
   CloudDownload,
   Eye,
+  PhoneOff,
+  SlidersHorizontal,
   Sparkles,
+  Tag,
+  User,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -173,6 +178,13 @@ export function CallsPage() {
 
       {/* ── Filtrlar ──────────────────────────────────────── */}
       <Card className="p-4">
+        {/* Sarlavha — filtrlar qatorini qolgan sahifadan ajratadi va
+            Boshqaruv paneli / Faollik bo'limlari bilan bir xil ko'rinish
+            beradi */}
+        <div className="mb-3 flex items-center gap-2 text-muted">
+          <SlidersHorizontal className="size-4" />
+          <span className="label-eyebrow">{t('filters.title')}</span>
+        </div>
         <div className="flex flex-wrap items-center gap-3">
           {/* Qidiruv — xodim, hudud, client va transkript bo'yicha */}
           <SearchInput
@@ -188,7 +200,9 @@ export function CallsPage() {
           {/* Xodim */}
           {!isSales && options?.agents?.length ? (
             <Select
-              className="h-10 w-52"
+              icon={User}
+              active={Boolean(query.agent_id)}
+              className="w-52"
               value={query.agent_id ?? ''}
               onChange={(e) => {
                 const next = e.target.value || undefined
@@ -217,7 +231,9 @@ export function CallsPage() {
 
           {/* Yo'nalish */}
           <Select
-            className="h-10 w-36"
+            icon={ArrowLeftRight}
+            active={Boolean(query.direction)}
+            className="w-40"
             value={query.direction ?? ''}
             onChange={(e) =>
               patch({ direction: (e.target.value || undefined) as Direction })
@@ -230,7 +246,9 @@ export function CallsPage() {
 
           {/* Javob holati */}
           <Select
-            className="h-10 w-40"
+            icon={PhoneOff}
+            active={Boolean(query.answered)}
+            className="w-44"
             value={query.answered ?? ''}
             onChange={(e) =>
               patch({
@@ -247,7 +265,12 @@ export function CallsPage() {
               NEGA SELECT, SEGMENTED EMAS: yetti qiymat segmentli
               tugmachalarga sig'maydi va filtr qatorini buzardi. */}
           <Select
-            className="h-10 w-44"
+            icon={Tag}
+            /* Sukut bo'yicha «savdo» qo'yilgan — bu ham FILTR va u
+               faol ko'rinishi kerak, aks holda foydalanuvchi nega
+               ro'yxat qisqa ekanini tushunmaydi */
+            active={Boolean(query.call_type)}
+            className="w-48"
             value={query.call_type ?? ''}
             onChange={(e) =>
               patch({

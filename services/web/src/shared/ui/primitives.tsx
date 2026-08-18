@@ -1,5 +1,6 @@
 import { Slot } from '@radix-ui/react-slot'
 import { cva, type VariantProps } from 'class-variance-authority'
+import type { LucideIcon } from 'lucide-react'
 import * as React from 'react'
 
 import { cn } from '@/shared/lib/utils'
@@ -127,9 +128,13 @@ export const Input = React.forwardRef<
   <input
     ref={ref}
     className={cn(
+      // ⚠️ CHEGARA MAJBURIY. `surface-2` oq kartada atigi 3,5% farq
+      // qiladi — maydon oddiy matndek ko'rinadi va foydalanuvchi uni
+      // boshqaruv elementi deb tanimaydi.
       'h-10 w-full rounded-xl bg-surface-2 px-3.5 text-sm text-text',
+      'ring-1 ring-inset ring-border',
       'placeholder:text-muted/50 transition-all duration-250 ease-ios',
-      'focus:bg-surface focus:outline-none focus:ring-2 focus:ring-accent/30',
+      'hover:ring-border/80 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-accent/40',
       'disabled:cursor-not-allowed disabled:opacity-50',
       className,
     )}
@@ -140,20 +145,54 @@ Input.displayName = 'Input'
 
 export const Select = React.forwardRef<
   HTMLSelectElement,
-  React.SelectHTMLAttributes<HTMLSelectElement>
->(({ className, ...props }, ref) => (
-  <select
-    ref={ref}
-    className={cn(
-      'h-10 w-full appearance-none rounded-xl bg-surface-2 px-3.5 pr-9 text-sm text-text',
-      'transition-all duration-250 ease-ios',
-      'focus:bg-surface focus:outline-none focus:ring-2 focus:ring-accent/30',
-      'disabled:cursor-not-allowed disabled:opacity-50',
-      "bg-[url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%2394a3b8' stroke-width='1.5'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E\")] bg-[length:16px] bg-[right_0.75rem_center] bg-no-repeat",
-      className,
+  React.SelectHTMLAttributes<HTMLSelectElement> & {
+    /** Chap tomondagi belgicha — filtr nima haqidaligini bir qarashda
+     *  bildiradi. Bir qatorda to'rt-besh tanlagich turganda matnni
+     *  o'qimasdan farqlash imkonini beradi. */
+    icon?: LucideIcon
+    /** Tanlov qo'yilganmi — bo'sh filtrdan ajratib turadi */
+    active?: boolean
+    /** Ixcham variant (h-9) — ixcham filtr qatorlari uchun.
+     *
+     *  ⚠️ Alohida prop, chunki `className` endi TASHQI qavatga
+     *  tushadi: u yerga `h-9` yozilsa tanlagichning o'zi baland
+     *  qolib, qator elementlari bir chiziqda turmasdi. */
+    compact?: boolean
+  }
+>(({ className, icon: Icon, active, compact, ...props }, ref) => (
+  <div className={cn('relative', className)}>
+    {Icon && (
+      <Icon
+        className={cn(
+          'pointer-events-none absolute left-3 top-1/2 -translate-y-1/2',
+          compact ? 'size-3.5' : 'size-4',
+          active ? 'text-accent' : 'text-muted',
+        )}
+        aria-hidden
+      />
     )}
-    {...props}
-  />
+    <select
+      ref={ref}
+      className={cn(
+        // ⚠️ CHEGARA MAJBURIY. `surface-2` oq kartada atigi 3,5% farq
+        // qiladi — tanlagich oddiy so'zdek ko'rinadi va uni bosish
+        // mumkinligi bilinmaydi.
+        'w-full cursor-pointer appearance-none rounded-xl bg-surface-2 pr-9',
+        compact ? 'h-9 text-xs' : 'h-10 text-sm',
+        'ring-1 ring-inset transition-all duration-250 ease-ios',
+        'focus:bg-surface focus:outline-none focus:ring-2 focus:ring-accent/40',
+        'disabled:cursor-not-allowed disabled:opacity-50',
+        Icon ? 'pl-9' : 'pl-3.5',
+        // Tanlov qo'yilgan filtr ajralib turadi — aks holda qaysi biri
+        // ishlayotganini bilish uchun har birini o'qib chiqish kerak
+        active
+          ? 'bg-accent-soft font-medium text-accent ring-accent/30'
+          : 'text-text ring-border hover:ring-border/80',
+        "bg-[url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%2394a3b8' stroke-width='1.5'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E\")] bg-[length:16px] bg-[right_0.75rem_center] bg-no-repeat",
+      )}
+      {...props}
+    />
+  </div>
 ))
 Select.displayName = 'Select'
 

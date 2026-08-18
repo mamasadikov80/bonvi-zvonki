@@ -269,7 +269,8 @@ export function SurveysPage() {
 
             {!isSales && options.data?.agents.length ? (
               <Select
-                className="h-9 w-52 text-xs"
+                compact
+                className="w-52"
                 value={agentId}
                 onChange={(e) => setAgentId(e.target.value)}
                 aria-label={t('filters.agent')}
@@ -290,7 +291,8 @@ export function SurveysPage() {
                 nechta hududda ishlaganda paydo bo'ladi. */}
             {regionOptions.length > 1 && (
               <Select
-                className="h-9 w-44 text-xs"
+                compact
+                className="w-44"
                 value={region}
                 onChange={(e) => setRegion(e.target.value)}
                 aria-label={t('filters.region')}

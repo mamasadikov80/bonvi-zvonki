@@ -200,7 +200,7 @@ function RoleBlock({
         <div>
           <Label className="mb-1.5">{t('settings.ai.provider')}</Label>
           <Select
-            className="h-10 w-full"
+            className="w-full"
             disabled={!canEdit}
             value={provider}
             onChange={(e) => {
@@ -228,10 +228,10 @@ function RoleBlock({
             )}
           </Label>
           {catalogLoading ? (
-            <Skeleton className="h-10 w-full" />
+            <Skeleton className="w-full" />
           ) : (
             <Select
-              className="h-10 w-full"
+              className="w-full"
               disabled={!canEdit}
               value={model}
               onChange={(e) => onChange(modelKey, e.target.value)}
