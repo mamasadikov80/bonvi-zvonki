@@ -31,7 +31,12 @@ import { SyncModal } from '@/modules/calls/SyncModal'
 import { ScoreModal } from '@/modules/pipeline/ScoreModal'
 import { ScoringProgressBar } from '@/modules/pipeline/ScoringProgressBar'
 import { Page, PageHeader } from '@/shared/layout/Page'
-import { useDateFormat } from '@/shared/lib/date'
+import {
+  rangeToQuery,
+  resolvePreset,
+  useDateFormat,
+  type DateRange,
+} from '@/shared/lib/date'
 import {
   cn,
   formatDuration,
@@ -49,6 +54,7 @@ import {
   Select,
   Skeleton,
 } from '@/shared/ui/primitives'
+import { DateRangePicker } from '@/shared/ui/DateRangePicker'
 import { SearchInput } from '@/shared/ui/SearchInput'
 import { SortHeader, type SortState } from '@/shared/ui/SortHeader'
 
@@ -104,6 +110,12 @@ export function CallsPage() {
     sort: 'date',
     order: 'desc',
     agent_id: agentParam,
+    /* Sukut bo'yicha oxirgi 30 kun — Boshqaruv paneli va Faollik
+       bo'limlari bilan bir xil. Bazada 45 kungacha ma'lumot bo'lishi
+       mumkin, eskirog'i esa tanlagichdan bir bosishda ochiladi va
+       sarlavhadagi son darhol yangilanadi, ya'ni hech narsa jimgina
+       yashirilmaydi. */
+    ...rangeToQuery(resolvePreset('last30')),
     /* Sukut bo'yicha FAQAT SAVDO.
        Ma'lumotning 96% i savdo suhbati emas (o'lchandi: 172 tadan
        166 tasi) — filtrsiz ro'yxat «Ichki» belgilari bilan to'lib
@@ -113,6 +125,7 @@ export function CallsPage() {
     call_type: 'sales',
   })
   const [search, setSearch] = useState('')
+  const [range, setRange] = useState<DateRange>(() => resolvePreset('last30'))
 
   // Sahifa qayta mount bo'lmasdan manzil o'zgarishi mumkin (masalan
   // «orqaga»). Shunda ro'yxat ham ergashsin.
@@ -194,6 +207,16 @@ export function CallsPage() {
             onChange={(next) => {
               setSearch(next)
               patch({ search: next.trim() || undefined })
+            }}
+          />
+
+          {/* Davr — birinchi o'rinda: qolgan filtrlar shu oraliq
+              ichida ishlaydi va tartib shuni ko'rsatishi kerak */}
+          <DateRangePicker
+            value={range}
+            onChange={(next) => {
+              setRange(next)
+              patch(rangeToQuery(next))
             }}
           />
 

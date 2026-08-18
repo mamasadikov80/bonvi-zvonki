@@ -111,6 +111,9 @@ export type CallTypeFilter = CallType | 'unknown' | 'not_sales'
 export interface CallsQuery {
   page?: number
   page_size?: number
+  /** Sana oralig'i (ISO). Berilmasa — barcha vaqt. */
+  date_from?: string
+  date_to?: string
   agent_id?: string
   score_min?: number
   score_max?: number
