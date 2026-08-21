@@ -7,9 +7,9 @@ bo'ladi — admin «1-martdan» deb tanlaydi, «12 ta yangi» degan javob
 oladi va mart ma'lumoti yo'q deb o'ylaydi. Aslida oraliq
 qisqartirilgan.
 
-Chegarasiz so'rovning narxi ham bor: MoyZvonki yuz minglab eski
-qo'ng'iroq metadatasini sahifalab beradi, ularning hech biri bazaga
-tushmaydi (audiosi o'chirilgan) — ya'ni uzoq kutish, nol natija.
+Chegarasiz so'rovning narxi ham bor: MoyZvonki bir necha yillik
+arxivni sahifalab beradi va so'rov soatlab ishlaydi — admin uni
+to'xtata olmaydi.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -65,7 +65,10 @@ def test_chegara_ichidagi_sana_ozgarmaydi() -> None:
 
 
 def test_juda_eski_sana_qisqartiriladi() -> None:
-    soralgan = datetime.now(UTC) - timedelta(days=365)
+    # ⚠️ Chegaraga NISBATAN hisoblanadi, qat'iy 365 kun emas:
+    # `SYNC_MAX_DAYS` bir yilga ko'tarilganda qat'iy raqam chegaraning
+    # aynan o'ziga tushib qolib, test jimgina ma'nosiz bo'lib qolardi.
+    soralgan = datetime.now(UTC) - timedelta(days=SYNC_MAX_DAYS + 60)
     since, clamped = _qisqartir(soralgan)
     assert clamped is True
     assert since == _earliest_allowed()

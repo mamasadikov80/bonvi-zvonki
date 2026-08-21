@@ -97,6 +97,11 @@ def _blocks_payload(draft: ScoreDraft) -> dict[str, int]:
     Shuning uchun bu yerga NA ichma-ich obyekt, NA `_meta` kabi qo'shimcha
     kalit tushmaydi — `_meta` razrezda beshinchi «blok» bo'lib chiqardi.
     Dalillar va hisob-kitob izohi alohida ustunda: `block_details`.
+
+    ⚠️ Qiymat — QO'LLANILGAN mezonlar ichida hisoblangan ko'rsatkich
+    (`max × olingan / qo'llanilgan`), xom yig'indi emas. Butunlay
+    taalluqli bo'lmagan blok bu lug'atga umuman kirmaydi: radar
+    grafigida uni 0 deb chizish xodimni aybdor ko'rsatardi.
     """
     return dict(draft.block_scores)
 
@@ -106,11 +111,25 @@ def _block_details_payload(draft: ScoreDraft) -> dict[str, Any]:
 
     `meta` ni saqlaymiz, chunki keyinchalik «nega 78?» degan savolga
     javob berish uchun jarima va yig'indi qayta hisoblanmasin.
+
+    ⚠️ `applicable_*` maydonlari ham shu yerda: qo'ng'iroq sahifasida
+    «68 / 75 ball (3 mezon bu suhbatga taalluqli emas)» deb ko'rsatish
+    uchun aynan shular kerak. Ularsiz menejer ekrandagi bloklarni
+    qo'shib, umumiy ball bilan mos kelmasligini ko'rardi.
     """
     return {
         "blocks": draft.blocks,
         "meta": {
             "blocks_total": draft.blocks_total,
+            "applicable_max": draft.applicable_max,
+            "applicable_points": draft.applicable_points,
+            "earned_points": draft.earned_points,
+            "na_criteria": draft.na_criteria,
+            "na_over_budget": draft.na_over_budget,
+            # Ballga ta'sir qilmagan nomuvofiqliklar — «nega 60?» degan
+            # savolga keyin javob berish uchun
+            "warnings": draft.warnings,
+            "scenario": draft.scenario,
             "penalty_total": draft.penalty_total,
             "zeroed_by_red_flag": draft.zeroed,
             "language_detected": draft.language_detected,

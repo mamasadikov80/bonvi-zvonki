@@ -23,6 +23,18 @@ class Criterion(BaseModel):
     label: str
     points: int = Field(ge=0, le=100)
     description: str | None = None
+    optional: bool = False
+    """Mezon HAR SUHBATGA tushadimi.
+
+    `True` — AI uni «bu suhbatga taalluqli emas» deb belgilashi va ball
+    hisobidan chiqarib tashlashi mumkin. Eski mijoz «menga 50 ta
+    chiqaring» deb qo'ng'iroq qilganda ehtiyojni aniqlash ham,
+    mahsulotni taqdim etish ham talab qilinmaydi — bunday mezonga nol
+    qo'yish xodimni aybsiz holda jazolash bo'lardi.
+
+    `False` (sukut bo'yicha) — mezon har qanday suhbatda tekshiriladi.
+    Sukut ATAYLAB `False`: yangi mezon qo'shgan admin uni bexosdan
+    «tashlab ketsa bo'ladi» deb belgilab qo'ymasin."""
 
 
 class Block(BaseModel):

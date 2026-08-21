@@ -33,11 +33,9 @@ interface RatingMetric extends Metric {
  *  kerak, aks holda ikki tomon ajralib ketadi. */
 export interface CallTypeCounts {
   sales: number
-  service: number
+  /** Ikki xodim o'rtasidagi suhbat — baholanmaydi */
   internal: number
-  personal: number
-  unclear: number
-  /** Hali tasniflanmagan */
+  /** Hali aniqlanmagan */
   unknown: number
 }
 

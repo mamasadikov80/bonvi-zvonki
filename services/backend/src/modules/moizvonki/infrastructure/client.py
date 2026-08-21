@@ -105,7 +105,7 @@ class MoizvonkiClient:
         self._http = httpx.AsyncClient(
             timeout=httpx.Timeout(timeout, connect=connect_timeout),
             follow_redirects=True,
-            headers={"User-Agent": "ZvonkiDashboard/1.0 (+bonvi)"},
+            headers={"User-Agent": "BonviZvonki/1.0 (+bonvi)"},
         )
 
     # ── Hayot sikli ───────────────────────────────────────────

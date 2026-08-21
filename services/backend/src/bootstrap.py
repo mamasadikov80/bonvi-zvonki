@@ -184,6 +184,53 @@ COLUMN_PATCHES: list[str] = [
     "CREATE INDEX IF NOT EXISTS ix_calls_call_type ON calls (call_type)",
     "DROP INDEX IF EXISTS ix_calls_language",
     "ALTER TABLE calls DROP COLUMN IF EXISTS language",
+    # ── Bizning liniyamiz: `src_number` ───────────────────────
+    #
+    # MoyZvonki har qo'ng'iroqda xodim QAYSI o'z raqamimizdan
+    # gaplashganini beradi. Kompaniya liniyalari ro'yxati aynan shu
+    # ustundan yig'iladi va qo'ng'iroq turi shu ro'yxatga qarab
+    # aniqlanadi (suhbatdosh ham bizniki bo'lsa — ichki suhbat).
+    "ALTER TABLE calls ADD COLUMN IF NOT EXISTS agent_number VARCHAR(32)",
+    "CREATE INDEX IF NOT EXISTS ix_calls_agent_number ON calls (agent_number)",
+    # ── Bir martalik ma'lumot tuzatishlari uchun belgi ────────
+    #
+    # Bootstrap HAR ishga tushishda yuradi. Ba'zi tuzatishlar esa
+    # faqat bir marta bajarilishi kerak (masalan ustunni tozalash) —
+    # belgisiz ular har safar yangi ma'lumotni ham o'chirib tashlardi.
+    #
+    # ⚠️ Belgi `app_settings` da SAQLANMAYDI. U yer — adminga
+    # ko'rinadigan sozlamalar reyestri; texnik bayroq u yerda begona
+    # qator bo'lib qolardi va sozlamalar ekranida ko'rinardi.
+    """
+    CREATE TABLE IF NOT EXISTS bootstrap_flags (
+        key        VARCHAR(64) PRIMARY KEY,
+        applied_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+    );
+    """,
+    # ── Eski AI tasnifini tozalash (BIR MARTA) ────────────────
+    #
+    # Ilgari turni AI transkript MAZMUNIGA qarab qo'yardi va
+    # yanglishardi: eski mijoz ham «qoldiq qancha, narx qanaqa» deb
+    # qisqa gaplashadi, bu esa hamkasb suhbatidan farq qilmaydi.
+    # O'lchandi — tasniflangan 98 qo'ng'iroqdan 82 tasi «ichki», savdo
+    # esa 9 ta bo'lib chiqqan, ya'ni haqiqiy savdo suhbatlarining ko'pi
+    # baholanmay qolgan.
+    #
+    # Endi tur RAQAM bo'yicha aniqlanadi. Eski qiymatlar yaroqsiz —
+    # ular tozalanadi va quvur turni qaytadan qo'yadi.
+    """
+    UPDATE calls
+       SET call_type = NULL, call_type_reason = NULL,
+           call_type_confidence = NULL
+     WHERE call_type IS NOT NULL
+       AND NOT EXISTS (
+             SELECT 1 FROM bootstrap_flags WHERE key = 'call_type_v2'
+           );
+    """,
+    """
+    INSERT INTO bootstrap_flags (key) VALUES ('call_type_v2')
+    ON CONFLICT (key) DO NOTHING;
+    """,
     # ── Eski ASR sozlamalarini tozalash ───────────────────────
     # `asr.provider` va vendor kalitlari REYESTRDAN olib tashlandi:
     # ular hech qayerda o'qilmasdi, haqiqiy tanlov `ai.*` da. Bazada
@@ -233,10 +280,43 @@ async def main() -> None:
         # xodimning hududi ro'yxatdan tashqarida qolardi. Idempotent.
         added_regions = await populate_initial_regions(conn)
 
+    # ── Rubrikaga «qo'llanilish» belgilari ────────────────────
+    #
+    # ⚠️ Alohida sessiyada: bu DDL emas, ma'lumot yangilanishi va u
+    # `RubricService` mantig'iga tayanadi (yangi versiya yaratiladi,
+    # eskisi joyida qoladi). Idempotent: belgilar allaqachon bo'lsa
+    # hech narsa qilinmaydi.
+    from src.core.database import SessionFactory
+    from src.modules.calls.application.retype import retype_calls
+    from src.modules.scoring.application.rubric_upgrade import (
+        upgrade_rubric_applicability,
+    )
+
+    async with SessionFactory() as session:
+        yangi_rubrika = await upgrade_rubric_applicability(session)
+
+    # ── Qo'ng'iroq turlarini qayta hisoblash ──────────────────
+    #
+    # Yuqoridagi tuzatish eski AI tasnifini tozaladi. Bu yerda tur
+    # raqam bo'yicha qaytadan qo'yiladi — ya'ni baza «tasniflanmagan»
+    # holatda qolmaydi. Kompaniya liniyalari ro'yxati hali bo'sh
+    # bo'lsa (birinchi ishga tushirish, sinxronizatsiya qilinmagan)
+    # hech narsa qilinmaydi va birinchi sinxronizatsiyadan keyin
+    # o'zi bajariladi.
+    async with SessionFactory() as session:
+        turlar = await retype_calls(session)
+
     tables = ", ".join(sorted(Base.metadata.tables))
     print(f"  ✅ Jadvallar tayyor: {tables}")
     if COLUMN_PATCHES:
         print(f"  ✅ Ustun tuzatishlari: {len(COLUMN_PATCHES)} ta")
+    if turlar.changed:
+        print(
+            f"  ✅ Qo'ng'iroq turlari: {turlar.sales} savdo, "
+            f"{turlar.internal} ichki"
+        )
+    if yangi_rubrika is not None:
+        print(f"  ✅ Rubrika yangilandi: v{yangi_rubrika} (qo'llanilish belgilari)")
     if added_regions:
         print(f"  ✅ Hududlar qo'shildi: {', '.join(added_regions)}")
     else:

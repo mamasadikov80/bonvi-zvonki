@@ -22,6 +22,10 @@ from src.modules.settings.domain.entities import (
 from src.modules.settings.infrastructure.models import SettingModel
 
 
+#: Ichki raqamlar sozlamasi — o'zgarganda kesh bo'shatiladi.
+INTERNAL_NUMBERS_KEY = "moizvonki.internal_numbers"
+
+
 class SettingsService:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
@@ -191,6 +195,16 @@ class SettingsService:
             )
         )
         await self._session.execute(stmt)
+
+        if key == INTERNAL_NUMBERS_KEY:
+            # ⚠️ Kompaniya liniyalari ro'yxati jarayon xotirasida
+            # keshlanadi (minglab qo'ng'iroqda bir xil `SELECT`
+            # takrorlanmasin). Admin raqam qo'shgan zahoti ro'yxat
+            # yangilanishi kerak, aks holda u tugmani bosadi-yu, hech
+            # narsa o'zgarmaydi va sozlama ishlamayotgandek ko'rinadi.
+            from src.modules.calls.application import internal_directory
+
+            internal_directory.reset()
 
     async def set_many(
         self, values: dict[str, Any], *, user_id: UUID | None = None

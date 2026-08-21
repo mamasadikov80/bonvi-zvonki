@@ -121,6 +121,23 @@ SETTINGS_REGISTRY: list[SettingSpec] = [
             "ular baholashga arzimaydi va pul yeydi."
         ),
     ),
+    SettingSpec(
+        key="moizvonki.internal_numbers",
+        category=SettingCategory.MOIZVONKI,
+        label_uz="Qo'shimcha ichki raqamlar",
+        type="string",
+        hint_uz=(
+            "Kompaniyaning MoyZvonki'da xodim sifatida ro'yxatdan o'tmagan "
+            "raqamlari: ombor, logistika, buxgalteriya, rejalashtirish. "
+            "Shu raqamlar bilan bo'lgan suhbat «ichki» deb belgilanadi va "
+            "savdo rubrikasi bilan baholanmaydi. Vergul yoki yangi qator "
+            "bilan ajrating. "
+            "Raqamlar bloki bo'lsa QOIDA yozing: «*700» — oxiri 700 bilan "
+            "tugagan har qanday raqam bizniki (kamida uch raqam). "
+            "Xodimlarning o'z raqamlari bu yerga KERAK EMAS — ular "
+            "qo'ng'iroqlardan avtomatik o'rganiladi."
+        ),
+    ),
     # ── Telegram ──────────────────────────────────────────────
     SettingSpec(
         key="telegram.bot_token",

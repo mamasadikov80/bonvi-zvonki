@@ -35,15 +35,18 @@ def test_markdown_fence_is_tolerated() -> None:
     assert draft.overall > 0
 
 
-def test_wrong_total_is_rejected() -> None:
-    """96 deb yozilgan, bloklar esa 84 — saqlanmasligi SHART."""
-    with pytest.raises(ScoreValidationError) as exc:
-        validate(
-            _dump(seed=3, overall_override=96),
-            rubric_blocks=BLOCKS,
-            rubric_red_flags=FLAGS,
-        )
-    assert "arifmetikasi noto'g'ri" in exc.value.message
+def test_model_yozgan_umumiy_ball_olinmaydi() -> None:
+    """Model «96» yozdi — natija baribir bloklardan hisoblanadi.
+
+    Umumiy ballning yagona egasi — validator. Model uni umuman
+    qaytarmasligi ham mumkin (sxemada `required` emas)."""
+    draft = validate(
+        _dump(seed=3, overall_override=96),
+        rubric_blocks=BLOCKS,
+        rubric_red_flags=FLAGS,
+    )
+    assert draft.overall == draft.blocks_total
+    assert draft.overall != 96
 
 
 def test_invented_red_flag_is_rejected() -> None:
@@ -65,24 +68,60 @@ def test_unknown_block_is_rejected() -> None:
         )
 
 
-def test_criteria_must_sum_to_block_score() -> None:
+def test_model_yozgan_blok_bali_olinmaydi() -> None:
+    """Blok bali KRITERIYALARDAN hisoblanadi, modeldan olinmaydi.
+
+    ⚠️ ILGARI bunday javob rad etilardi. `na` («taalluqli emas»)
+    paydo bo'lgach bu doimiy nosozlik manbaiga aylandi: tashlangan
+    mezondan keyin model blok maksimumini «to'ldirishga» urinib,
+    yig'indini oshirib yozardi va butun javob yo'q qilinardi —
+    o'lchandi, beshta qo'ng'iroqning ikkitasi shu sababli umuman
+    baholanmay qoldi (uch marta so'rov = uch marta pul, natija yo'q).
+
+    Yig'indi — HISOBLANADIGAN qiymat. Modelning da'vosi endi faqat
+    ogohlantirish sifatida yoziladi, ballga esa ta'sir qilmaydi."""
     payload = build_payload(BLOCKS, FLAGS, seed=6)
+    haqiqiy = payload["blocks"]["script"]["score"]
     payload["blocks"]["script"]["score"] += 3
-    payload["overall_score"] += 3
+
+    draft = validate(
+        json.dumps(payload), rubric_blocks=BLOCKS, rubric_red_flags=FLAGS
+    )
+
+    assert draft.blocks["script"]["raw_score"] == haqiqiy
+    assert draft.warnings, "mos kelmagani ogohlantirishda ko'rinishi kerak"
+
+
+def test_haddan_tashqari_blok_bali_ballni_kotarmaydi() -> None:
+    """Model «99» yozsa ham natija kriteriyalardan chiqadi."""
+    payload = build_payload(BLOCKS, FLAGS, seed=7)
+    toza = validate(
+        json.dumps(payload), rubric_blocks=BLOCKS, rubric_red_flags=FLAGS
+    )
+    payload["blocks"]["script"]["score"] = 99
+
+    draft = validate(
+        json.dumps(payload), rubric_blocks=BLOCKS, rubric_red_flags=FLAGS
+    )
+
+    assert draft.overall == toza.overall
+
+
+def test_kriteriya_maksimumidan_oshiq_ball_rad_etiladi() -> None:
+    """⚠️ Bu chegara SAQLANIB QOLDI.
+
+    Blok bali endi tekshirilmaydi, lekin har MEZONNING chegarasi
+    tekshiriladi: aynan shu yerda model `na` bilan tashlangan mezonning
+    ballini qolganlariga taqsimlashga urinadi (A4 ga 5 o'rniga 15).
+    Sxema buni to'sadi, validator esa oxirgi to'siq."""
+    payload = build_payload(BLOCKS, FLAGS, seed=8)
+    payload["blocks"]["script"]["criteria"][3]["score"] = 15
+
     with pytest.raises(ScoreValidationError) as exc:
         validate(
             json.dumps(payload), rubric_blocks=BLOCKS, rubric_red_flags=FLAGS
         )
-    assert "kriteriyalar yig'indisi" in exc.value.message
-
-
-def test_block_score_above_maximum_is_rejected() -> None:
-    payload = build_payload(BLOCKS, FLAGS, seed=7)
-    payload["blocks"]["script"]["score"] = 99
-    with pytest.raises(ScoreValidationError):
-        validate(
-            json.dumps(payload), rubric_blocks=BLOCKS, rubric_red_flags=FLAGS
-        )
+    assert "ruxsat etilgani" in exc.value.message
 
 
 def test_profanity_zeroes_the_score() -> None:

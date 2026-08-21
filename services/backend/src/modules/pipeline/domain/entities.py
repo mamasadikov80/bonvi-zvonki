@@ -18,6 +18,8 @@ from src.core.exceptions import AppError
 
 
 class Stage(StrEnum):
+    #: Tur aniqlash — raqam bo'yicha, provayderga chiqmaydi
+    ROUTE = "route"
     TRANSCRIBE = "transcribe"
     SCORE = "score"
 
@@ -72,6 +74,25 @@ class CallTooShortError(PipelineError):
     code = "call_too_short"
 
 
+class DirectoryEmptyError(PipelineError):
+    """Kompaniya liniyalari ro'yxati bo'sh — tur aniqlab bo'lmaydi.
+
+    ⚠️ NEGA QO'NG'IROQ SHUNDA ISHLANMAYDI. Ro'yxat bo'sh bo'lsa har
+    qanday suhbat «tashqi» bo'lib chiqadi, ya'ni hamkasblar orasidagi
+    gaplashuv ham savdo rubrikasi bilan baholanadi va past ball oladi.
+    Bu ikki tomonlama zarar: pul sarflanadi va xodimning o'rtachasi
+    asossiz tushadi — buni keyin tuzatib ham bo'lmaydi, chunki
+    baholangan qo'ng'iroq navbatga qayta tushmaydi.
+
+    Shuning uchun bunday holatda qo'ng'iroq TEGILMAY qoladi va sabab
+    yozib qo'yiladi. Ro'yxat birinchi sinxronizatsiyadan keyin to'ladi
+    (`calls.agent_number`), keyingi yurishda esa hammasi normal ishlaydi.
+    """
+
+    status_code = 503
+    code = "internal_directory_empty"
+
+
 # ── Natijalar ─────────────────────────────────────────────────
 
 
@@ -100,9 +121,11 @@ class CallOutcome:
     call_id: UUID
     stage: PipelineStage
     transcribe: StageOutcome | None = None
-    classify: StageOutcome | None = None
-    """Tur aniqlash bosqichi. ⚠️ Bu ham LLM chaqiruvi — `llm_calls`
-    ga KIRISHI shart, aks holda hisob kam ko'rsatadi."""
+    route: StageOutcome | None = None
+    """Tur aniqlash bosqichi — RAQAM bo'yicha, provayderga chiqmaydi.
+
+    Ilgari bu yerda LLM chaqiruvi turardi va `llm_calls` ga kirardi.
+    Endi bosqich bepul: `provider_calls` doim 0."""
     score: StageOutcome | None = None
     error_code: str | None = None
     error_message: str | None = None
@@ -131,26 +154,16 @@ class CallOutcome:
 
     @property
     def llm_calls(self) -> int:
-        """LLM ga ketgan chaqiruvlar — TASNIF ham, BAHO ham.
+        """LLM ga ketgan chaqiruvlar — faqat BAHOLASH.
 
-        ⚠️ Ilgari faqat `score` sanalardi. Savdo bo'lmagan qo'ng'iroqda
-        esa baho bosqichi umuman ishga tushmaydi (`score is None`), tur
-        aniqlash esa ishlaydi — natijada hisob NOL deb ko'rsatardi,
-        aslida bitta so'rov ketgan.
+        ⚠️ Tur aniqlash bosqichi bu songa KIRMAYDI, chunki u endi
+        provayderga umuman chiqmaydi (raqam bo'yicha hal bo'ladi).
+        Ilgari kirardi: o'shanda tasnif ham LLM chaqiruvi edi.
 
-        Zarari: ma'lumotning 96% i savdo emas, ya'ni guruh yakunidagi
-        `llm_calls` deyarli butunlay xato bo'lardi. Aynan shu son bilan
-        «bitta audio uchun nechta so'rov ketdi» va «vendor chegarasi
-        nega to'ldi» degan savollarga javob beriladi — xato son bunday
-        savolni javobsiz qoldiradi.
-
-        Bazadagi `call_pipeline_state.llm_calls` to'g'ri edi: dirijyor
-        unga ikkala bosqichni ham qo'shadi. Ya'ni farq faqat hisobotda
-        ko'rinardi va shuning uchun sezilmasdi.
+        Aynan shu son bilan «bitta audio uchun nechta so'rov ketdi» va
+        «vendor chegarasi nega to'ldi» degan savollarga javob beriladi.
         """
-        return (self.classify.provider_calls if self.classify else 0) + (
-            self.score.provider_calls if self.score else 0
-        )
+        return self.score.provider_calls if self.score else 0
 
 
 @dataclass(slots=True)

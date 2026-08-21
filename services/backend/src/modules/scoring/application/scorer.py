@@ -24,6 +24,7 @@ from src.modules.scoring.application.prompt import (
 from src.modules.scoring.application.validator import (
     ScoreDraft,
     ScoreValidationError,
+    na_budget,
     validate,
 )
 
@@ -43,6 +44,9 @@ class CallContext:
     duration_sec: int
     direction: str
     started_at: str
+    client_label: str | None = None
+    """Mijoz nomi — TANISHMI degan signal. `None` bo'lsa raqam
+    kontaktlar kitobida yo'q."""
 
 
 @dataclass(slots=True)
@@ -93,11 +97,19 @@ class CallScorer:
         )
 
     async def score(self, context: CallContext) -> ScoringOutcome:
+        # `na` budjeti suhbat uzunligiga bog'liq va u IKKI JOYDA kerak:
+        # promptda (model chegarani oldindan bilsin) va validatorda
+        # (chegara haqiqatan qo'llansin). Bitta manbadan olinadi —
+        # aks holda model bir chegarani ko'rib, boshqasi bilan
+        # tekshirilardi.
+        budjet = na_budget(context.duration_sec)
         base_user = build_user_prompt(
             transcript=context.transcript,
             duration_sec=context.duration_sec,
             direction=context.direction,
             started_at=context.started_at,
+            client_label=context.client_label,
+            na_budget=budjet,
         )
 
         calls = 0
@@ -107,6 +119,11 @@ class CallScorer:
             user = base_user
             if last_error is not None:
                 user = base_user + build_retry_prompt(last_error.message)
+            # Oxirgi urinishda `na` budjeti YUMSHOQ: rad etishda ma'no
+            # qolmaydi — qo'ng'iroq umuman baholanmagan bo'lib qolardi
+            # va to'langan pul behuda ketardi. Baho qabul qilinadi,
+            # lekin `na_over_budget` uni tekshiruv navbatiga chiqaradi.
+            oxirgi = attempt == self._invalid_retries
 
             raw = await self._invoke(system=self._system, user=user, schema=self._schema)
             calls += 1
@@ -116,6 +133,8 @@ class CallScorer:
                     raw,
                     rubric_blocks=self._blocks,
                     rubric_red_flags=self._red_flags,
+                    duration_sec=context.duration_sec,
+                    enforce_na_budget=not oxirgi,
                 )
             except ScoreValidationError as exc:
                 last_error = exc

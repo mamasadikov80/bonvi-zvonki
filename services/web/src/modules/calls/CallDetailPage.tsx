@@ -598,6 +598,46 @@ export function CallDetailPage() {
                     </div>
                   </div>
 
+                  {/* ── Qaysi mezonlar qo'llanilgan ──────────────
+                      Qisqa, takroriy buyurtma suhbatida rubrikaning
+                      bir qismi taalluqli bo'lmaydi: eski mijoz «50 ta
+                      chiqaring» deydi va ehtiyojni aniqlash ham,
+                      mahsulot taqdimoti ham talab qilinmaydi. Ball
+                      o'sha qo'llanilganlar ichida hisoblanadi.
+
+                      ⚠️ Busiz ekran o'z-o'ziga zid ko'rinardi: menejer
+                      bloklarni qo'shib 68 oladi, tepada esa 91 turadi
+                      va bu bahoga ishonchni yo'q qilardi. Eski
+                      baholarda bu ma'lumot yo'q — o'shanda hech narsa
+                      ko'rsatilmaydi. */}
+                  {score.applicability &&
+                    score.applicability.na_criteria.length > 0 && (
+                      <div className="mb-4 rounded-xl bg-surface-2/60 px-3 py-2.5 text-2xs leading-relaxed text-muted">
+                        <span className="font-medium text-text">
+                          {t('calls.applicability.title', {
+                            earned: score.applicability.blocks_total ?? 0,
+                            max: score.applicability.applicable_max,
+                          })}
+                        </span>{' '}
+                        {t('calls.applicability.skipped', {
+                          count: score.applicability.na_criteria.length,
+                          list: (
+                            score.applicability.na_labels ??
+                            score.applicability.na_criteria
+                          ).join(', '),
+                        })}
+                        {score.applicability.scenario && (
+                          <>
+                            {' · '}
+                            {t(
+                              `calls.scenario.${score.applicability.scenario}`,
+                              { defaultValue: score.applicability.scenario },
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
+
                   <div className="space-y-3">
                     {Object.entries(score.blocks).map(([key, value]) => {
                       const max = BLOCK_MAX[key] ?? 25

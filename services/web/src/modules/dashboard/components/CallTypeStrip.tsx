@@ -20,14 +20,7 @@ import { cn, formatNumber } from '@/shared/lib/utils'
 
 /** Ko'rsatish tartibi — savdo birinchi, «aniqlanmadi» oxirida.
  *  Alifbo tartibi ma'nosiz bo'lardi: savdo — asosiy tur. */
-const ORDER: (keyof CallTypeCounts)[] = [
-  'sales',
-  'service',
-  'internal',
-  'personal',
-  'unclear',
-  'unknown',
-]
+const ORDER: (keyof CallTypeCounts)[] = ['sales', 'internal', 'unknown']
 
 const TONE: Partial<Record<keyof CallTypeCounts, string>> = {
   sales: 'bg-good',

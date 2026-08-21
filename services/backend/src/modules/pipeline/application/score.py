@@ -94,9 +94,23 @@ class ScoreStage:
                 duration_sec=call.duration_sec or 0,
                 direction=str(call.direction),
                 started_at=call.started_at.strftime("%d/%m/%Y %H:%M"),
+                # Nom bor = raqam kontaktlar kitobida saqlangan, ya'ni
+                # TANISH mijoz. Bu baholashda muhim signal: tanish
+                # mijozdan to'liq tanishtirish talab qilinmaydi.
+                client_label=call.client_name,
             )
         )
         draft = outcome.draft
+
+        if draft.warnings:
+            # ⚠️ Ballga ta'sir qilmagan nomuvofiqliklar JIMGINA
+            # yo'qolmasligi kerak: ular modelning qayerda adashayotganini
+            # ko'rsatadi va promptni sozlashda yagona manba shu.
+            log.warning(
+                "score.warnings",
+                call_id=str(call.id),
+                warnings=draft.warnings,
+            )
 
         rating, rating_count = await agent_client_rating(session, call.agent_id)
         review = decide(
@@ -108,6 +122,7 @@ class ScoreStage:
             ai_score=draft.overall,
             client_rating=rating,
             client_rating_count=rating_count,
+            na_over_budget=draft.na_over_budget,
         )
 
         await save_score(

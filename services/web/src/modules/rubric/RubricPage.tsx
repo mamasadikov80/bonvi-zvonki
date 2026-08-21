@@ -26,6 +26,7 @@ import {
   Input,
   Label,
   Skeleton,
+  Switch,
 } from '@/shared/ui/primitives'
 
 /* ── Turlar ──────────────────────────────────────────────── */
@@ -35,6 +36,16 @@ interface Criterion {
   label: string
   points: number
   description?: string | null
+  /** Mezon HAR SUHBATGA tushadimi.
+   *
+   *  `true` — AI uni «bu suhbatga taalluqli emas» deb belgilashi va
+   *  ball hisobidan chiqarib tashlashi mumkin. Eski mijoz «menga 50 ta
+   *  chiqaring» deganda ehtiyojni aniqlash ham, mahsulotni taqdim etish
+   *  ham talab qilinmaydi — bunday mezonga nol qo'yish xodimni aybsiz
+   *  holda jazolash bo'lardi.
+   *
+   *  `false` — mezon har qanday suhbatda tekshiriladi. */
+  optional?: boolean
 }
 
 interface Block {
@@ -295,7 +306,17 @@ export function RubricPage() {
                   >
                     <Badge className="mt-0.5 shrink-0 font-mono">{criterion.id}</Badge>
                     <div className="min-w-0 flex-1">
-                      <div className="text-sm font-medium">{criterion.label}</div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-medium">{criterion.label}</span>
+                        {/* Ixtiyoriy mezon KO'RINIB turishi kerak: aks
+                            holda admin «nega bu qo'ng'iroqda bu mezon
+                            baholanmagan?» degan savolga javob topmaydi */}
+                        {criterion.optional && (
+                          <Badge tone="neutral" title={t('rubric.optionalHint')}>
+                            {t('rubric.optionalBadge')}
+                          </Badge>
+                        )}
+                      </div>
                       {criterion.description && (
                         <p className="mt-0.5 text-xs text-muted">
                           {criterion.description}
@@ -476,7 +497,8 @@ function EditModal({
 }) {
   const { t } = useTranslation()
 
-  const [draft, setDraft] = useState<Record<string, string | number>>({})
+  // `boolean` ham kerak: `optional` bayrog'i shu qoralamada yuriladi
+  const [draft, setDraft] = useState<Record<string, string | number | boolean>>({})
   const [loadedKey, setLoadedKey] = useState<string | null>(null)
 
   const key = target ? JSON.stringify(target) : null
@@ -484,7 +506,13 @@ function EditModal({
     setLoadedKey(key)
     if (target?.kind === 'criterion') {
       const c = blocks[target.blockIndex].criteria[target.index]
-      setDraft({ id: c.id, label: c.label, points: c.points, description: c.description ?? '' })
+      setDraft({
+        id: c.id,
+        label: c.label,
+        points: c.points,
+        description: c.description ?? '',
+        optional: Boolean(c.optional),
+      })
     } else if (target?.kind === 'newCriterion') {
       const block = blocks[target.blockIndex]
       setDraft({
@@ -492,6 +520,9 @@ function EditModal({
         label: '',
         points: 0,
         description: '',
+        // Sukut ATAYLAB `false`: yangi mezon qo'shgan admin uni
+        // bexosdan «tashlab ketsa bo'ladi» deb belgilab qo'ymasin
+        optional: false,
       })
     } else if (target?.kind === 'block') {
       const b = blocks[target.index]
@@ -528,6 +559,7 @@ function EditModal({
         label: String(draft.label).trim(),
         points: Number(draft.points),
         description: String(draft.description).trim() || null,
+        optional: Boolean(draft.optional),
       }
       const next = blocks.map((b, i) => {
         if (i !== bi) return b
@@ -653,6 +685,22 @@ function EditModal({
               value={String(draft.points ?? 0)}
               onChange={(e) => setDraft({ ...draft, points: Number(e.target.value) })}
             />
+          </div>
+        )}
+
+        {isCriterion && (
+          <div className="flex items-start gap-3 rounded-xl bg-surface-2/60 px-3.5 py-3">
+            <Switch
+              checked={Boolean(draft.optional)}
+              onChange={(next) => setDraft({ ...draft, optional: next })}
+              label={t('rubric.optional')}
+            />
+            <div className="min-w-0">
+              <Label className="mb-0.5">{t('rubric.optional')}</Label>
+              <p className="text-2xs leading-relaxed text-muted">
+                {t('rubric.optionalHint')}
+              </p>
+            </div>
           </div>
         )}
 

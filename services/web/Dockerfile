@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────────
-#  ZvonkiDashboard — Frontend (Vite + React + TypeScript)
+#  BonviZvonki — Frontend (Vite + React + TypeScript)
 #  node_modules konteyner ichida qoladi, host toza turadi.
 # ─────────────────────────────────────────────────────────────
 FROM node:22-alpine AS base

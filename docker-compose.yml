@@ -1,5 +1,5 @@
 # ══════════════════════════════════════════════════════════════
-#  ZvonkiDashboard — Development stack
+#  BonviZvonki — Development stack
 #
 #  Kompyuteringizga hech narsa o'rnatilmaydi: Python, Node,
 #  PostgreSQL, Redis — hammasi konteyner ichida.
@@ -10,7 +10,7 @@
 name: zvonki
 
 x-labels: &labels
-  org.opencontainers.image.title: ZvonkiDashboard
+  org.opencontainers.image.title: BonviZvonki
   org.opencontainers.image.vendor: Zvonki
   com.zvonki.environment: development
 

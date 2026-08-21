@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────────
-#  ZvonkiDashboard — Backend API (FastAPI)
+#  BonviZvonki — Backend API (FastAPI)
 #  Barcha bog'liqliklar konteyner ichida. Host toza qoladi.
 # ─────────────────────────────────────────────────────────────
 FROM python:3.12-slim AS base

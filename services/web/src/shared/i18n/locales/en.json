@@ -49,7 +49,7 @@
     "avgDuration": "Avg duration",
     "ratingPending": "{{count}} responses so far — the average is not open yet",
     "byType": "By type ({{count}}):",
-    "typeUnknown": "Unclassified",
+    "typeUnknown": "Undetermined",
     "callsHint": "sales calls of {{total}}"
   },
   "filters": {
@@ -217,7 +217,10 @@
     "flagKey": "Key (sent to the AI)",
     "flagKeyHint": "Generated from the label. The AI returns this exact key and it is stored in the database.",
     "flagKeyInvalid": "The label did not produce a valid key — try latin letters.",
-    "flagKeyDuplicate": "That key already exists."
+    "flagKeyDuplicate": "That key already exists.",
+    "optional": "Does not apply to every call",
+    "optionalBadge": "Optional",
+    "optionalHint": "When on, the AI may mark this criterion as “not applicable to this call” and exclude it from the score. When a repeat customer says “send me 50”, needs discovery is not required, and a zero would punish the rep for nothing. When off, the criterion is checked on every call."
   },
   "users": {
     "subtitle": "Accounts, roles and links to sales agents",
@@ -274,12 +277,17 @@
       "action": "Pull calls",
       "title": "Pull calls from MoyZvonki",
       "hint": "All calls in the selected period are copied into the database. Ones without audio are not scored by AI but count in the activity report",
-      "period": {
+      "period": "Period",
+      "periods": {
         "d7": "7 days",
         "d30": "1 month",
-        "d45": "45 days"
+        "d45": "45 days",
+        "d365": "1 year",
+        "custom": "Range"
       },
       "periodHint": "Which date range to pull",
+      "dayCount": "{{count}} days",
+      "rangeInvalid": "Pick both dates — the start must not be after the end",
       "supervised": "All employees",
       "supervisedHint": "If off, only the API key owner's calls are pulled",
       "noAudioNote": "Only metadata is copied: who, to whom, when and how long. Audio is never stored here — it streams only while you listen.",
@@ -297,7 +305,8 @@
       "notConfigured": "MoyZvonki is not connected yet",
       "failed": "Sync did not run",
       "agentHint": "Empty means all employees linked to MoyZvonki",
-      "windowNote": "Sync is limited to the last {{days}} days — from {{date}} to today. Audio for earlier calls is not retained in MoyZvonki, so a wider range would import no calls."
+      "windowNote": "At most the last {{days}} days can be picked — from {{date}} to today.",
+      "oldCallsNote": "The range reaches past {{days}} days. Audio for older calls is not retained in MoyZvonki: they land in the list and statistics in full, but are not scored by AI. A long range takes a while — keep the window open, whatever was pulled stays in the database."
     },
     "outcomes": {
       "order_agreed": "Order agreed",
@@ -317,29 +326,20 @@
     "outcomeConfidence": "AI confidence",
     "type": {
       "sales": "Sales",
-      "service": "Service",
       "internal": "Internal",
-      "personal": "Personal",
-      "unclear": "Unclear",
       "short": {
         "sales": "Sales",
-        "service": "Service",
-        "internal": "Internal",
-        "personal": "Personal",
-        "unclear": "?"
+        "internal": "Internal"
       },
       "hint": {
-        "sales": "A sales conversation with a customer — only this type is scored",
-        "service": "Service for an existing customer: delivery, complaint. Not a sale, so not scored",
-        "internal": "Internal work conversation (warehouse, accounting, colleague) — not scored",
-        "personal": "Personal conversation unrelated to work — not scored",
-        "unclear": "Type could not be determined — no score is given on a guess"
+        "sales": "An outside conversation — with a customer. Only this type is scored",
+        "internal": "Both sides are company staff (the number is on the company line list) — transcribed, but not scored"
       },
-      "notScored": "This is not a sales conversation, so it is not scored and does not affect the sales metric.",
+      "notScored": "This is an internal conversation between two employees, so it is not scored and does not affect the sales metric.",
       "filterAll": "All types",
       "filterNotSales": "Not sales",
-      "filterUnknown": "Unclassified",
-      "emptySalesHint": "Only sales calls are shown by default. Other types and not-yet-classified calls are hidden."
+      "filterUnknown": "Undetermined",
+      "emptySalesHint": "Only sales conversations are shown by default. Internal calls and calls whose type is not yet determined are hidden."
     },
     "direction": {
       "all": "Direction: all",
@@ -352,6 +352,19 @@
       "all": "Answer: all",
       "yes": "Connected",
       "no": "Not connected"
+    },
+    "applicability": {
+      "title": "Applied criteria: {{earned}} / {{max}} points",
+      "skipped": "{{count}} criteria do not apply to this call ({{list}})"
+    },
+    "scenario": {
+      "new_client": "New customer",
+      "repeat_order": "Repeat order",
+      "price_check": "Price / stock enquiry",
+      "issue": "Problem or complaint",
+      "personal": "Not work related",
+      "other": "Other",
+      "no_content": "No content to score"
     }
   },
   "agents": {
@@ -898,6 +911,27 @@
     "tipTalk": "Total talk time",
     "colMedian": "Callback time",
     "tipMedian": "How long the agent takes to call back (median). The rate shows how many were called back; this shows how long they waited",
-    "allHidden": "All lines are hidden — click a label to bring one back"
+    "allHidden": "All lines are hidden — click a label to bring one back",
+    "export": {
+      "button": "Download Excel",
+      "hint": "Current filter — agent table and trend",
+      "file": "activity",
+      "sheetAgents": "By agent",
+      "sheetDays": "By day",
+      "sheetHours": "By hour",
+      "region": "Region",
+      "outAnswered": "Outbound — answered",
+      "inAnswered": "Inbound — answered",
+      "missedRate": "Missed %",
+      "median": "Callback time (minutes)",
+      "day": "Date",
+      "hour": "Hour",
+      "period": "{{from}} — {{to}} · {{count}} days",
+      "agents": "{{count}} agents",
+      "regions": "Regions: {{value}}",
+      "generated": "Exported: {{value}}",
+      "running": "Preparing…",
+      "failed": "Could not prepare the file — please try again"
+    }
   }
 }

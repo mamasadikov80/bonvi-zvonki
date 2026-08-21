@@ -1,4 +1,8 @@
-"""Quvur dirijyori — ikki bosqichni birlashtiradi va HOLATNI yozadi.
+"""Quvur dirijyori — uch bosqichni birlashtiradi va HOLATNI yozadi.
+
+Tartib: **tur → transkript → baho**, ya'ni arzondan qimmatga.
+Tur raqam bo'yicha aniqlanadi (bepul), transkript ASR ga boradi,
+baholash esa faqat SAVDO qo'ng'irog'i uchun ishlaydi.
 
 Qat'iy talablar shu yerda bajariladi:
 
@@ -27,7 +31,7 @@ from src.core.database import SessionFactory
 from src.core.exceptions import AppError, NotFoundError
 from src.modules.calls.domain.entities import CallStatus, CallType
 from src.modules.calls.infrastructure.models import CallModel
-from src.modules.pipeline.application.classify import ClassifyStage
+from src.modules.pipeline.application.route import RouteStage
 from src.modules.pipeline.application.deps import PipelineDeps, default_deps
 from src.modules.pipeline.application.score import ScoreStage
 from src.modules.pipeline.application.transcribe import TranscribeStage
@@ -36,6 +40,7 @@ from src.modules.pipeline.domain.entities import (
     BatchReport,
     CallOutcome,
     CallTooShortError,
+    DirectoryEmptyError,
     NoRecordingError,
     PipelineStage,
     Stage,
@@ -64,9 +69,10 @@ class PipelineOrchestrator:
     ) -> None:
         self.config = config or load_config()
         self.deps = deps or default_deps()
+        # ⚠️ TARTIB MUHIM: avval tur (bepul, raqam bo'yicha), keyin
+        # transkript, eng oxirida baholash (eng qimmat bosqich).
+        self.route_stage = RouteStage()
         self.transcribe_stage = TranscribeStage(self.deps, self.config)
-        # ⚠️ Baholashdan OLDIN: savdo bo'lmagan suhbat baholanmaydi
-        self.classify_stage = ClassifyStage(self.deps, self.config)
         self.score_stage = ScoreStage(self.deps, self.config)
 
     # ── Bitta qo'ng'iroq ──────────────────────────────────────
@@ -101,8 +107,15 @@ class PipelineOrchestrator:
 
             try:
                 await self._run_stages(session, call, state, outcome, force=force)
-            except (NoRecordingError, CallTooShortError) as exc:
-                # Baholanmaydi, lekin XATO emas — sabab yozib qo'yiladi
+            except (
+                NoRecordingError,
+                CallTooShortError,
+                DirectoryEmptyError,
+            ) as exc:
+                # Baholanmaydi, lekin XATO emas — sabab yozib qo'yiladi.
+                # `DirectoryEmptyError` VAQTINCHALIK holat: ro'yxat
+                # sinxronizatsiyadan keyin to'ladi va qo'ng'iroq
+                # keyingi yurishda normal ishlanadi.
                 await self._mark_skipped(session, call, state, outcome, exc)
             except AppError as exc:
                 await self._mark_failed(session, call, state, outcome, exc)
@@ -134,7 +147,24 @@ class PipelineOrchestrator:
                 stage=Stage.TRANSCRIBE.value,
             )
 
-        # ── 1-bosqich ─────────────────────────────────────────
+        # ── 1-bosqich: QO'NG'IROQ TURI ────────────────────────
+        #
+        # ⚠️ ENG BIRINCHI va ENG ARZON. Tur suhbatdoshning RAQAMIDAN
+        # aniqlanadi, ya'ni na audio, na transkript kerak va na bir
+        # tiyin turadi. Shuning uchun u transkripsiyadan ham oldinda:
+        # transkripsiya nosozlik bilan tugasa ham qo'ng'iroqning turi
+        # ma'lum bo'lib qoladi va ro'yxatda to'g'ri ko'rinadi.
+        route, kind = await self.route_stage.run(session, call)
+        outcome.route = route
+        outcome.call_type = call.call_type
+        await session.flush()
+
+        # ── 2-bosqich: TRANSKRIPT ─────────────────────────────
+        #
+        # ⚠️ ICHKI SUHBAT HAM TRANSKRIPT OLADI. Ball qo'yilmaydi, lekin
+        # matn kerak: menejer ichki suhbatni ham o'qiy olishi, qidiruvda
+        # topishi va nizo chiqqanda «kim nima degan edi» degan savolga
+        # javob berishi kerak. Bu — hujjat, baho emas.
         state.stage = PipelineStage.TRANSCRIBING.value
         call.status = CallStatus.TRANSCRIBING
         await session.flush()
@@ -152,32 +182,19 @@ class PipelineOrchestrator:
                 state.asr_provider = transcript.provider[:32]
                 state.asr_model = transcript.model[:64]
 
-        # ── 2-bosqich: QO'NG'IROQ TURI ────────────────────────
-        #
-        # ⚠️ Baholashdan OLDIN. Ish telefonlari faqat savdo uchun
-        # ishlatilmaydi: xodim sklad bilan yuk haqida, buxgalteriya
-        # bilan kassa haqida gaplashadi, ba'zan uyiga qo'ng'iroq
-        # qiladi. Savdo rubrikasi bunday suhbatga nol beradi va
-        # xodimning o'rtachasini asossiz pasaytiradi — o'lchandi:
-        # baholangan qo'ng'iroqlarning 20% i ichki suhbat edi.
         state.stage = PipelineStage.SCORING.value
         call.status = CallStatus.SCORING
         await session.flush()
 
-        classified, kind = await self.classify_stage.run(session, call, force=force)
-        outcome.classify = classified
-        state.llm_calls += classified.provider_calls
-        outcome.call_type = call.call_type
-
-        if kind is not None and not kind.scorable:
-            # Savdo emas — BAHOLANMAYDI. Qimmat baholash chaqiruvi
+        if kind is not CallType.SALES:
+            # Ichki suhbat — BAHOLANMAYDI. Qimmat baholash chaqiruvi
             # umuman qilinmaydi. Qo'ng'iroq yo'qolmaydi: transkripti,
             # turi va sababi saqlanadi, hisobotda sanaladi.
             #
-            # ⚠️ ESKI BAHO O'CHIRILADI. Qo'ng'iroq ilgari (turlar
-            # ajratilishidan oldin yoki boshqa tur bilan) baholangan
+            # ⚠️ ESKI BAHO O'CHIRILADI. Qo'ng'iroq ilgari boshqa tur
+            # bilan (yoki turlar ajratilishidan oldin) baholangan
             # bo'lishi mumkin. O'sha ballni qoldirish tizimni o'z-o'ziga
-            # ZID holatga soladi: bir tomondan «bu savdo emas, shuning
+            # ZID holatga soladi: bir tomondan «bu ichki suhbat, shuning
             # uchun baholanmaydi», ikkinchi tomondan analitikada 43 ball
             # bo'lib turadi va xodimning o'rtachasini pasaytiraveradi.
             # Baho — hisoblanadigan ma'lumot, uni qayta olish mumkin;
@@ -446,9 +463,9 @@ async def select_calls(
     kamaymaydi, progress esa 63 ta ortiqcha qo'ng'iroqni sanaydi.
     Admin buni nosozlik deb o'qiydi va u haq bo'lardi.
 
-    `unclear` ham ANIQLANGAN hisoblanadi: uni qayta yuborish o'sha
-    transkriptdan boshqa javob chiqarmaydi. Qayta ko'rish kerak bo'lsa
-    `force` bor.
+    ⚠️ «Aniqlangan» — bu FAQAT `internal`. Boshqa qiymatlar (eski
+    tasnifdan qolgan `service`, `personal`, `unclear`) tanish tur emas
+    va qaytadan aniqlanadi: ular hozir savdo bo'lib chiqishi mumkin.
     """
     threshold = (
         await resolve_min_duration(session)
@@ -481,13 +498,14 @@ async def select_calls(
             # ⚠️ Shart «savdo YOKI bo'sh» deb yozilmaydi, balki
             # «baholanmaydigan TANISH turlardan biri EMAS» deb yoziladi.
             #
-            # Farqi buzuq qiymatda ko'rinadi. Ustun — `varchar(16)`,
-            # baza darajasida cheklanmagan. Notanish qiymat `= 'sales'`
-            # ga ham, `IS NULL` ga ham tushmaydi — ya'ni birinchi
-            # variantda qo'ng'iroq navbatga ABADIY tushmay qolardi va
-            # buni hech kim sezmasdi. Bu ko'rinishda esa u tanlanadi,
-            # `ClassifyStage` notanish qiymatni «aniqlanmagan» deb o'qib
-            # qaytadan aniqlaydi — tizim o'zini tuzatadi.
+            # Farqi buzuq va ESKI qiymatlarda ko'rinadi. Ustun —
+            # `varchar(16)`, baza darajasida cheklanmagan; u yerda hali
+            # eski tasnifdan qolgan `service`/`personal`/`unclear` bor.
+            # Bunday qiymat `= 'sales'` ga ham, `IS NULL` ga ham
+            # tushmaydi — ya'ni birinchi variantda qo'ng'iroq navbatga
+            # ABADIY tushmay qolardi va buni hech kim sezmasdi. Bu
+            # ko'rinishda esa u tanlanadi, `RouteStage` turni raqam
+            # bo'yicha qaytadan aniqlaydi — tizim o'zini tuzatadi.
             or_(
                 CallModel.call_type.is_(None),
                 CallModel.call_type.not_in(NOT_SCORABLE_TYPES),

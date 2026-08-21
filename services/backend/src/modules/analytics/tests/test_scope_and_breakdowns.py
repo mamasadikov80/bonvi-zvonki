@@ -174,14 +174,7 @@ async def test_turlar_razrezi_hamma_kalitni_qaytaradi(admin_client) -> None:
     qo'shilganda u razrezda ko'rinmay qolardi va sonlar jamiga
     yetmasdi."""
     body = (await admin_client.get(OVERVIEW, params={"days": 365})).json()
-    assert set(body["call_types"]) == {
-        "sales",
-        "service",
-        "internal",
-        "personal",
-        "unclear",
-        "unknown",
-    }
+    assert set(body["call_types"]) == {"sales", "internal", "unknown"}
     assert body["calls_total"] == sum(body["call_types"].values())
 
 

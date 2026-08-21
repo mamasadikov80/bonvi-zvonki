@@ -7,11 +7,18 @@ import {
 
 import { api } from '@/shared/api/client'
 
-/** Qo'ng'iroq turi. Ish telefonlari faqat savdo uchun ishlatilmaydi:
- *  xodim sklad, buxgalteriya va hamkasblar bilan ham gaplashadi.
- *  Savdo rubrikasi bunday suhbatga nol beradi, shuning uchun FAQAT
- *  `sales` baholanadi. */
-export type CallType = 'sales' | 'service' | 'internal' | 'personal' | 'unclear'
+/** Qo'ng'iroq turi — ikkitagina.
+ *
+ *  `internal` — ikkala tomon ham bizning xodimimiz (suhbatdoshning
+ *  raqami kompaniya liniyalari ro'yxatida). Transkript olinadi, lekin
+ *  savdo rubrikasi qo'llanmaydi.
+ *  `sales` — qolgan hammasi, ya'ni tashqariga chiqqan suhbat.
+ *
+ *  ⚠️ Tur MAZMUNDAN emas, RAQAMDAN aniqlanadi. Ilgari buni AI
+ *  transkriptga qarab qilardi va yanglishardi: eski mijoz ham «qoldiq
+ *  qancha» deb qisqa gaplashadi va bu hamkasb suhbatidan farq
+ *  qilmaydi. */
+export type CallType = 'sales' | 'internal'
 
 export type Direction = 'inbound' | 'outbound'
 
@@ -34,7 +41,7 @@ export interface CallListItem {
   client_name: string | null
   /** Nom umuman bo'lmaganda ko'rsatiladi — «—» dan foydaliroq */
   client_phone: string | null
-  /** FAQAT `sales` baholanadi — boshqa turlarda `score` bo'sh bo'lishi
+  /** FAQAT `sales` baholanadi — `internal` da `score` bo'sh bo'lishi
    *  xato emas, balki kutilgan holat */
   call_type: CallType | null
   score: number | null
@@ -77,15 +84,38 @@ export interface CallDetail {
   client_phone: string | null
 
   call_type: CallType | null
-  /** AI nega shu turni tanlagani. Qo'lda tuzatish yo'q — menejer
-   *  sababni o'qib, xato bo'lsa «Qayta baholash» ni bosadi */
+  /** Tur qanday aniqlangani — raqam bilan. Qaror suhbatdoshning
+   *  raqamiga tayanadi, ya'ni sabab tekshirib bo'ladigan fakt */
   call_type_reason: string | null
   call_type_confidence: number | null
 
   transcript: string | null
   score: {
     overall_score: number
+    /** Blok ko'rsatkichlari — QO'LLANILGAN mezonlar ichida
+     *  hisoblanib, blok maksimumiga keltirilgan. Butunlay taalluqli
+     *  bo'lmagan blok bu obyektga umuman kirmaydi. */
     blocks: Record<string, number>
+    /** Qaysi mezonlar qo'llanilgani. `null` — eski baho (bu tushuncha
+     *  paydo bo'lishidan oldin qo'yilgan).
+     *
+     *  Qisqa, takroriy buyurtma suhbatida rubrikaning bir qismi
+     *  taalluqli bo'lmaydi: eski mijoz «50 ta chiqaring» deydi va
+     *  ehtiyojni aniqlash ham, mahsulot taqdimoti ham talab
+     *  qilinmaydi. Ball o'sha qo'llanilganlar ichida hisoblanadi. */
+    applicability: {
+      /** Qo'llanilgan bloklar maksimumi (100 dan) */
+      applicable_max: number
+      /** Shulardan olingan ball */
+      blocks_total: number | null
+      /** Taalluqli emas deb belgilangan kriteriyalar (kalitlar) */
+      na_criteria: string[]
+      /** O'sha kriteriyalarning NOMLARI — ekranda shular ko'rsatiladi.
+       *  Menejer «A2» nima ekanini bilmaydi. */
+      na_labels: string[]
+      /** Suhbat turi: `repeat_order`, `price_check`, ... */
+      scenario: string | null
+    } | null
     red_flags: RedFlag[]
     outcome_signal: { type: string; confidence: number } | null
     sentiment: string | null
@@ -103,8 +133,8 @@ export type SortField = 'date' | 'agent' | 'client' | 'duration' | 'score' | 'st
 export type SortOrder = 'asc' | 'desc'
 
 /** Tur bo'yicha filtr. `CallType` ustiga ikkitasi qo'shiladi:
- *  `unknown` — hali tasniflanmagan, `not_sales` — savdodan boshqa
- *  hammasi (tasniflanmaganlar ham kiradi: hali bilinmagani ularni
+ *  `unknown` — hali aniqlanmagan, `not_sales` — savdodan boshqa
+ *  hammasi (aniqlanmaganlar ham kiradi: hali bilinmagani ularni
  *  savdo qilmaydi). Qiymatlar backend enumi bilan bir xil. */
 export type CallTypeFilter = CallType | 'unknown' | 'not_sales'
 
@@ -178,7 +208,8 @@ export interface SyncResult {
   skipped_no_agent: number
   /** Admin tanlamagan xodimga tegishli — xato emas, filtr natijasi */
   skipped_not_selected?: number
-  /** Audiosi yo'q — bazaga umuman yozilmadi (javobsiz, muddati o'tgan) */
+  /** Audiosi yo'q — SAQLANDI, lekin AI bilan baholanmaydi
+   *  (javobsiz yoki yozuv muddati o'tgan) */
   skipped_no_recording: number
   truncated: boolean
   unmatched: UnmatchedOwner[]
@@ -196,6 +227,12 @@ export interface SyncWindow {
   earliest: string
   /** Bugundan necha kun orqaga */
   days: number
+  /** Audio taxminan shuncha kun saqlanadi.
+   *
+   * Chegara EMAS: undan eski qo'ng'iroqlar ham to'liq saqlanadi
+   * (ro'yxat, faollik, statistika), lekin audiosi bo'lmagani uchun
+   * AI bilan baholanmaydi. UI shuni oldindan aytadi. */
+  audio_days: number
 }
 
 export const useSyncWindow = (enabled = true) =>

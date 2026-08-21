@@ -1,4 +1,4 @@
-"""ZvonkiDashboard API — kirish nuqtasi."""
+"""BonviZvonki API — kirish nuqtasi."""
 
 import mimetypes
 from contextlib import asynccontextmanager

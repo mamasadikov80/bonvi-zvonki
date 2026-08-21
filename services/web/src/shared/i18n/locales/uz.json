@@ -49,7 +49,7 @@
     "avgDuration": "O'rtacha davomiylik",
     "ratingPending": "{{count}} ta javob yig'ildi — o'rtacha hali ochilmadi",
     "byType": "Turlari bo'yicha ({{count}} ta):",
-    "typeUnknown": "Tasniflanmagan",
+    "typeUnknown": "Aniqlanmagan",
     "callsHint": "{{total}} tadan savdo suhbati"
   },
   "filters": {
@@ -217,7 +217,10 @@
     "flagKey": "Kalit (AI ga yuboriladi)",
     "flagKeyHint": "Yorliqdan avtomatik hosil qilinadi. AI aynan shu kalitni qaytaradi va u bazaga yoziladi.",
     "flagKeyInvalid": "Yorliqdan yaroqli kalit chiqmadi — lotin harflarini ishlatib ko'ring.",
-    "flagKeyDuplicate": "Bu kalit allaqachon bor."
+    "flagKeyDuplicate": "Bu kalit allaqachon bor.",
+    "optional": "Har suhbatga tushavermaydi",
+    "optionalBadge": "Shart emas",
+    "optionalHint": "Yoqilsa — AI bu mezonni «bu suhbatga taalluqli emas» deb belgilab, ball hisobidan chiqarib tashlashi mumkin. Eski mijoz «menga 50 ta chiqaring» deganda ehtiyojni aniqlash talab qilinmaydi va nol qo'yish xodimni aybsiz jazolash bo'lardi. O'chiq bo'lsa — mezon har qanday suhbatda tekshiriladi."
   },
   "users": {
     "subtitle": "Hisoblar, rollar va savdo xodimlariga bog'lash",
@@ -274,12 +277,17 @@
       "action": "Qo'ng'iroqlarni olish",
       "title": "MoyZvonki'dan qo'ng'iroqlarni olish",
       "hint": "Tanlangan davrdagi barcha qo'ng'iroqlar bazaga ko'chiriladi. Audiosi yo'qlari AI bilan baholanmaydi, lekin faollik hisobotida sanaladi",
-      "period": {
+      "period": "Davr",
+      "periods": {
         "d7": "7 kun",
         "d30": "1 oy",
-        "d45": "45 kun"
+        "d45": "45 kun",
+        "d365": "1 yil",
+        "custom": "Oraliq"
       },
       "periodHint": "Qaysi sanalar oralig'i tortib olinadi",
+      "dayCount": "{{count}} kun",
+      "rangeInvalid": "Ikkala sanani tanlang — boshlanishi tugashidan keyin bo'lmasin",
       "supervised": "Barcha xodimlar",
       "supervisedHint": "O'chirilsa, faqat API kalit egasining qo'ng'iroqlari olinadi",
       "noAudioNote": "Faqat ma'lumot ko'chiriladi: kim, kimga, qachon va qancha. Audio bizda saqlanmaydi — u faqat tinglash paytida oqim bilan o'tadi.",
@@ -297,7 +305,8 @@
       "notConfigured": "MoyZvonki hali ulanmagan",
       "failed": "Sinxronizatsiya bajarilmadi",
       "agentHint": "Bo'sh qoldirsangiz — MoyZvonki bilan bog'langan barcha xodimlar",
-      "windowNote": "Sinxronizatsiya oxirgi {{days}} kun bilan cheklangan — {{date}} dan bugungacha. Undan oldingi qo'ng'iroqlarning audiosi MoyZvonki'da saqlanmaydi, ya'ni kengroq oraliq tanlansa ham bitta ham qo'ng'iroq qo'shilmaydi."
+      "windowNote": "Eng ko'pi bilan oxirgi {{days}} kun tanlanadi — {{date}} dan bugungacha.",
+      "oldCallsNote": "Oraliq {{days}} kundan orqaga o'tadi. Eski qo'ng'iroqlarning audiosi MoyZvonki'da saqlanmaydi: ular ro'yxat va statistikaga to'liq tushadi, lekin AI bilan baholanmaydi. Uzun oraliq uzoq davom etadi — oynani yopmang, o'qib ulgurilgani bazada qoladi."
     },
     "outcomes": {
       "order_agreed": "Buyurtma kelishildi",
@@ -317,29 +326,20 @@
     "outcomeConfidence": "AI ishonchi",
     "type": {
       "sales": "Savdo",
-      "service": "Xizmat",
       "internal": "Ichki",
-      "personal": "Shaxsiy",
-      "unclear": "Aniqlanmadi",
       "short": {
         "sales": "Savdo",
-        "service": "Xizmat",
-        "internal": "Ichki",
-        "personal": "Shaxsiy",
-        "unclear": "?"
+        "internal": "Ichki"
       },
       "hint": {
-        "sales": "Mijoz bilan savdo suhbati — faqat bu tur baholanadi",
-        "service": "Mavjud mijozga xizmat: yetkazib berish, shikoyat. Savdo emas, shuning uchun baholanmaydi",
-        "internal": "Kompaniya ichidagi ish suhbati (sklad, buxgalteriya, hamkasb) — baholanmaydi",
-        "personal": "Ishga aloqasi yo'q shaxsiy suhbat — baholanmaydi",
-        "unclear": "Turi aniqlanmadi — taxminga ball qo'yilmaydi"
+        "sales": "Tashqi suhbat — mijoz bilan. Faqat bu tur baholanadi",
+        "internal": "Ikkala tomon ham kompaniya xodimi (raqam kompaniya liniyalari ro'yxatida) — transkript olinadi, lekin baholanmaydi"
       },
-      "notScored": "Bu qo'ng'iroq savdo suhbati emas, shuning uchun baholanmaydi va savdo ko'rsatkichiga kirmaydi.",
+      "notScored": "Bu ikki xodim o'rtasidagi ichki suhbat, shuning uchun baholanmaydi va savdo ko'rsatkichiga kirmaydi.",
       "filterAll": "Barcha turlar",
       "filterNotSales": "Savdo emas",
-      "filterUnknown": "Tasniflanmagan",
-      "emptySalesHint": "Sukut bo'yicha faqat savdo suhbatlari ko'rsatiladi. Boshqa turlar va hali tasniflanmagan qo'ng'iroqlar yashirilgan."
+      "filterUnknown": "Aniqlanmagan",
+      "emptySalesHint": "Sukut bo'yicha faqat savdo suhbatlari ko'rsatiladi. Ichki suhbatlar va hali aniqlanmagan qo'ng'iroqlar yashirilgan."
     },
     "direction": {
       "all": "Yo'nalish: barchasi",
@@ -352,6 +352,19 @@
       "all": "Javob: barchasi",
       "yes": "Gaplashilgan",
       "no": "Gaplashilmagan"
+    },
+    "applicability": {
+      "title": "Qo'llanilgan mezonlar: {{earned}} / {{max}} ball",
+      "skipped": "{{count}} ta mezon bu suhbatga taalluqli emas ({{list}})"
+    },
+    "scenario": {
+      "new_client": "Yangi mijoz",
+      "repeat_order": "Takroriy buyurtma",
+      "price_check": "Narx / qoldiq so'rovi",
+      "issue": "Muammo yoki shikoyat",
+      "personal": "Ishga aloqasi yo'q suhbat",
+      "other": "Boshqa",
+      "no_content": "Baholash uchun mazmun yo'q"
     }
   },
   "agents": {
@@ -898,6 +911,27 @@
     "tipTalk": "Jami suhbat vaqti",
     "colMedian": "Qaytish vaqti",
     "tipMedian": "Xodim javobsiz qo'ng'iroqqa qancha vaqtda qaytadi (median). Daraja «nechtasiga qaytdi» ni, bu esa «qancha kuttirdi» ni ko'rsatadi",
-    "allHidden": "Barcha qatorlar yashirilgan — yorliqni bosib qaytaring"
+    "allHidden": "Barcha qatorlar yashirilgan — yorliqni bosib qaytaring",
+    "export": {
+      "button": "Excelga yuklash",
+      "hint": "Ekrandagi filtr bo'yicha — xodimlar jadvali va dinamika",
+      "file": "faollik",
+      "sheetAgents": "Xodimlar bo'yicha",
+      "sheetDays": "Kunlar bo'yicha",
+      "sheetHours": "Soatlar bo'yicha",
+      "region": "Hudud",
+      "outAnswered": "Chiquvchi — javob berilgan",
+      "inAnswered": "Kiruvchi — javob berilgan",
+      "missedRate": "Javobsiz %",
+      "median": "Qaytish vaqti (daqiqa)",
+      "day": "Sana",
+      "hour": "Soat",
+      "period": "{{from}} — {{to}} · {{count}} kun",
+      "agents": "{{count}} ta xodim",
+      "regions": "Hududlar: {{value}}",
+      "generated": "Yuklab olindi: {{value}}",
+      "running": "Tayyorlanmoqda…",
+      "failed": "Faylni tayyorlab bo'lmadi — qaytadan urinib ko'ring"
+    }
   }
 }

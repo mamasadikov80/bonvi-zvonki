@@ -14,10 +14,8 @@ RAQAMLARNI: har bir ball qo'lda sanaladi va natija bilan solishtiriladi.
 import json
 from typing import Any
 
-import pytest
 
 from src.modules.scoring.application.validator import (
-    ScoreValidationError,
     validate,
 )
 from src.modules.scoring.domain.rubric_default import DEFAULT_RUBRIC
@@ -45,6 +43,7 @@ def _build(
     overall_override: int | None = None,
     block_score_override: dict[str, int] | None = None,
     model_penalty: int | None = None,
+    na_ids: tuple[str, ...] = (),
 ) -> str:
     """Rubrikaga mos javob quradi — har kriteriya bali ANIQ berilgan.
 
@@ -59,14 +58,17 @@ def _build(
         items = []
         block_total = 0
         for criterion in block["criteria"]:
-            score = per_criterion[criterion["id"]]
-            block_total += score
+            cid = criterion["id"]
+            na = cid in na_ids
+            score = 0 if na else per_criterion[cid]
+            if not na:
+                block_total += score
             items.append(
                 {
-                    "id": criterion["id"],
+                    "id": cid,
                     "score": score,
-                    "verdict": "pass",
-                    "evidence": f"[00:10] — dalil ({criterion['id']})",
+                    "verdict": "na" if na else "pass",
+                    "evidence": f"[00:10] — dalil ({cid})",
                 }
             )
         written = (block_score_override or {}).get(block["key"], block_total)
@@ -108,6 +110,7 @@ def _build(
             "client_sentiment": "neutral",
             "coaching_note": "E'tiroz bilan ishlashni kuchaytiring.",
             "confidence": 0.9,
+            "call_scenario": "repeat_order" if na_ids else "new_client",
             "overall_score": overall if overall_override is None else overall_override,
         },
         ensure_ascii=False,
@@ -144,21 +147,35 @@ def test_kriteriya_ballari_blokka_va_umumiyga_yigiladi() -> None:
     assert draft.overall == 61
 
 
-def test_blok_bali_kriteriyalar_yigindisiga_teng_bolmasa_rad_etiladi() -> None:
-    """Blok «20» deb yozilgan, kriteriyalari esa 15 — yolg'on."""
+def test_blok_bali_kriteriyalardan_hisoblanadi() -> None:
+    """Blok «20» deb yozilgan, kriteriyalari esa 15 — 15 olinadi.
+
+    ⚠️ ILGARI bunday javob rad etilardi. `na` paydo bo'lgach model
+    tashlangan mezondan keyin blok maksimumini «to'ldirishga» urinib
+    yig'indini oshirib yozadigan bo'ldi va javoblar yo'q qilinaverdi.
+    Yig'indi — hisoblanadigan qiymat; modelning da'vosi ogohlantirish
+    sifatida yoziladi, ballga ta'sir qilmaydi."""
     points = dict.fromkeys(_criteria_points(), 0) | {
         "A1": 5, "A2": 4, "A3": 3, "A4": 3
     }
 
-    with pytest.raises(ScoreValidationError) as exc:
-        _check(_build(points, block_score_override={"script": 20}))
+    draft = _check(_build(points, block_score_override={"script": 20}))
 
-    assert "kriteriyalar yig'indisi" in exc.value.message
-    assert "saqlanmadi" in exc.value.message.lower()
+    assert draft.blocks["script"]["raw_score"] == 15
+    assert draft.overall == 15
+    assert draft.warnings
 
 
-def test_umumiy_ball_bloklar_yigindisiga_teng_bolmasa_rad_etiladi() -> None:
-    """Bloklar 61, model esa 96 deb yozdi — baho SAQLANMAYDI."""
+def test_model_yozgan_umumiy_ball_etiborsiz_qoldiriladi() -> None:
+    """Model «96» deb yozdi, bloklar 61 — natija 61.
+
+    ⚠️ ILGARI bunday javob RAD ETILARDI. Endi `overall_score` modeldan
+    umuman so'ralmaydi: hisobda bo'lish bor (qo'llanilgan mezonlar
+    ichidagi foiz) va uni modeldan talab qilish javobning rad etilishi
+    hamda qayta so'rov — ya'ni ikki baravar pul — degani edi.
+    Model yozib yuborgan qiymat esa e'tiborsiz qoldiriladi: umumiy
+    ballning yagona egasi — validator.
+    """
     points = {
         "A1": 5, "A2": 4, "A3": 3, "A4": 3,
         "B1": 8, "B2": 5, "B3": 2, "B4": 2,
@@ -166,12 +183,9 @@ def test_umumiy_ball_bloklar_yigindisiga_teng_bolmasa_rad_etiladi() -> None:
         "D1": 4, "D2": 3, "D3": 3, "D4": 3,
     }
 
-    with pytest.raises(ScoreValidationError) as exc:
-        _check(_build(points, overall_override=96))
+    draft = _check(_build(points, overall_override=96))
 
-    message = exc.value.message
-    assert "96" in message and "61" in message
-    assert "to'g'ri qiymat 61" in message
+    assert draft.overall == 61
 
 
 def test_hamma_kriteriya_notoliq_bolsa_ham_zanjir_saqlanadi() -> None:

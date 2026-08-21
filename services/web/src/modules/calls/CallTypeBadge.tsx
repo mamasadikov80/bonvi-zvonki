@@ -2,16 +2,16 @@
  * Qo'ng'iroq turi belgisi.
  *
  * ⚠️ NEGA BU EKRANDA BO'LISHI SHART. Faqat `sales` turidagi qo'ng'iroq
- * baholanadi — qolganlarida ball BO'SH bo'ladi. Tur ko'rinmasa, menejer
+ * baholanadi — `internal` da ball BO'SH bo'ladi. Tur ko'rinmasa, menejer
  * bo'sh ballni «AI ishlamadi» deb o'qiydi va bejiz qayta baholashga
  * yuboradi. Tur ko'rinsa esa savol yo'q: «ichki suhbat — baholanmaydi».
  *
- * Ranglar ataylab BAHOLOVCHI emas: ichki yoki shaxsiy qo'ng'iroq
- * «yomon» degani emas, shunchaki boshqa turdagi ish. Faqat `sales`
- * urg'ulanadi, chunki savdo KPI'si shundan hisoblanadi.
+ * Ranglar ataylab BAHOLOVCHI emas: ichki suhbat «yomon» degani emas,
+ * shunchaki boshqa turdagi ish. Faqat `sales` urg'ulanadi, chunki savdo
+ * KPI'si shundan hisoblanadi.
  */
 
-import { Briefcase, HelpCircle, Home, ShoppingCart, Wrench } from 'lucide-react'
+import { Briefcase, ShoppingCart } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import type { CallType } from '@/modules/calls/api'
@@ -21,10 +21,7 @@ type Tone = 'accent' | 'neutral'
 
 const LOOK: Record<CallType, { icon: typeof ShoppingCart; tone: Tone }> = {
   sales: { icon: ShoppingCart, tone: 'accent' },
-  service: { icon: Wrench, tone: 'neutral' },
   internal: { icon: Briefcase, tone: 'neutral' },
-  personal: { icon: Home, tone: 'neutral' },
-  unclear: { icon: HelpCircle, tone: 'neutral' },
 }
 
 export function CallTypeBadge({
@@ -40,13 +37,20 @@ export function CallTypeBadge({
   // deb yozib qo'yish bo'sh ogohlantirish bo'lardi.
   if (!type) return null
 
-  const look = LOOK[type] ?? LOOK.unclear
+  // Eski yozuvda notanish qiymat bo'lishi mumkin (`service`,
+  // `personal`) — u «ichki» ko'rinishida chiziladi: baholanmagani
+  // aniq, aniq turi esa keyingi yurishda qaytadan qo'yiladi.
+  const look = LOOK[type] ?? LOOK.internal
   const Icon = look.icon
 
   return (
-    <Badge tone={look.tone} title={t(`calls.type.hint.${type}`)}>
+    <Badge tone={look.tone} title={t(`calls.type.hint.${type}`, { defaultValue: '' })}>
       <Icon className="size-3" />
-      {compact ? t(`calls.type.short.${type}`) : t(`calls.type.${type}`)}
+      {/* `defaultValue` — eski yozuvda notanish qiymat bo'lsa lug'at
+          kalitining o'zi («calls.type.service») chiqib qolmasin */}
+      {compact
+        ? t(`calls.type.short.${type}`, { defaultValue: type })
+        : t(`calls.type.${type}`, { defaultValue: type })}
     </Badge>
   )
 }

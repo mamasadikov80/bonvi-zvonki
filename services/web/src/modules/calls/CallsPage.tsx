@@ -117,9 +117,9 @@ export function CallsPage() {
        yashirilmaydi. */
     ...rangeToQuery(resolvePreset('last30')),
     /* Sukut bo'yicha FAQAT SAVDO.
-       Ma'lumotning 96% i savdo suhbati emas (o'lchandi: 172 tadan
-       166 tasi) — filtrsiz ro'yxat «Ichki» belgilari bilan to'lib
-       ketadi va menejer asosiy ishni topolmaydi.
+       Ichki suhbatlar ham ro'yxatda turadi va ular menejerning
+       kundalik ishiga tegishli emas — filtrsiz ro'yxat aralashib
+       ketardi.
        ⚠️ Bu YASHIRIN filtr emas: tanlagichda «Savdo» yozilib turadi,
        ya'ni son nega kichik ekani ko'rinib turadi. */
     call_type: 'sales',
@@ -284,9 +284,8 @@ export function CallsPage() {
             <option value="no">{t('calls.answered.no')}</option>
           </Select>
 
-          {/* Tur.
-              NEGA SELECT, SEGMENTED EMAS: yetti qiymat segmentli
-              tugmachalarga sig'maydi va filtr qatorini buzardi. */}
+          {/* Tur. Turlar ikkita bo'lgani bilan tanlov to'rtta:
+              «savdo», «ichki», «savdo emas» va «aniqlanmagan». */}
           <Select
             icon={Tag}
             /* Sukut bo'yicha «savdo» qo'yilgan — bu ham FILTR va u
@@ -303,11 +302,8 @@ export function CallsPage() {
           >
             <option value="">{t('calls.type.filterAll')}</option>
             <option value="sales">{t('calls.type.sales')}</option>
-            <option value="not_sales">{t('calls.type.filterNotSales')}</option>
-            <option value="service">{t('calls.type.service')}</option>
             <option value="internal">{t('calls.type.internal')}</option>
-            <option value="personal">{t('calls.type.personal')}</option>
-            <option value="unclear">{t('calls.type.unclear')}</option>
+            <option value="not_sales">{t('calls.type.filterNotSales')}</option>
             <option value="unknown">{t('calls.type.filterUnknown')}</option>
           </Select>
 

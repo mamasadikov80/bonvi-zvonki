@@ -79,28 +79,38 @@ class RangeNotSatisfiableError(MoizvonkiError):
 
 #: Sinxronizatsiyada tanlash mumkin bo'lgan eng uzun davr (kun).
 #
-# NEGA CHEGARA BOR. Undan oldingi kunlarni tanlash BEFOYDA: MoyZvonki
-# qo'ng'iroq metadatasini bir yil oldingisini ham beradi, lekin yozuv
-# (audio) o'chirilgan bo'ladi. Audiosiz qo'ng'iroq esa bazaga umuman
-# yozilmaydi — ya'ni admin keng oraliq tanlab, uzoq kutib, «0 ta yangi»
-# degan javob oladi va nima xato ketganini bilmaydi.
+# NEGA BIR YIL. Sinxronizatsiya endi BARCHA qo'ng'iroqlarni saqlaydi —
+# audiosi yo'qlarini ham (`IngestService` izohiga qarang). Ya'ni eski
+# oraliq tanlash BEFOYDA emas: qo'ng'iroqlar ro'yxati, faollik va
+# statistika uchun o'sha qatorlar aynan kerak. Faqat AI bahosi
+# bo'lmaydi, chunki baholash audiodan boshlanadi.
 #
-# NEGA AYNAN 45. Bu — mijozning qarori. O'lchov shuni ko'rsatdi:
-#   · «yozuvlar 30 kun saqlanadi» degan taxmin XATO edi — 76 kunlik
-#     yozuv ham bemalol yuklandi;
-#   · chegara aylanuvchi oyna ham emas: 2026-05-31 da yozuv yo'q,
-#     2026-06-01 da bor, ya'ni QAT'IY SANA (o'sha kuni saqlash
-#     siyosati o'zgargan ko'rinadi).
+# ⚠️ ILGARI CHEGARA 45 KUN EDI va sababi boshqacha edi: o'sha paytda
+# audiosi yo'q qo'ng'iroq bazaga UMUMAN yozilmasdi, ya'ni keng oraliq
+# tanlagan admin uzoq kutib «0 ta yangi» degan javob olardi. Filtr
+# olib tashlangach bu asos yo'qoldi — chegara esa qolib ketgan edi va
+# tarixiy statistikani yig'ishga to'sqinlik qilardi.
 #
-# Ya'ni haqiqiy foydali oyna 45 kundan uzun va vaqt o'tishi bilan
-# o'sadi. Chegarani MoyZvonki'dan har safar o'lchab olish ham sinaldi
-# (ikkilik qidiruv) va u ishladi, lekin tarmoqqa bog'liq bo'lgani
-# uchun MoyZvonki sekinlashganda «bilmayman» deb qolardi — o'shanda
-# butun sana tanlovi ishonchsiz bo'lib turardi.
+# NEGA UMUMAN CHEGARA BOR. Butunlay ochiq oraliq MoyZvonki'ning bir
+# necha yillik arxivini sahifalab o'qishga aylanadi: so'rov soatlab
+# ishlaydi va admin uni to'xtata olmaydi. Bir yil — foydali tarix
+# (mavsumiylik, yillik taqqoslash) bilan bajarilish vaqti o'rtasidagi
+# muvozanat.
+SYNC_MAX_DAYS = 365
+
+#: Audio (yozuv) MoyZvonki'da taxminan shuncha kun saqlanadi.
 #
-# Shuning uchun oddiy, oldindan bilinadigan chegara tanlandi. Uni
-# o'zgartirish — shu bitta raqamni o'zgartirish.
-SYNC_MAX_DAYS = 45
+# BU CHEGARA EMAS, faqat OGOHLANTIRISH uchun: shundan eski
+# qo'ng'iroqlar baribir saqlanadi, lekin `audio_key` bo'sh keladi va
+# ular AI bilan baholanmaydi (`select_calls` da `audio_key IS NOT NULL`
+# sharti bor). UI shu raqamga tayanib admin nima olishini oldindan
+# aytadi — aks holda «nega 300 ta qo'ng'iroq keldi-yu, hech biri
+# baholanmadi?» degan savol qolardi.
+#
+# O'lchov: 76 kunlik yozuv ham bemalol yuklandi, ya'ni haqiqiy oyna
+# bundan uzun. Raqam ataylab EHTIYOTKOR — va'da berilgani haqiqatdan
+# kam bo'lgani yaxshi.
+SYNC_AUDIO_DAYS = 45
 
 
 # ── Kirish ma'lumotlari ───────────────────────────────────────

@@ -89,14 +89,26 @@ async def test_savdo_va_aniqlanmaganlar_tanlanadi(turli_turdagi_qongiroqlar) -> 
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("tur", ["internal", "service", "personal", "unclear"])
-async def test_savdo_bolmaganlar_qayta_tanlanmaydi(
+async def test_ichki_suhbat_qayta_tanlanmaydi(turli_turdagi_qongiroqlar) -> None:
+    """⚠️ ASOSIY KAFOLAT: ichki suhbatda baho qatori HECH QACHON paydo
+    bo'lmaydi, demak «bahosi yo'q» sharti uni abadiy tanlaganda edi."""
+    tanlangan = await _tanlangan()
+    assert turli_turdagi_qongiroqlar["internal"] not in tanlangan
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("tur", ["service", "personal", "unclear"])
+async def test_eski_turlar_qaytadan_aniqlanadi(
     turli_turdagi_qongiroqlar, tur
 ) -> None:
-    """⚠️ ASOSIY KAFOLAT: bunda baho qatori HECH QACHON paydo bo'lmaydi,
-    demak «bahosi yo'q» sharti ularni abadiy tanlaganda edi."""
+    """Eski AI tasnifidan qolgan qiymatlar QAYTA ISHLANADI.
+
+    ⚠️ Bu ataylab shunday. «Xizmat» yoki «shaxsiy» deb belgilangan
+    qo'ng'iroq endi katta ehtimol bilan SAVDO: o'sha tasnif transkript
+    mazmuniga qarab qo'yilgan va yanglishgan. Ularni «aniqlangan» deb
+    qoldirish — xatoni abadiylashtirish bo'lardi."""
     tanlangan = await _tanlangan()
-    assert turli_turdagi_qongiroqlar[tur] not in tanlangan
+    assert turli_turdagi_qongiroqlar[tur] in tanlangan
 
 
 @pytest.mark.asyncio
@@ -118,8 +130,8 @@ async def test_buzuq_qiymat_tanlanadi_tizim_ozini_tuzatadi(
 
     Shart «savdo yoki bo'sh» deb yozilsa, buzuq qiymat ikkalasiga ham
     tushmaydi va qo'ng'iroq abadiy ko'rinmas bo'lib qolardi — buni hech
-    kim sezmasdi. Endi u tanlanadi, `ClassifyStage` esa notanish
-    qiymatni «aniqlanmagan» deb o'qib qaytadan aniqlaydi."""
+    kim sezmasdi. Endi u tanlanadi, `RouteStage` esa turni raqam bo'yicha
+    qaytadan aniqlaydi."""
     tanlangan = await _tanlangan()
     assert turli_turdagi_qongiroqlar["xato"] in tanlangan
 

@@ -45,7 +45,10 @@ from sqlalchemy import func, literal_column, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import structlog
+
 from src.modules.agents.infrastructure.models import AgentModel
+from src.modules.calls.application.retype import retype_calls
 from src.modules.calls.domain.entities import CallDirection, CallStatus
 from src.modules.calls.infrastructure.models import CallModel
 from src.modules.clients.infrastructure.models import ClientModel
@@ -56,6 +59,8 @@ from src.modules.moizvonki.infrastructure.client import MoizvonkiClient
 # har xil bo'lishi mumkin, oxirgi 9 raqam O'zbekistonda yagona
 _PHONE_TAIL = 9
 _NON_DIGIT = re.compile(r"\D+")
+
+log = structlog.get_logger(__name__)
 
 
 def _phone_key(value: str | None) -> str | None:
@@ -178,7 +183,7 @@ class IngestService:
         since: datetime,
         until: datetime | None = None,
         supervised: bool = True,
-        max_calls: int = 20_000,
+        max_calls: int = 200_000,
         page_size: int = 100,
         agent_ids: Iterable[UUID] | None = None,
     ) -> IngestReport:
@@ -206,6 +211,16 @@ class IngestService:
         for window_since, window_until in _windows(since, until):
             if report.truncated:
                 break
+            # ⚠️ HAR BO'LAK ALOHIDA COMMIT QILINADI (pastda, siklning
+            # oxirida). Ilgari commit faqat eng oxirida edi va 45
+            # kunlik oraliqda bu yetarli edi. Endi oraliq bir yilgacha
+            # bo'lishi mumkin: o'n minglab qator, o'n daqiqalab ish.
+            # Bunday uzunlikda aloqa uzilishi yoki MoyZvonki xatosi
+            # BUTUN yurishni bekor qilardi — admin yarim soat kutib,
+            # bazada bitta ham yangi qator ko'rmasdi va boshidan
+            # boshlashga majbur bo'lardi. Bo'lakma-bo'lak commit bilan
+            # o'qib ulgurilgani saqlanib qoladi, qayta yurish esa
+            # `external_id` upsert tufayli baribir xavfsiz.
             async for page_number, page in self._client.iter_calls(
                 since=window_since,
                 until=window_until,
@@ -279,7 +294,24 @@ class IngestService:
                     report.truncated = True
                     break
 
-        await self._session.commit()
+            await self._session.commit()
+
+        # ── Turlarni qayta hisoblash ──────────────────────────
+        #
+        # ⚠️ SINXRONIZATSIYADAN KEYIN, chunki aynan shu yerda kompaniya
+        # liniyalari ro'yxati to'ladi: har qatorda `agent_number`
+        # (MoyZvonki `src_number`) yozildi. Yangi xodimning raqami
+        # birinchi marta shu yerda paydo bo'ladi va o'shandan keyingina
+        # uning hamkasblari bilan bo'lgan suhbatlari «ichki» bo'lib
+        # ko'rinadi.
+        #
+        # Bu bosqich SINXRONIZATSIYANI YIQITMASLIGI kerak: qo'ng'iroqlar
+        # allaqachon saqlangan va ular yo'qolmasligi lozim.
+        try:
+            await retype_calls(self._session)
+        except Exception as exc:  # noqa: BLE001
+            log.error("ingest.retype_failed", error=str(exc))
+
         return report
 
     @staticmethod
@@ -301,6 +333,17 @@ class IngestService:
             "direction": (
                 CallDirection.OUTBOUND if call.is_outbound else CallDirection.INBOUND
             ),
+            # ── Bizning liniyamiz ─────────────────────────────
+            #
+            # MoyZvonki'dagi `src_number` — xodim QAYSI o'z raqamimizdan
+            # gaplashgani. Bu maydon qo'ng'iroq turini aniqlashning
+            # POYDEVORI: barcha qatorlardagi turli qiymatlar yig'indisi
+            # «kompaniya liniyalari» ro'yxatini beradi va suhbatdoshning
+            # raqami shu ro'yxatda bo'lsa — ikkala tomon ham xodim.
+            #
+            # Ya'ni ro'yxatni hech kim qo'lda yuritmaydi: yangi xodim
+            # ishlay boshlashi bilan raqami o'zi tushadi.
+            "agent_number": call.src_number,
             # Yangi qator uchun boshlang'ich holat. Mavjud qatorda
             # `status` TEGILMAYDI (pastdagi `set_` ga kirmagan) —
             # sinxronizatsiya baholash natijasini yo'q qilmasin.
@@ -339,6 +382,14 @@ class IngestService:
                     stmt.excluded.client_phone, CallModel.client_phone
                 ),
                 "direction": stmt.excluded.direction,
+                # `coalesce` — MoyZvonki bu safar `src_number` ni
+                # bermasa, avval o'rganilgan raqam o'chib ketmasin.
+                # Kompaniya liniyalari ro'yxati aynan shu ustundan
+                # yig'iladi: bitta bo'sh javob ro'yxatni qisqartirsa,
+                # ichki suhbatlar «savdo» bo'lib baholanib ketardi.
+                "agent_number": func.coalesce(
+                    stmt.excluded.agent_number, CallModel.agent_number
+                ),
                 "started_at": stmt.excluded.started_at,
                 "duration_sec": stmt.excluded.duration_sec,
                 # ⚠️ `coalesce` MAJBURIY — «u har doim keladi» degan

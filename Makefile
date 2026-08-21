@@ -2,14 +2,14 @@
 SHELL := /bin/bash
 
 # ══════════════════════════════════════════════════════════════
-#  ZvonkiDashboard
+#  BonviZvonki
 #  Kompyuteringizga HECH NARSA o'rnatilmaydi — faqat Docker.
 # ══════════════════════════════════════════════════════════════
 
 .PHONY: help
 help: ## Buyruqlar ro'yxati
 	@echo ""
-	@echo "  ZvonkiDashboard — buyruqlar"
+	@echo "  BonviZvonki — buyruqlar"
 	@echo "  ─────────────────────────────────────────────"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'

@@ -1,4 +1,4 @@
-# ZvonkiDashboard — Savdo xodimlarini baholash platformasi
+# BonviZvonki — Savdo xodimlarini baholash platformasi
 
 **Hujjat versiyasi:** 1.1
 **Sana:** 2026-08-15

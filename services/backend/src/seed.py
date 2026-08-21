@@ -741,7 +741,7 @@ async def main(reset: bool = False, agents_only: bool = False) -> None:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="ZvonkiDashboard — ma'lumot yuklash")
+    parser = argparse.ArgumentParser(description="BonviZvonki — ma'lumot yuklash")
     parser.add_argument(
         "--reset", action="store_true", help="demo ma'lumotni tozalab qayta yaratish"
     )

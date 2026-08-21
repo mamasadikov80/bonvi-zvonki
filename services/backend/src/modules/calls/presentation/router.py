@@ -22,6 +22,7 @@ from src.modules.moizvonki.application.factory import moizvonki_client
 from src.modules.moizvonki.application.ingest import IngestService
 from src.modules.calls.domain.entities import CallDirection, CallType
 from src.modules.moizvonki.domain.entities import (
+    SYNC_AUDIO_DAYS,
     SYNC_MAX_DAYS,
     RecordingNotFoundError,
 )
@@ -109,20 +110,18 @@ class CallTypeFilter(StrEnum):
 
     `CallType` ning ustiga ikkita qiymat qo'shiladi:
 
-      · `unknown`   — hali tasniflanmagan (`call_type IS NULL`);
-      · `not_sales` — savdodan boshqa HAMMASI, bitta tanlov bilan.
+      · `unknown`   — hali aniqlanmagan (`call_type IS NULL`);
+      · `not_sales` — savdodan boshqa hammasi (ichki suhbatlar va hali
+        aniqlanmaganlar), bitta tanlov bilan.
 
-    NEGA KERAK. Tasniflashdan keyin ma'lumotning katta qismi savdo
-    bo'lmay chiqdi (o'lchandi: 69 tadan 63 tasi). Filtrsiz menejer
-    savdo suhbatini ko'rish uchun o'nlab ichki suhbatni varaqlashi
-    kerak — ya'ni yangi imkoniyat ro'yxatni ishlatib bo'lmas qildi.
+    NEGA `not_sales` HAMON KERAK. Turlar ikkitaga tushgani bilan
+    «savdo emas» degan savol yo'qolmadi: menejer ba'zan «shu davrda
+    baholanmagan hamma narsani ko'rsat» deydi va bunga hali
+    aniqlanmaganlar ham kiradi.
     """
 
     SALES = "sales"
-    SERVICE = "service"
     INTERNAL = "internal"
-    PERSONAL = "personal"
-    UNCLEAR = "unclear"
     UNKNOWN = "unknown"
     NOT_SALES = "not_sales"
 
@@ -150,9 +149,10 @@ class CallListItem(BaseModel):
     """Nom umuman bo'lmaganda ko'rsatiladi — «—» dan foydaliroq."""
 
     call_type: str | None
-    """`sales | service | internal | personal | unclear`. `null` — hali
-    tasniflanmagan. FAQAT `sales` baholanadi, shuning uchun boshqa
-    turlarda `score` bo'sh bo'lishi XATO EMAS."""
+    """`sales` yoki `internal`. `null` — hali aniqlanmagan.
+
+    FAQAT `sales` baholanadi, shuning uchun `internal` da `score` bo'sh
+    bo'lishi XATO EMAS."""
 
     score: int | None
     red_flag_count: int
@@ -182,9 +182,9 @@ class CallDetail(BaseModel):
 
     call_type: str | None
     call_type_reason: str | None
-    """AI nega shu turni tanlagani. Qo'lda tuzatish yo'q, shuning uchun
-    qaror hech bo'lmasa tushuntirilgan bo'lishi kerak — menejer sababni
-    o'qib, xato bo'lsa «Qayta baholash» bilan qaytadan yuboradi."""
+    """Tur qanday aniqlangani — raqam bilan. Qaror suhbatdoshning
+    raqamiga tayanadi (kompaniya liniyalari ro'yxatida bormi), shuning
+    uchun sabab har doim tekshirib bo'ladigan fakt bo'ladi."""
     call_type_confidence: float | None
 
     transcript: str | None
@@ -418,7 +418,18 @@ class SyncRequest(BaseModel):
         ),
     )
 
-    max_calls: int = Field(default=20_000, ge=1, le=200_000)
+    max_calls: int = Field(
+        default=200_000,
+        ge=1,
+        le=500_000,
+        description=(
+            "Xavfsizlik cheklovi: shuncha qo'ng'iroq ko'rib chiqilgach "
+            "sinxronizatsiya to'xtaydi va `truncated` belgilanadi. "
+            "⚠️ Ilgari 20 000 edi — kuniga ~840 qo'ng'iroqda bu atigi "
+            "24 kun, ya'ni 45 kunlik oraliq ham JIMGINA yarmida "
+            "qirqilardi. Endi bir yillik oraliq ham sig'adi."
+        ),
+    )
 
 
 class UnmatchedOwner(BaseModel):
@@ -468,6 +479,12 @@ class SyncWindow(BaseModel):
     """Tanlash mumkin bo'lgan eng eski kun."""
     days: int
     """Bugundan necha kun orqaga (= `SYNC_MAX_DAYS`)."""
+    audio_days: int
+    """Audio taxminan shuncha kun saqlanadi (= `SYNC_AUDIO_DAYS`).
+
+    Chegara EMAS. Undan eski qo'ng'iroqlar ham to'liq saqlanadi —
+    ro'yxat va statistika uchun — lekin audiosi bo'lmagani uchun AI
+    bilan baholanmaydi. UI aynan shuni oldindan aytadi."""
 
 
 async def _label_flags(
@@ -535,7 +552,7 @@ def _as_utc(moment: datetime) -> datetime:
 def _earliest_allowed() -> datetime:
     """Ruxsat etilgan eng eski payt — kun boshidan (UTC).
 
-    Kun boshiga tekislanadi: aks holda «45 kun» soatga bog'liq bo'lib,
+    Kun boshiga tekislanadi: aks holda chegara soatga bog'liq bo'lib,
     ertalab sinxronlagan admin kechqurun sinxronlaganidan boshqa oraliq
     olardi va nega ba'zi qo'ng'iroqlar tushmaganini tushunmasdi.
     """
@@ -559,7 +576,11 @@ async def sync_window() -> SyncWindow:
     Qat'iy chegara esa har doim bir xil javob beradi.
     """
     earliest = _earliest_allowed()
-    return SyncWindow(earliest=earliest.date(), days=SYNC_MAX_DAYS)
+    return SyncWindow(
+        earliest=earliest.date(),
+        days=SYNC_MAX_DAYS,
+        audio_days=SYNC_AUDIO_DAYS,
+    )
 
 
 @router.post(
@@ -578,11 +599,17 @@ async def sync_calls(payload: SyncRequest, session: DbSession) -> SyncResult:
 
     Qayta-qayta ishga tushirish xavfsiz: `external_id` (MoyZvonki
     `db_call_id`) bo'yicha UNIQUE upsert qilinadi.
+
+    ⏱ UZOQ ORALIQ UZOQ ISHLAYDI. Oraliq bir yilgacha bo'lishi mumkin
+    (`SYNC_MAX_DAYS`), ya'ni yuz minglab qator — so'rov o'n daqiqalab
+    ochiq turishi normal. Har bo'lak alohida commit qilinadi
+    (`IngestService.run`), shuning uchun aloqa uzilsa ham o'qib
+    ulgurilgani bazada qoladi.
     """
     # Chegara SERVER tomonida qo'yiladi, faqat tanlagichda emas: so'rov
     # to'g'ridan-to'g'ri (skript, eski oyna, keshlangan UI) kelishi
-    # mumkin. Chegarasiz so'rov MoyZvonki'ning yuz minglab eski
-    # yozuvini sahifalab o'qib, hech nima yozmasdan daqiqalab ishlardi.
+    # mumkin. Chegarasiz so'rov MoyZvonki'ning bir necha yillik arxivini
+    # sahifalab o'qishga aylanadi va soatlab ishlardi.
     limit = _earliest_allowed()
     asked = _as_utc(payload.date_from)
     since = max(asked, limit)
@@ -719,6 +746,21 @@ async def get_call(call_id: UUID, session: DbSession, user: CurrentUser):
             {
                 "overall_score": score.overall_score,
                 "blocks": score.blocks,
+                # ── Qaysi mezonlar QO'LLANILGAN ───────────────
+                #
+                # Qisqa, takroriy buyurtma suhbatida rubrikaning bir
+                # qismi taalluqli bo'lmaydi (eski mijoz «50 ta
+                # chiqaring» deydi — ehtiyojni aniqlash ham, mahsulot
+                # taqdimoti ham talab qilinmaydi). Ball o'sha
+                # QO'LLANILGAN mezonlar ichida hisoblanadi.
+                #
+                # ⚠️ Busiz ekran o'z-o'ziga zid ko'rinardi: menejer
+                # bloklarni qo'shib 68 oladi, tepada esa 91 turadi.
+                # Shu maydon «68 / 75 ball, 3 mezon taalluqli emas»
+                # deb yozish imkonini beradi.
+                "applicability": _applicability(
+                    score, await _criterion_labels(session, score)
+                ),
                 # Har bayroqqa RUBRIKADAGI yorlig'i qo'shiladi.
                 #
                 # NEGA BACKENDDA. Bayroq turi — admin o'zi yaratgan kalit
@@ -745,6 +787,62 @@ async def get_call(call_id: UUID, session: DbSession, user: CurrentUser):
             else None
         ),
     )
+
+
+async def _criterion_labels(
+    session: DbSession, score: CallScoreModel
+) -> dict[str, str]:
+    """`{"A2": "Ehtiyojni aniqlash"}` — BAHO QO'YILGAN rubrikadan.
+
+    ⚠️ Ekranda kriteriya KALITI («A2») emas, nomi ko'rinishi kerak.
+    Menejer kalitlarni yodlab yurmaydi: «A2, A3 taalluqli emas» degan
+    yozuv unga hech narsa aytmaydi, «Ehtiyojni aniqlash, Mahsulotni
+    taqdim etish» esa darhol tushunarli.
+
+    Yorliq baho qo'yilgan versiyadan olinadi (`_label_flags` dagi
+    sabab bilan bir xil): rubrika keyin o'zgargan bo'lsa, eski bahoga
+    yangi nomni yopishtirish tarixni buzardi.
+    """
+    row = (
+        await session.execute(
+            select(RubricModel.blocks).where(
+                RubricModel.version == _version_number(score.rubric_version)
+            )
+        )
+    ).scalar_one_or_none()
+
+    return {
+        str(criterion.get("id")): str(criterion.get("label"))
+        for block in (row or [])
+        for criterion in block.get("criteria", [])
+        if criterion.get("id") and criterion.get("label")
+    }
+
+
+def _applicability(
+    score: CallScoreModel, labels: dict[str, str] | None = None
+) -> dict[str, Any] | None:
+    """`block_details.meta` dan qo'llanilish ma'lumotini ajratib oladi.
+
+    Eski baholarda bu ma'lumot yo'q (`None` qaytadi) — ekran o'shanda
+    hech narsa ko'rsatmaydi. «0 mezon taalluqli emas» deb yozish
+    yolg'on bo'lardi: o'sha davrda bunday tushuncha umuman yo'q edi.
+    """
+    meta = (score.block_details or {}).get("meta") or {}
+    applicable_max = meta.get("applicable_max")
+    if not isinstance(applicable_max, int) or applicable_max <= 0:
+        return None
+    na = meta.get("na_criteria") or []
+    na = [str(cid) for cid in na] if isinstance(na, list) else []
+    labels = labels or {}
+    return {
+        "applicable_max": applicable_max,
+        "blocks_total": meta.get("blocks_total"),
+        "na_criteria": na,
+        # Kalit emas, NOMI — menejer «A2» nima ekanini bilmaydi
+        "na_labels": [labels.get(cid, cid) for cid in na],
+        "scenario": meta.get("scenario"),
+    }
 
 
 # ══════════════════════════════════════════════════════════════

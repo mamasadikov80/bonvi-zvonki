@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────────
-#  ZvonkiDashboard — Telegram bot (aiogram)
+#  BonviZvonki — Telegram bot (aiogram)
 # ─────────────────────────────────────────────────────────────
 FROM python:3.12-slim AS base
 

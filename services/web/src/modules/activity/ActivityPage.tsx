@@ -20,6 +20,7 @@ import {
   ArrowUpRight,
   ChevronRight,
   PhoneMissed,
+  Sheet,
   UserX,
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
@@ -33,6 +34,7 @@ import {
   type Period,
 } from '@/modules/activity/api'
 import { CallsChart } from '@/modules/activity/CallsChart'
+import { exportActivity } from '@/modules/activity/export'
 import { MissedClientsModal } from '@/modules/activity/MissedClientsModal'
 import type { AnalyticsQuery } from '@/modules/analytics/api'
 import { useAuth } from '@/modules/auth/store'
@@ -46,7 +48,15 @@ import {
   formatNumber,
 } from '@/shared/lib/utils'
 import { Avatar } from '@/shared/ui/dataviz'
-import { Card, CardBody, CardHeader, EmptyState, Segmented, Skeleton } from '@/shared/ui/primitives'
+import {
+  Button,
+  Card,
+  CardBody,
+  CardHeader,
+  EmptyState,
+  Segmented,
+  Skeleton,
+} from '@/shared/ui/primitives'
 
 /** Jadval ustunlari — nom va izoh BIR JOYDA.
  *
@@ -153,6 +163,35 @@ export function ActivityPage() {
      mumkin bo'lishi kerak. */
   const [picked, setPicked] = useState<{ id: string; name: string } | null>(null)
 
+  /* ── Excelga yuklash ────────────────────────────────────
+     Faylga AYNAN shu ekrandagi ma'lumot tushadi: `activity.data`
+     allaqachon tanlangan davr va filtr bo'yicha kelgan javob.
+     Serverga ikkinchi so'rov YO'Q — bo'lsa, u boshqa lahzada
+     bajarilib, fayldagi son ekrandagidan farq qilishi mumkin edi. */
+  const [exporting, setExporting] = useState(false)
+  const [exportFailed, setExportFailed] = useState(false)
+
+  const runExport = async () => {
+    if (!activity.data || exporting) return
+    setExporting(true)
+    setExportFailed(false)
+    try {
+      await exportActivity({
+        report: activity.data,
+        t,
+        byHour,
+        regions: filters.regions,
+      })
+    } catch {
+      /* Sabab foydalanuvchiga hech narsa bermaydi (kutubxona yuklanmadi,
+         xotira yetmadi) — muhimi, jimgina yo'qolib qolmasin: tugma
+         bosilib hech narsa bo'lmasa, odam uni qayta-qayta bosadi. */
+      setExportFailed(true)
+    } finally {
+      setExporting(false)
+    }
+  }
+
   /* Sichqoncha qaysi ustun ustida turibdi.
      ⚠️ Brauzerning o'z maslahatnomasi (`title`) ISHLAMAYDI: jadval
      `overflow-x: auto` konteyner ichida va u ikkala o'qni ham qirqadi,
@@ -179,27 +218,46 @@ export function ActivityPage() {
             : t('activity.subtitle')
         }
         actions={
-          <Segmented
-            value={String(days)}
-            onChange={(value) => {
-              const next = Number(value) as Period
-              setDays(next)
-              /* Aniq oraliq backendda USTUN turadi — tozalanmasa tez
-                 tugmacha bosilgani bilan hech narsa o'zgarmasdi va
-                 foydalanuvchi buni nosozlik deb o'qirdi.
-                 Sana tanlagichi ham shu oraliqqa keltiriladi, aks holda
-                 unda boshqa davr yozilib turardi — ikki joyda ikki xil
-                 javob eng yomon holat. */
-              setFilters((f) => ({ ...f, date_from: undefined, date_to: undefined }))
-              setRange(lastDays(next))
-            }}
-            items={PERIODS.map((p) => ({
-              value: String(p),
-              label: t(`activity.period.d${p}`),
-            }))}
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="secondary"
+              onClick={runExport}
+              /* Ma'lumot kelmagunicha o'chirilgan: bo'sh fayl
+                 yuklab olish nosozlikdan farq qilmasdi */
+              disabled={!activity.data?.agents.length || exporting}
+              title={t('activity.export.hint')}
+            >
+              <Sheet className="size-4" />
+              {exporting ? t('activity.export.running') : t('activity.export.button')}
+            </Button>
+            <Segmented
+              value={String(days)}
+              onChange={(value) => {
+                const next = Number(value) as Period
+                setDays(next)
+                /* Aniq oraliq backendda USTUN turadi — tozalanmasa tez
+                   tugmacha bosilgani bilan hech narsa o'zgarmasdi va
+                   foydalanuvchi buni nosozlik deb o'qirdi.
+                   Sana tanlagichi ham shu oraliqqa keltiriladi, aks holda
+                   unda boshqa davr yozilib turardi — ikki joyda ikki xil
+                   javob eng yomon holat. */
+                setFilters((f) => ({ ...f, date_from: undefined, date_to: undefined }))
+                setRange(lastDays(next))
+              }}
+              items={PERIODS.map((p) => ({
+                value: String(p),
+                label: t(`activity.period.d${p}`),
+              }))}
+            />
+          </div>
         }
       />
+
+      {exportFailed && (
+        <p className="rounded-xl bg-bad/[0.08] px-3.5 py-2.5 text-2xs leading-relaxed text-bad">
+          {t('activity.export.failed')}
+        </p>
+      )}
 
       <FilterBar
         value={filters}

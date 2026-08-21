@@ -8,6 +8,7 @@ Chegaralarni bir joyda ushlab turamiz — ular sozlanadi va vaqt o'tib
 kalibratsiyadan keyin o'zgaradi (PLAN.md 3.6).
 """
 
+import re
 from dataclasses import dataclass, field
 
 # ── Chegaralar ────────────────────────────────────────────────
@@ -32,11 +33,33 @@ MAX_CLIENT_GAP = 25
 MIN_CLIENT_RESPONSES = 3
 
 
+#: Transkriptdagi XIZMAT belgilari: `[04:12]` va `SPEAKER_1:`.
+#
+# ⚠️ NEGA ULAR SANALMAYDI. Chegara (`MIN_WORDS`) haqiqiy GAP so'zlari
+# uchun qo'yilgan, lekin `str.split()` xizmat belgilarini ham so'z deb
+# sanaydi: 17 qatorli transkriptda bu 34 ta soxta «so'z» — ya'ni 60 ta
+# haqiqiy so'zli qisqa suhbat 94 so'z bo'lib ko'rinadi va qoida
+# ISHLAMAY qoladi.
+#
+# Bu jimgina xato edi: aynan eng qisqa, ya'ni eng shubhali suhbatlar
+# tekshiruv navbatiga tushmasdi.
+_TIMESTAMP = re.compile(r"\[\d{1,2}:\d{2}(?::\d{2})?\]")
+_SPEAKER = re.compile(r"(?m)^\s*[A-Za-zА-Яа-яЎўҚқҒғҲҳ_0-9 .'-]{1,32}:\s")
+
+
+def count_words(transcript_text: str | None) -> int:
+    """Transkriptdagi haqiqiy so'zlar soni (xizmat belgilarisiz)."""
+    text = _TIMESTAMP.sub(" ", transcript_text or "")
+    text = _SPEAKER.sub(" ", text)
+    return len(text.split())
+
+
 class ReviewReason:
     LOW_CONFIDENCE = "low_confidence"
     SHORT_TRANSCRIPT = "short_transcript"
     RED_FLAG = "red_flag"
     CLIENT_GAP = "client_gap"
+    NA_OVER_BUDGET = "na_over_budget"
 
 
 @dataclass(slots=True)
@@ -63,8 +86,9 @@ def decide(
     ai_score: int,
     client_rating: float | None = None,
     client_rating_count: int = 0,
+    na_over_budget: bool = False,
 ) -> ReviewDecision:
-    """To'rtta qoidani ketma-ket tekshiradi."""
+    """Qoidalarni ketma-ket tekshiradi."""
     reasons: list[dict[str, str]] = []
 
     # 1. Past ishonch — model o'zi shubhalanmoqda
@@ -86,7 +110,7 @@ def decide(
         )
 
     # 2. G'ayrioddiy qisqa transkript — ASR yo'qotgan bo'lishi mumkin
-    words = len((transcript_text or "").split())
+    words = count_words(transcript_text)
     if words < MIN_WORDS:
         reasons.append(
             {
@@ -110,7 +134,22 @@ def decide(
             }
         )
 
-    # 3. Red flag — jiddiy ayblov, odam tasdiqlashi shart
+    # 3. Uzun suhbatda haddan ortiq mezon «taalluqli emas» deb
+    #    belgilangan. Baho qabul qilingan (urinishlar tugagan), lekin
+    #    ehtimol xodim bosqichlarni o'tkazib yuborgan-u, model buni
+    #    «talab qilinmadi» deb o'qigan — buni ODAM hal qilishi kerak.
+    if na_over_budget:
+        reasons.append(
+            {
+                "code": ReviewReason.NA_OVER_BUDGET,
+                "message": (
+                    "Uzun suhbatda mezonlarning katta qismi «taalluqli emas» "
+                    "deb belgilangan — ball asossiz yuqori bo'lishi mumkin"
+                ),
+            }
+        )
+
+    # 4. Red flag — jiddiy ayblov, odam tasdiqlashi shart
     if red_flag_types:
         reasons.append(
             {
@@ -119,7 +158,7 @@ def decide(
             }
         )
 
-    # 4. Mijoz bahosi bilan katta tafovut
+    # 5. Mijoz bahosi bilan katta tafovut
     if client_rating is not None and client_rating_count >= MIN_CLIENT_RESPONSES:
         client_scaled = client_rating * 20.0
         gap = abs(ai_score - client_scaled)

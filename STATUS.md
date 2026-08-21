@@ -1,4 +1,4 @@
-# ZvonkiDashboard — holat
+# BonviZvonki — holat
 
 > Yangi seans (`/clear` dan keyin) shu fayldan boshlansin.
 > To'liq tadqiqot va reja: `docs/PLAN.md`. UI konvensiyalari: `README.md`.
@@ -124,6 +124,66 @@ Controller"). Tokeni **bazadan** olinadi, `.env` faqat zaxira. `core/runner.py` 
 bo'lsa botni o'zi qayta ishga tushiradi — admin panelda almashtirsangiz
 `docker compose restart` **kerak emas**. Noto'g'ri token kiritilsa bot o'chib
 qolmaydi, o'zbekcha ogohlantirish chiqarib to'g'risini kutadi.
+
+### Shu seansda o'zgargani — qo'ng'iroq turi va baholash yengilligi
+
+**1. Turlar ikkitaga tushdi: `sales` va `internal`.** Ilgari AI transkript
+MAZMUNIGA qarab «savdo / xizmat / ichki / shaxsiy / aniqlanmadi» deb ajratardi
+va yanglishardi: eski mijoz ham «qoldiq qancha, narx qanaqa» deb qisqa
+gaplashadi — bu hamkasb suhbatidan farq qilmaydi. O'lchandi: tasniflangan 98
+qo'ng'iroqdan **82 tasi «ichki»**, savdo esa atigi 9 ta bo'lib chiqqan, ya'ni
+haqiqiy savdo suhbatlarining ko'pi baholanmay qolgan.
+
+Endi tur RAQAM bo'yicha aniqlanadi (`calls/domain/routing.py`) va LLM chaqiruvi
+TALAB QILMAYDI:
+
+- suhbatdoshning raqami kompaniya liniyalari ro'yxatida bo'lsa → `internal`;
+- ATS qisqa raqami (6 raqamdan kam) → `internal`;
+- qolgan hammasi → `sales` (baholanadi).
+
+Ro'yxat uch manbadan yig'iladi (`calls/application/internal_directory.py`):
+`calls.agent_number` (MoyZvonki `src_number` — har sinxronizatsiyada o'zi
+to'ladi), `agents.phone`, va admin sozlamasi (`moizvonki.internal_numbers`,
+`*700` kabi suffiks qoidasini ham qabul qiladi).
+
+⚠️ Ichki suhbat ham TRANSKRIPT oladi — faqat ball qo'yilmaydi.
+⚠️ Ro'yxat bo'sh bo'lsa quvur qo'ng'iroqqa TEGMAYDI (`DirectoryEmptyError`):
+aks holda hamma suhbat «tashqi» bo'lib, ichkilari ham baholanib ketardi.
+
+**2. Baholashda «taalluqli emas» (`na`).** Mijozlarning aksariyati eski mijoz:
+«akajon, menga 50 ta chiqaring» deb 30 soniyada tugatadi. Ilgari bunday
+suhbatga to'liq skript rubrikasi qo'llanardi va xodim aybsiz holda 40–50 ball
+olardi. Endi rubrikadagi har mezonda `optional` bayrog'i bor; AI o'rinsiz
+mezonni `verdict: "na"` deb belgilaydi va u hisobdan CHIQADI (nol ham olmaydi).
+Ball qo'llanilganlar ichida hisoblanadi: `blok × olingan / qo'llanilgan`.
+
+Uchta himoya bor, aks holda hammasi 100 ball bo'lib ketardi (o'lchandi —
+bo'ldi ham):
+- `na` faqat `optional: true` mezonda (salomlashish, muomala madaniyati,
+  savolga javob, kelishuv aniqligi — har doim baholanadi, 51 ball);
+- **uzunlikka bog'liq budjet**: 90 soniyagacha chegara yo'q, 4 daqiqadan
+  uzun suhbatda `na` ga ko'pi bilan 20 ball. Oxirgi urinishda chegara
+  yumshaydi, lekin baho tekshiruv navbatiga tushadi (`na_over_budget`);
+- qo'llanilganlar 40 balldan kam qolsa javob rad etiladi.
+
+Model endi `overall_score` ni ham, blok balini ham QAYTARMAYDI — ikkalasi
+kriteriyalardan hisoblanadi. Kriteriyalar javobda OBYEKT bo'lib keladi
+(`{"A1": {...}}`), shuning uchun har mezon o'z chegarasini va o'z verdikt
+ro'yxatini oladi — model tashlangan mezonning ballini boshqalarga taqsimlay
+olmaydi.
+
+**Real ma'lumotda sinaldi:** qisqa takroriy buyurtmalar 88–100, uzun
+suhbatlar 58–92, mazmunsiz suhbat («salomlashib qayta qo'ng'iroq kelishildi»)
+17–34 + tekshiruv bayrog'i.
+
+**3. Yon tuzatish:** `review_rules.count_words` endi `[04:12]` va `SPEAKER_1:`
+xizmat belgilarini sanamaydi. Ular so'z deb sanalgani uchun eng qisqa, ya'ni
+eng shubhali suhbatlar tekshiruv navbatiga TUSHMAY qolardi.
+
+**Keyingi qadam:** kompaniya liniyalari ro'yxati to'lishi uchun MoyZvonki
+sinxronizatsiyasi kerak — kechki avtomatik yurish buni o'zi qiladi
+(`agent_number` har qatorga yoziladi). Xodimlar kartochkasidagi telefon
+raqamini to'ldirish ham ro'yxatni kengaytiradi (33 xodimdan 10 tasida bor).
 
 ### Oxirgi seansda tugatilgani
 

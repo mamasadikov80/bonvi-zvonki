@@ -22,20 +22,28 @@ class CallStatus(StrEnum):
 class CallType(StrEnum):
     """Qo'ng'iroq turi — BAHOLANADIMI yoki yo'qmi shu bilan hal bo'ladi.
 
-    Ish telefoni faqat savdo uchun ishlatilmaydi: xodim viloyat skladi
-    bilan yuk haqida, buxgalteriya bilan kassa haqida gaplashadi, ba'zan
-    uyiga qo'ng'iroq qiladi. Savdo rubrikasi bunday suhbatga nol beradi
-    va xodimning o'rtachasini asossiz pasaytiradi.
+    IKKITA tur bor, boshqasi yo'q:
 
-    Shuning uchun FAQAT `SALES` baholanadi. Qolganlari sanaladi va
-    ko'rinadi, lekin ballari ham, savdo KPI'siga ta'siri ham yo'q.
+      · `INTERNAL` — ikkala tomon ham BIZNING xodimimiz. Transkript
+        olinadi (suhbat o'qiladi), lekin savdo rubrikasi qo'llanmaydi.
+      · `SALES`    — qolgan HAMMASI, ya'ni tashqariga chiqqan suhbat.
+        Baholanadi.
+
+    ⚠️ NEGA MAZMUN BO'YICHA TASNIF OLIB TASHLANDI. Ilgari AI transkriptni
+    o'qib «savdo / xizmat / ichki / shaxsiy» deb ajratardi va ARALASHTIRIB
+    yuborardi: mijozlarning aksariyati ESKI mijoz bo'lgani uchun ular ham
+    «sklad qoldig'i qancha», «narx qanday» deb qisqa gaplashadi — bu esa
+    hamkasb suhbatidan matn jihatidan farq qilmaydi. O'lchandi: tasniflangan
+    98 qo'ng'iroqning 82 tasi «ichki» deb belgilangan, savdo esa atigi 9 ta.
+    Ya'ni haqiqiy savdo suhbatlari baholanmay qolgan.
+
+    Endi tur MAZMUNDAN emas, RAQAMDAN aniqlanadi: suhbatdoshning raqami
+    kompaniyaning o'z liniyalari ro'yxatida bo'lsa — ichki, aks holda
+    savdo. Bu qaror taxminga tayanmaydi va LLM chaqiruvi TALAB QILMAYDI.
     """
 
-    SALES = "sales"  # mijoz bilan savdo — YAGONA baholanadigan tur
-    SERVICE = "service"  # mavjud mijozga xizmat: yetkazish, shikoyat
-    INTERNAL = "internal"  # kompaniya ichida: sklad, buxgalteriya, hamkasb
-    PERSONAL = "personal"  # ishga aloqasi yo'q shaxsiy suhbat
-    UNCLEAR = "unclear"  # aniqlab bo'lmadi — taxminga ball qo'yilmaydi
+    SALES = "sales"  # tashqi suhbat — baholanadi
+    INTERNAL = "internal"  # ikki xodim o'rtasida — baholanmaydi
 
 
 class CallOutcome(StrEnum):

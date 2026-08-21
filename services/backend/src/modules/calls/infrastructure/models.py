@@ -82,28 +82,58 @@ class CallModel(Base, UUIDMixin, TimestampMixin):
         Boolean, nullable=True, index=True
     )
 
+    # ── Bizning liniyamiz (MoyZvonki `src_number`) ────────────
+    #
+    # Xodim QAYSI o'z raqamimizdan gaplashgani. Bu ustun ikki ish
+    # qiladi va ikkinchisi muhimroq:
+    #
+    #   1. qo'ng'iroq qaysi SIM orqali ketganini ko'rsatadi;
+    #   2. KOMPANIYA LINIYALARI RO'YXATINI o'zi to'ldiradi — barcha
+    #      qatorlardagi turli qiymatlar yig'indisi aynan «bizning
+    #      raqamlarimiz» degani. Suhbatdoshning raqami shu ro'yxatda
+    #      bo'lsa, demak ikkala tomon ham xodim: `call_type = internal`.
+    #
+    # Ya'ni tur aniqlash uchun na LLM, na qo'lda kiritilgan ro'yxat
+    # kerak — yangi xodim ishlay boshlashi bilan raqami o'zi tushadi.
+    agent_number: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
     # ── Qo'ng'iroq turi ───────────────────────────────────────
     #
-    # Baholash FAQAT `sales` turiga qo'llanadi. Ish telefonlari orqali
-    # xodimlar sklad, buxgalteriya va hamkasblar bilan ham gaplashadi;
-    # savdo rubrikasi bunday suhbatga nol beradi va xodimning
-    # o'rtachasini asossiz pasaytiradi. Haqiqiy ma'lumotda o'lchandi:
-    # baholangan qo'ng'iroqlarning 20% i ichki suhbat edi.
+    # Ikkita qiymat bor: `sales` va `internal`.
     #
-    # `NULL` — hali tasniflanmagan (eski qatorlar yoki transkripti yo'q).
+    # `internal` — suhbatdoshning raqami kompaniya liniyalari ro'yxatida
+    # (yuqoridagi `agent_number` dan yig'iladi) yoki ATS ichki raqami.
+    # Bunday suhbat TRANSKRIPT olinadi, lekin savdo rubrikasi bilan
+    # baholanmaydi: hamkasb bilan gaplashgan xodimga «ehtiyojni
+    # aniqladingmi» deb ball qo'yish ma'nosiz.
+    #
+    # `sales` — qolgan hammasi. Suhbat tashqariga chiqqan, ya'ni
+    # kompaniyani mijoz oldida ifodalaydi va baholanadi.
+    #
+    # ⚠️ Ilgari bu ustunda yana `service`, `personal`, `unclear` bor edi
+    # va ularni AI transkript MAZMUNIGA qarab qo'yardi. U yanglishardi:
+    # eski mijoz ham «qoldiq qancha, narx qanaqa» deb qisqa gaplashadi
+    # va bu hamkasb suhbatidan farq qilmaydi. O'lchandi — tasniflangan
+    # 98 qo'ng'iroqdan 82 tasi «ichki», savdo esa 9 ta bo'lib chiqqan.
+    #
+    # `NULL` — hali aniqlanmagan (yangi qator yoki quvur yurmagan).
     call_type: Mapped[str | None] = mapped_column(
         String(16), nullable=True, index=True
     )
     call_type_reason: Mapped[str | None] = mapped_column(String(300), nullable=True)
-    """AI nega shu turni tanlagani — bitta jumla.
+    """Qaror qanday chiqqani — bitta jumla, raqam bilan.
 
     Qo'lda tuzatish yo'q, shuning uchun qaror hech bo'lmasa
-    TUSHUNTIRILGAN bo'lishi kerak: menejer sababni o'qib, xato
-    bo'lsa «Qayta baholash» bilan qaytadan yuboradi."""
+    TUSHUNTIRILGAN bo'lishi kerak: menejer sababni o'qib, raqam
+    noto'g'ri ro'yxatga tushgan bo'lsa uni sozlamada tuzatadi."""
 
     call_type_confidence: Mapped[float | None] = mapped_column(
         Numeric(3, 2), nullable=True
     )
+    """Tur raqam bo'yicha aniqlanadi, ya'ni taxmin yo'q — qiymat 1.00.
+
+    Ustun SAQLANIB QOLDI: eski qatorlarda AI qo'ygan qiymat bor va uni
+    o'chirish tarixni yo'qotardi."""
 
     audio_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
     transcript: Mapped[str | None] = mapped_column(Text, nullable=True)

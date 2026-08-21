@@ -55,7 +55,7 @@ async def test_aniq_turlar_yigindisi(admin_client) -> None:
 
     Turlar bir-birini QOPLAMASLIGI kerak: qoplasa yig'indi kattaroq
     chiqadi va razrezdagi sonlar hech narsani ifodalamaydi."""
-    turlar = ["sales", "service", "internal", "personal", "unclear", "unknown"]
+    turlar = ["sales", "internal", "unknown"]
     yigindi = 0
     for tur in turlar:
         yigindi += await _total(admin_client, call_type=tur)
