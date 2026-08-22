@@ -518,12 +518,63 @@ async def test_mijoz_kartochkasi_savdolarni_beradi(world) -> None:
     await add_call(w, SALE_DAY)
 
     async with SessionFactory() as session:
-        rows = await ComplianceService(session).for_client(w.phone_key, limit=10)
+        result = await ComplianceService(session).for_client(w.phone_key, limit=10)
 
-    assert len(rows) == 1
-    assert rows[0].occurred_on == SALE_DAY
-    assert rows[0].verdict == Verdict.OK.value
-    assert rows[0].review_status is None
+    assert len(result.items) == 1
+    assert result.items[0].occurred_on == SALE_DAY
+    assert result.items[0].verdict == Verdict.OK.value
+    assert result.items[0].review_status is None
+    assert result.total == 1
+    assert result.suspicious == 0
+    assert result.amount_usd == 100.0
+
+
+@pytest.mark.asyncio
+async def test_mijoz_kartochkasi_yigmasi_royxatdan_KENGROQ(world) -> None:
+    """Yig'ma `limit` dan EMAS, butun tanlovdan hisoblanadi.
+
+    Ro'yxat kesilganda «nechta savdo va qanchaga» degan javob ham
+    kesilib qolsa, kartochka tepasidagi son jimgina yolg'on gapirardi.
+    """
+    w = await world()
+    for index in range(3):
+        await add_sale(w, SALE_DAY - timedelta(days=index), name=f"s{index}")
+
+    async with SessionFactory() as session:
+        result = await ComplianceService(session).for_client(w.phone_key, limit=1)
+
+    assert len(result.items) == 1
+    assert result.items[0].occurred_on == SALE_DAY  # eng yangisi birinchi
+    assert result.total == 3
+    assert result.suspicious == 3  # birortasida ham qo'ng'iroq yo'q
+    assert result.amount_usd == 300.0
+
+
+@pytest.mark.asyncio
+async def test_mijoz_kartochkasi_davri_qoidalarni_toraytirmaydi(world) -> None:
+    """Davr faqat KO'RINISHNI kesadi, xulosani emas.
+
+    ⚠️ Davr ichidagi savdo «birinchi savdo» bo'lib ko'rinsa, R2
+    jimgina o'chib qolardi va bitta savdo nazorat ro'yxatida shubhali,
+    kartochkada esa toza bo'lib chiqardi.
+    """
+    w = await world()
+    await add_sale(w, SALE_DAY - timedelta(days=10), name="eski")
+    await add_call(w, SALE_DAY - timedelta(days=10))
+    await add_sale(w, SALE_DAY, name="yangi")
+
+    async with SessionFactory() as session:
+        result = await ComplianceService(session).for_client(
+            w.phone_key, since=SALE_DAY, until=SALE_DAY
+        )
+
+    assert result.total == 1
+    row = result.items[0]
+    assert row.occurred_on == SALE_DAY
+    # Oldingi savdo davrdan TASHQARIDA, lekin R2 baribir qo'llanadi:
+    # oraliqda birorta suhbat yo'q.
+    assert row.verdict == Verdict.SUSPICIOUS.value
+    assert "R2" in row.broken_rules
 
 
 # ══════════════════════════════════════════════════════════════
@@ -811,3 +862,64 @@ async def test_endpoint_review_all(admin_client, world) -> None:
         (item["review"] or {}).get("status") for item in body["items"]
     }
     assert holatlar == {None, "confirmed"}
+
+
+@pytest.mark.asyncio
+async def test_kartochka_va_royxat_bir_xil_dalil_beradi(admin_client, world) -> None:
+    """⚠️ IKKI YO'L — BITTA MANBA. Dalil AYNAN bir xil bo'lishi shart.
+
+    Mijoz kartochkasidagi savdo qatori ham, nazorat ro'yxatidagi qator
+    ham `ComplianceService` dan oziqlanadi. Ular ajralib ketsa, bir
+    savdo ikki ekranda ikki xil ko'rinardi va o'shanda ikkalasiga ham
+    ishonib bo'lmasdi.
+
+    ⚠️ «Toza» qatorda `last_call_at` BO'SH BO'LOLMAYDI: xulosa aynan
+    o'sha suhbat topilgani uchun `ok`. Bo'sh kelishi hisoblash emas,
+    javobni yig'ish uzilgani degani — aynan shu tekshiriladi.
+    """
+    w = await world()
+    await add_sale(w, SALE_DAY - timedelta(days=10), name="eski")
+    await add_call(w, SALE_DAY - timedelta(days=10))
+    await add_sale(w, SALE_DAY, name="yangi")
+
+    listed = (
+        await admin_client.get(
+            f"{API}/sales/compliance?agent_ids={w.agent_id}&page_size=100"
+        )
+    ).json()["items"]
+    card = (await admin_client.get(f"{API}/clients/{w.phone_key}/sales")).json()["items"]
+
+    #: Xulosa va uning dalili — nomlari ikkala javobda ham bir xil.
+    EVIDENCE = (
+        "verdict",
+        "broken_rules",
+        "skip_reason",
+        "last_call_at",
+        "last_call_agent",
+        "days_before",
+        "previous_sale_on",
+        "calls_between",
+        "calls_total",
+    )
+    by_id = {row["id"]: row for row in listed}
+    assert len(card) == 2
+    for row in card:
+        assert {key: row[key] for key in EVIDENCE} == {
+            key: by_id[row["id"]][key] for key in EVIDENCE
+        }, "kartochka va ro'yxat bir xil dalilni ko'rsatishi kerak"
+
+    # Dalil haqiqatan TO'LGANMI — bo'sh maydonlar ham «bir xil»
+    # bo'lishi mumkin, shuning uchun qiymatlar alohida tekshiriladi.
+    newest, oldest = card[0], card[1]
+    assert newest["verdict"] == Verdict.SUSPICIOUS.value
+    assert "R2" in newest["broken_rules"]
+    assert newest["last_call_at"] is not None
+    assert newest["last_call_agent"] == w.agent_name
+    assert newest["days_before"] == 10
+    assert newest["previous_sale_on"] == (SALE_DAY - timedelta(days=10)).isoformat()
+    assert newest["calls_between"] == 0
+    assert newest["calls_total"] == 1
+
+    assert oldest["verdict"] == Verdict.OK.value
+    assert oldest["last_call_at"] is not None, "«toza» qator dalilsiz bo'lolmaydi"
+    assert oldest["days_before"] == 0

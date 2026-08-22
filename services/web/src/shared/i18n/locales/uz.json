@@ -405,6 +405,16 @@
       "internal": "Ichki raqamlar",
       "all": "Hammasi"
     },
+    "timeline": {
+      "title": "Vaqt chizig'i",
+      "hint": "Qo'ng'iroq va savdo bitta ro'yxatda, yangisidan eskisiga. Savdoda faqat SANA bor — kun ichidagi aniq vaqtini bilib bo'lmaydi, shuning uchun savdo o'sha kundagi qo'ng'iroqlardan keyin, ya'ni ro'yxatda ulardan yuqorida turadi.",
+      "sale": "Savdo",
+      "noTime": "vaqti noma'lum",
+      "salesCount": "savdo",
+      "salesAmount": "jami summa",
+      "salesSuspicious": "shubhali",
+      "salesNotCheckable": "tekshirib bo'lmadi"
+    },
     "detail": {
       "period": "{{from}} — {{to}} · jami {{count}} ta qo'ng'iroq (butun tarix)",
       "all": "Butun tarix",

@@ -304,6 +304,7 @@ kodi topilmagan **0 ta**, xodimga bog'langan **728 (70.1%)**,
 2. **Mijoz kartochkasi** — qo'ng'iroqlar yonida savdolar ham ko'rinadi
    (bitta vaqt chizig'i: qo'ng'iroq → savdo → qo'ng'iroq → savdo).
 3. **Telegram** — kunlik xabar: kechagi shubhali savdolar.
+   ⚠️ Sukut bo'yicha O'CHIQ, tafsiloti 7.3-bo'limda.
 
 ## 7.1 Ichki shartnoma (2-bosqich uchun)
 
@@ -375,6 +376,7 @@ ko'rmasligi kerak.
 | POST | `/sales/{id}/review` | `sales:review` | qaror qo'yadi |
 | GET | `/sales/branches` | `sales:read` | filial → xodim xaritasi + dalil |
 | PUT | `/sales/branches/{branch}` | `sales:review` | xodimni qo'lda biriktiradi |
+| GET | `/clients/{key}/sales` | **`sales:read`** | mijoz kartochkasidagi savdo tarixi |
 
 `/sales/compliance` dagi bitta qator (frontend shu nomlarga tayanadi):
 
@@ -474,13 +476,99 @@ boshiga qo'yganda PostgreSQL qatorlar sonini 200 barobar kam
 baholab, `evidence` uchun nested loop tanladi va so'rov 0.24 s dan
 0.78 s ga chiqdi.
 
+### 7.3 Kunlik Telegram xabari (3-bosqich)
+
+⚠️ **SUKUT BO'YICHA O'CHIQ.** Bu tizimdagi yagona TASHQARIGA
+chiqadigan amal: noto'g'ri guruhga tushgan xabarni qaytarib
+bo'lmaydi. Shuning uchun rahbar kalitni yoqmaguncha va guruhni
+ko'rsatmaguncha birorta xabar ketmaydi.
+
+**Sozlamalar** (`SettingCategory.SALES`):
+
+| Kalit | Tur | Sukut | Ma'nosi |
+| --- | --- | --- | --- |
+| `sales.digest_enabled` | bool | **`false`** | Bosh kalit |
+| `sales.digest_chat_id` | matn | bo'sh | Guruh/chat id. Bo'sh — YUBORILMAYDI (logga ogohlantirish) |
+| `sales.digest_min_amount` | son | `0` | Shu summadan ($) past savdolar xabarga kirmaydi |
+
+`sales.digest_min_amount` FAQAT xabarga tegishli — paneldagi
+ro'yxat va sonlar o'zgarmaydi. Summasi NOMA'LUM savdo chegaradan
+qat'i nazar qoladi: «bilmadim» — «kichik» degani emas.
+
+Panel havolasi `PUBLIC_WEB_URL` (.env) dan olinadi. Bo'sh bo'lsa
+havola xabarga umuman qo'shilmaydi — ishlamaydigan `localhost`
+havolasi butun xabarga ishonchni tushirardi.
+
+**Xabar** (o'zbekcha, Telegram HTML): sarlavhada oxirgi import
+qilingan kun; uchala toifa soni; xodimlar kesimi (eng ko'p
+shubhalisi birinchi, beshtadan keyin «va yana N ta»); eng katta
+3–5 shubhali savdo dalili bilan (qaysi qoida, oxirgi suhbat
+qachon); oxirida panel havolasi va «bu ro'yxat AYBLAMAYDI» jumlasi.
+
+⚠️ **4096 belgi — Telegram chegarasi.** Undan uzun xabar
+yuborilmaydi (400 xato), ya'ni «uzun bo'lsa kesilar» degan umid ish
+bermaydi — xabar BUTUNLAY yo'qolardi. Matn shuning uchun sig'guncha
+qisqaradi: avval savdolar 5→3, keyin xodimlar 5→3→1→0, eng oxirida
+qator bo'yicha kesish. Sonlar va yakundagi jumla hech qachon
+tushmaydi.
+
+**Qachon:** tungi vazifaning (`pipeline.nightly`) UCHINCHI bosqichi,
+sinxronizatsiyadan KEYIN. Alohida beat yozuviga chiqarilmadi: o'shanda
+ikki vazifaning tartibi vaqtga tayanardi va sinxronizatsiya cho'zilsa
+xabar eskirgan ma'lumot bilan chiqib ketardi.
+
+**Takrorlanmaslik:** `sale_digests` jadvali (audit + suv belgisi).
+Yangi savdo importi bo'lmagan bo'lsa (`max(sales.imported_at)`
+o'zgarmagan) xabar YUBORILMAYDI — beat jadvali kafolat emas
+(`worker.py` dagi izoh), takroriy xabar esa shovqin.
+
+**Qo'lda sinash:** `POST /sales/digest/test` (ruxsat `sales:review`,
+`sales:read` emas — bu tashqariga xabar yuboradi). `digest_enabled`
+ni TEKSHIRMAYDI: tugmaning ma'nosi kalitni yoqishdan oldin matnni
+ko'rish. Javobda yuborilgan matn ham qaytadi. Yozuv `kind='test'`
+bo'lib tushadi va kechasi keladigan haqiqiy xabarga ta'sir qilmaydi.
+
+⚠️ **Bot orqali emas, backend'dan to'g'ridan-to'g'ri.** Guruh
+so'rovnomalari navbat orqali ketadi (bot `pending-surveys` ni
+so'rab turadi), lekin u mexanizm so'rovnomaga moslangan (reyestr,
+hisoblagich, xabarni keyin o'chirish). Hal qiluvchi sabab boshqa:
+«Sinov xabari» tugmasi DARHOL javob kutadi — «ketdimi, matni
+qanaqa». Navbat orqali bunga javob berib bo'lmaydi. Token o'sha-o'sha
+(`telegram.bot_token`), guruhlar o'sha-o'sha (`telegram_groups` —
+bot chiqarilgan guruhga yuborilmaydi), yangi maxfiy kalit ham,
+yangi navbat ham qo'shilmadi.
+
 ## 8. Bosqichlar
 
 | Bosqich | Nima | Holat |
 | --- | --- | --- |
 | 1 | Ma'lumot qatlami: jadvallar, import, katalog, filial→xodim | **bajarildi** |
 | 2 | Qoidalar mexanizmi + tekshiruv navbati + API | **bajarildi** (`compliance.py`, `branches.py`, `review.py`, `presentation/router.py`); «Savdo nazorati» sahifasi — frontendda |
-| 3 | Mijoz kartochkasida savdo tarixi + Telegram xabari | navbatda (`ComplianceService.for_client` tayyor) |
+| 3 | Mijoz kartochkasida savdo tarixi + Telegram xabari | **bajarildi**: Telegram (`digest.py`, `infrastructure/telegram.py`, `sale_digests`, `POST /sales/digest/test`) — ⚠️ sukut bo'yicha O'CHIQ; mijoz kartochkasi (`GET /clients/{key}/sales`, aralash vaqt chizig'i) |
+
+### Qolgan ish (4-bosqich uchun ro'yxat)
+
+- **Telegram sozlamalari ekranda yo'q.** Backend tayyor
+  (`sales.digest_enabled`, `sales.digest_chat_id`, `sales.digest_min_amount`,
+  `POST /sales/digest/test`), lekin Sozlamalar sahifasida ularni yoqadigan
+  va «Sinov xabari» yuboradigan qism hali yozilmagan.
+- **`PUBLIC_WEB_URL` bo'sh.** Xabardagi «Panelda ochish» havolasi shu
+  sababli qo'shilmayapti — ishlamaydigan `localhost` havolasini
+  yuborgandan ko'ra yo'qligi yaxshi. Ishga tushirishdan oldin to'ldirilsin.
+- **5 ta MoyZvonki hisobi xodimga bog'lanmagan** — 3 oylik
+  sinxronizatsiyada 2 456 ta qo'ng'iroq shu sababli hisobga tushmadi
+  (`bonvivelomoizvonki77@mail.ru`, `moizvonkibonvivelo33@mail.ru`,
+  `bonvivelomoizvonki22@mail.ru`, `moizvonkibonvivelo79@mail.ru`,
+  `bonvivelo@gmail.com`). «Xodimlar» bo'limida `external_id` to'ldirilsa
+  yopiladi.
+- **Eski qo'ng'iroqlarni baholash navbatidan chiqarish.** 3 oylik
+  sinxronizatsiyadan keyin 24 154 ta qo'ng'iroq AI baholashga yaroqli
+  bo'lib qoldi va tungi vazifa ularni har kecha 2 000 tadan navbatga
+  qo'yadi. Rahbarning qarori (22.08.2026): **hozir baholash shart emas**.
+  Chora hali QO'LLANMAGAN — 22.07.2026 dan oldingi, audiosi bor
+  qo'ng'iroqlar `status='skipped'` ga o'tkazilishi kerak (qaytarish
+  mumkin bo'lgan usulda; undan keyingi kunlar sinxronizatsiyagacha ham
+  bazada bor edi va ularga tegilmaydi).
 
 ## 9. Ochiq savollar
 

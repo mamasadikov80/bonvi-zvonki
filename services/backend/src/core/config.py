@@ -31,6 +31,17 @@ class Settings(BaseSettings):
         "http://127.0.0.1:5180",
     ]
 
+    # ── Panel manzili (tashqi xabarlardagi havola uchun) ──────
+    #
+    # Backend odatda o'z manzilini bilmaydi — brauzer unga o'zi
+    # murojaat qiladi. Lekin Telegram xabaridagi «Panelda ochish»
+    # havolasini kimdir yozib berishi kerak.
+    #
+    # Bo'sh qoldirilsa havola xabarga umuman QO'SHILMAYDI. Bu ataylab:
+    # ishlamaydigan `http://localhost:5180` havolasi rahbar telefonida
+    # xatolik sahifasini ochardi va butun xabarga ishonchni tushirardi.
+    PUBLIC_WEB_URL: str = ""
+
     # ── Ma'lumotlar bazasi ────────────────────────────────────
     DATABASE_URL: str = (
         "postgresql+asyncpg://zvonki:zvonki_dev_password@postgres:5432/zvonki"

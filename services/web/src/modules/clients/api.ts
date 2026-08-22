@@ -11,6 +11,12 @@
 import { useQuery } from '@tanstack/react-query'
 
 import type { CallType } from '@/modules/calls/api'
+import type {
+  SaleReviewStatus,
+  SaleRule,
+  SaleSkipReason,
+  SaleVerdict,
+} from '@/modules/sales/api'
 import { api } from '@/shared/api/client'
 
 /** Kim ro'yxatga kiradi. `clients` — ichki suhbatlardan boshqa hammasi */
@@ -134,10 +140,94 @@ export interface PaginatedClientCalls {
 export const useClientCalls = (
   key: string | undefined,
   query: ClientPeriod & { page?: number; page_size?: number } = {},
+  { enabled = true }: { enabled?: boolean } = {},
 ) =>
   useQuery({
     queryKey: ['clients', 'calls', key, query],
     queryFn: () =>
       api.get<PaginatedClientCalls>(`/clients/${key}/calls`, query as never),
-    enabled: Boolean(key),
+    enabled: Boolean(key) && enabled,
+  })
+
+/* ── Savdo tarixi (savdo nazorati, 3-bosqich) ────────────────
+ *
+ * ⚠️ TURLAR SAVDO MODULIDAN OLINADI, nusxa ko'chirilmaydi. Savdo
+ * qatori ikkala ekranda ham bir xil o'qiladi (yorliqlar
+ * `sales/badges.tsx` dan keladi), ya'ni ikkita lug'at bo'lsa ular
+ * albatta bir-biridan uzoqlashardi.
+ */
+
+export interface ClientSale {
+  id: string
+  /** `YYYY-MM-DD` — ⚠️ VAQTI YO'Q. SAP savdoga soat bermaydi */
+  occurred_on: string
+  /** SAP dagi `Номер операции` — qatorni SAP da topish uchun */
+  external_id: string
+  branch: string | null
+  direction: string | null
+  agent_id: string | null
+  agent_name: string | null
+  amount: number | null
+  currency: string
+  amount_usd: number | null
+  verdict: SaleVerdict
+  broken_rules: SaleRule[]
+  skip_reason: SaleSkipReason | null
+
+  /* ── Dalil ────────────────────────────────────────────────
+   * ⚠️ Nazorat ro'yxatidagi (`ComplianceRow`) qiymatlar bilan AYNAN
+   * bir xil: ikkala ekran ham bitta manbadan oziqlanadi. Xulosani
+   * ko'rsatib, uni tekshirish imkonini bermaslik mumkin emas —
+   * «toza» yorlig'i yonida «oxirgi suhbat qachon bo'lgan» turishi
+   * kerak, aks holda rahbar boshqa ekranga o'tib qidirardi. */
+
+  /** Savdodan OLDINGI (yoki savdo kunidagi) eng yaqin suhbat */
+  last_call_at: string | null
+  last_call_agent: string | null
+  /** Savdodan necha kun oldin. `0` — o'sha kuni */
+  days_before: number | null
+  /** R2: shu mijozning oldingi savdosi. `null` — birinchi savdo */
+  previous_sale_on: string | null
+  calls_between: number
+  calls_total: number
+
+  /** `null` — rahbar hali qaror qo'ymagan */
+  review_status: SaleReviewStatus | null
+}
+
+export interface ClientSales {
+  items: ClientSale[]
+  /** Davrdagi BARCHA savdolar — `items` chegaraga urilsa ham to'g'ri */
+  total: number
+  amount_usd: number
+  suspicious: number
+  not_checkable: number
+  /** R1 oynasi (`sales.window_days`) — izohda ochiq yoziladi */
+  window_days: number
+}
+
+/**
+ * Mijozning savdolari.
+ *
+ * ⚠️ RUXSAT — `sales:read`, kartochkani ochish huquqidan ALOHIDA.
+ * Savdo xodimi mijozini ko'radi, uning ustidan olib borilayotgan
+ * tekshiruvni esa YO'Q. Shuning uchun so'rov `enabled` bilan
+ * to'xtatiladi: ruxsatsiz odam sahifani ochganda 403 xatosi ham,
+ * bo'sh joy ham ko'rinmasligi kerak.
+ *
+ * Davr — qo'ng'iroqlarnikidek `date_from`/`date_to`: kartochkadagi
+ * ikkala ro'yxat BIR XIL oynani ko'rishi shart.
+ */
+export const useClientSales = (
+  key: string | undefined,
+  period: ClientPeriod = {},
+  { enabled = true }: { enabled?: boolean } = {},
+) =>
+  useQuery({
+    queryKey: ['clients', 'sales', key, period],
+    queryFn: () => api.get<ClientSales>(`/clients/${key}/sales`, period as never),
+    enabled: Boolean(key) && enabled,
+    // Xulosa bazada saqlanmaydi — har so'rovda qaytadan hisoblanadi
+    // va yangi qo'ng'iroq sinxronlanishi bilan o'zgarishi mumkin.
+    staleTime: 30_000,
   })

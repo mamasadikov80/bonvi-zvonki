@@ -215,3 +215,59 @@ class SaleBranchModel(Base, TimestampMixin):
     Sabab: rahbar qo'lda biriktirgan xodimni keyingi import jimgina
     almashtirib yuborishi mumkin emas. Ya'ni qo'lda qo'yilgan qaror
     har doim ustun turadi."""
+
+
+class SaleDigestModel(Base, UUIDMixin):
+    """Kunlik Telegram xabari — yuborilganlar daftari.
+
+    Ikki vazifasi bor va ikkalasi ham zarur:
+
+    1. **TAKRORLANMASLIK.** Celery beat jadvali kafolat emas
+       (`worker.py` dagi izoh): konteyner qayta yaratilsa vazifa bir
+       kunda ikki marta ishga tushishi mumkin. Guruhga bir xil xabar
+       ikki marta tushsa — bu shovqin va ishonchni yo'qotadi.
+       Shuning uchun himoya jadvalda emas, SHU YERDA: oxirgi
+       muvaffaqiyatli xabarning `watermark` i bilan bazadagi
+       `max(sales.imported_at)` solishtiriladi va yangi import
+       bo'lmagan bo'lsa xabar yuborilmaydi.
+
+    2. **AUDIT.** Bu tizimdagi yagona TASHQARIGA ketadigan amal.
+       «Qachon, qaysi chatga, qaysi kun uchun, ketdimi yoki xato
+       bo'ldimi» degan savolga javob bo'lishi kerak — aks holda
+       nosozlikni faqat rahbarning «bugun xabar kelmadi» degan
+       gapidan bilardik.
+
+    ⚠️ Xabar MATNI saqlanmaydi. U har safar bazadagi jonli
+    ma'lumotdan qaytadan yig'iladi (xuddi xulosaning o'zi kabi,
+    3-bo'limga qarang) va uni ikkinchi nusxada saqlash jadvalni
+    bir yilda o'nlab megabaytga shishirardi. Kerak bo'lsa sinov
+    tugmasi matnni darhol qaytaradi.
+    """
+
+    __tablename__ = "sale_digests"
+
+    kind: Mapped[str] = mapped_column(String(8), index=True)
+    """`daily` — kechasi avtomatik; `test` — foydalanuvchi tugmani bosdi.
+
+    ⚠️ TAKRORLANMASLIK FAQAT `daily` GA QARAYDI. Sinov xabari
+    watermark'ni surib qo'ysa, kechasi keladigan haqiqiy xabar
+    jimgina o'tkazib yuborilardi — ya'ni «bir marta sinab ko'rdim»
+    degan amal butun kunlik xabarni o'chirib qo'yardi."""
+
+    covered_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    """Xabar QAYSI KUN uchun edi (savdo sanasi, yuborilgan sana emas)."""
+
+    watermark: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    """Yuborish paytidagi `max(sales.imported_at)`.
+
+    Keyingi yurishda shu qiymat o'zgarmagan bo'lsa — yangi savdo
+    importi bo'lmagan, ya'ni xabar aynan o'sha bo'lardi."""
+
+    chat_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    ok: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    sent_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )

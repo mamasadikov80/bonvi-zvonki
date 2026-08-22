@@ -192,6 +192,95 @@ async def test_takroriy_yurish_xavfsiz(xodim, soxta) -> None:
 
 
 # ══════════════════════════════════════════════════════════════
+#  Kunlik Telegram xabari — TARTIB va SUKUT HOLATI
+# ══════════════════════════════════════════════════════════════
+
+
+@pytest.mark.asyncio
+async def test_xabar_sukut_boyicha_YUBORILMAYDI(xodim, soxta) -> None:
+    """⚠️ TASHQARIGA KETADIGAN AMAL — sukut holati «yubormaslik».
+
+    `sales.digest_enabled` o'chiq (reyestrdagi sukut qiymati), ya'ni
+    tungi yurish xabarni yig'maydi ham. Bu tekshiruv shu yerda
+    turishi kerak: xabar bosqichi aynan shu vazifa ichida chaqiriladi
+    va uni tasodifan «yoqib» qo'yish mumkin bo'lgan yagona joy ham shu.
+    """
+    await _qongiroq(xodim, soat_oldin=3)
+
+    report = await mod.run_nightly(now=HOZIR)
+
+    assert report["digest"] == {
+        "sent": False,
+        "reason": "disabled",
+        "day": None,
+        "chars": 0,
+    }
+
+
+@pytest.mark.asyncio
+async def test_xabar_bosqichi_sinxronizatsiyadan_KEYIN(
+    xodim, soxta, monkeypatch
+) -> None:
+    """Avval qo'ng'iroqlar tortiladi, keyin xabar.
+
+    Teskarisida xabar ESKIRGAN ma'lumot bilan ketardi: kechagi
+    suhbatlar hali bazada bo'lmasdi va ular oqlashi kerak bo'lgan
+    savdolar «shubhali» bo'lib chiqardi.
+    """
+    tartib: list[str] = []
+
+    asl_ingest = soxta  # `soxta` fixture'i `IngestService` ni almashtirgan
+
+    class KuzatuvchiIngest:
+        def __init__(self, *_a, **_k):
+            pass
+
+        async def run(self, **_kwargs):
+            tartib.append("sync")
+            asl_ingest["sync_chaqirildi"] += 1
+
+            class R:
+                fetched, created, updated = 0, 0, 0
+                skipped_no_agent = 0
+
+            return R()
+
+    async def soxta_digest():
+        tartib.append("digest")
+        return {"sent": False, "reason": "disabled"}
+
+    monkeypatch.setattr(mod, "IngestService", KuzatuvchiIngest)
+    monkeypatch.setattr(mod, "run_daily_digest", soxta_digest)
+
+    await mod.run_nightly(now=HOZIR)
+
+    assert tartib == ["sync", "digest"]
+
+
+@pytest.mark.asyncio
+async def test_xabar_yiqilsa_tungi_yurish_yiqilmaydi(
+    xodim, soxta, monkeypatch
+) -> None:
+    """Telegram tushib qolgani uchun butun yurishni bekor qilib bo'lmaydi.
+
+    Qo'ng'iroq va baholash bosqichlari allaqachon bajarilgan; sabab
+    hisobotda va logda qoladi.
+    """
+    call_id = await _qongiroq(xodim, soat_oldin=3)
+
+    async def yiqiladi():
+        raise RuntimeError("Telegram javob bermadi")
+
+    monkeypatch.setattr(mod, "run_daily_digest", yiqiladi)
+
+    report = await mod.run_nightly(now=HOZIR)
+
+    assert report["digest"]["sent"] is False
+    assert report["digest"]["reason"] == "error"
+    assert call_id in soxta["navbat"]
+
+
+# ══════════════════════════════════════════════════════════════
 #  Oyna
 # ══════════════════════════════════════════════════════════════
 

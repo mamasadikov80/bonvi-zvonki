@@ -13,13 +13,22 @@ toraytiradi — begona qatorlar natijaga umuman ta'sir qilmaydi.
 """
 
 import uuid
-from datetime import UTC, datetime, timedelta
+from collections.abc import AsyncIterator, Callable
+from datetime import UTC, date, datetime, time, timedelta
+from decimal import Decimal
+from typing import Any
+from zoneinfo import ZoneInfo
 
 import pytest
+import pytest_asyncio
+from sqlalchemy import delete
 
 from src.core.database import SessionFactory
 from src.modules.calls.domain.entities import CallDirection, CallStatus
 from src.modules.calls.infrastructure.models import CallModel
+from src.modules.sales.application.compliance import LOCAL_TZ
+from src.modules.sales.domain.entities import SaleOpType
+from src.modules.sales.infrastructure.models import SaleModel, SalePartnerModel
 
 API = "http://test/api/v1"
 
@@ -331,3 +340,219 @@ async def test_notogri_kalit_tushunarli_xato(admin_client) -> None:
 async def test_topilmagan_mijoz_404(admin_client) -> None:
     response = await admin_client.get(f"{API}/clients/000000001")
     assert response.status_code == 404, response.text
+
+
+# ══════════════════════════════════════════════════════════════
+#  Kartochkadagi savdo tarixi (savdo-nazorati, 3-bosqich)
+# ══════════════════════════════════════════════════════════════
+#
+# ⚠️ NEGA BU YERDA. `/clients/{key}/sales` mijoz kartochkasining bir
+# qismi, lekin ruxsati `sales:read` — kartochkani ochish huquqidan
+# ALOHIDA. Aynan shu chegara sinaladi: savdo xodimi mijozini ko'radi,
+# uning ustidan olib borilayotgan tekshiruvni esa YO'Q.
+
+#: Savdo shu kunda bo'ladi — «bugun» ga bog'lanmaydi.
+#
+# Sanani `date.today()` dan olish testni ertalab soat 00:05 da
+# yiqitardi: qo'ng'iroq mahalliy vaqtda «kecha» bo'lib qolardi va
+# R1 oynasi bir kunga siljirdi.
+SALE_DAY = date(2026, 5, 14)
+
+
+@pytest_asyncio.fixture
+async def sale_client_key() -> AsyncIterator[Callable[..., Any]]:
+    """Noyob telefon kaliti + o'sha kalitga bog'langan savdolar.
+
+    Kalit bazada MAVJUD EMASLIGI tekshirilmaydi — u tasodifiy va
+    `7` bilan boshlanadi; haqiqiy mobil raqamlar `9` bilan boshlanadi
+    (`test_compliance.py` dagi bilan bir xil hiyla). Testlar haqiqiy
+    dev bazasida ishlaydi, shuning uchun begona savdo yig'maga
+    qo'shilib qolmasligi kerak.
+    """
+    codes: list[str] = []
+
+    async def _make(agent_id, days: list[tuple[date, int]]) -> str:
+        key = f"7{uuid.uuid4().int % 10**8:08d}"
+        code = f"pytest-{uuid.uuid4().hex[:6]}"
+        codes.append(code)
+
+        async with SessionFactory() as session:
+            session.add(
+                SalePartnerModel(
+                    code=code,
+                    name="pytest-mijoz",
+                    group_name="Клиенты",
+                    phone=f"+998{key}",
+                    phone_key=key,
+                    is_active=True,
+                )
+            )
+            for day, amount in days:
+                session.add(
+                    SaleModel(
+                        external_id=f"pytest-{uuid.uuid4().hex[:12]}",
+                        op_type=SaleOpType.SALE.value,
+                        occurred_on=day,
+                        branch="pytest-filial",
+                        direction="ВЕЛО",
+                        partner_code=code,
+                        partner_name="pytest-mijoz",
+                        amount=Decimal(amount),
+                        currency="USD",
+                        amount_usd=Decimal(amount),
+                        agent_id=agent_id,
+                        phone_key=key,
+                        source_file="pytest",
+                    )
+                )
+            await session.commit()
+        return key
+
+    yield _make
+
+    async with SessionFactory() as session:
+        if codes:
+            await session.execute(
+                delete(SaleModel).where(SaleModel.partner_code.in_(codes))
+            )
+            await session.execute(
+                delete(SalePartnerModel).where(SalePartnerModel.code.in_(codes))
+            )
+        await session.commit()
+
+
+async def _add_call_on(agent_id, phone: str, day: date) -> None:
+    """Mahalliy vaqt bilan TUSHDA — kun chegarasidan uzoqda.
+
+    Qo'ng'iroq UTC da saqlanadi, savdo sanasi bilan esa MAHALLIY kun
+    solishtiriladi. Soat 00:30 dagi qo'ng'iroq UTC da «kechagi» bo'lib
+    qolardi va test qoidani emas, vaqt mintaqasini sinardi.
+    """
+    async with SessionFactory() as session:
+        session.add(
+            CallModel(
+                external_id=f"pytest-client-{uuid.uuid4().hex}",
+                agent_id=agent_id,
+                direction=CallDirection.OUTBOUND,
+                status=CallStatus.COMPLETED,
+                started_at=datetime.combine(day, time(12, 0), tzinfo=ZoneInfo(LOCAL_TZ)),
+                duration_sec=180,
+                answered=True,
+                client_phone=f"+998{phone}",
+                client_name="pytest-mijoz",
+                call_type="sales",
+            )
+        )
+        await session.commit()
+
+
+@pytest.mark.asyncio
+async def test_kartochkada_savdolar_va_yigma(
+    admin_client, dataset, sale_client_key
+) -> None:
+    """`GET /clients/{key}/sales` — vaqt chizig'ining savdo qismi."""
+    data = await dataset(scores=[])
+    key = await sale_client_key(
+        data.agent_id, [(SALE_DAY, 100), (SALE_DAY - timedelta(days=20), 200)]
+    )
+    # Faqat KEYINGI savdoni oqlaydigan suhbat: eskisi oldidan
+    # gaplashilmagan, ya'ni u shubhali bo'lib qoladi.
+    await _add_call_on(data.agent_id, key, SALE_DAY)
+
+    response = await admin_client.get(f"{API}/clients/{key}/sales")
+    assert response.status_code == 200, response.text
+    body = response.json()
+
+    assert {
+        "items", "total", "amount_usd", "suspicious", "not_checkable", "window_days"
+    } == set(body)
+    assert body["total"] == 2
+    assert body["amount_usd"] == 300.0
+    assert body["suspicious"] == 1
+    assert body["not_checkable"] == 0
+    assert body["window_days"] >= 0
+
+    # Yangisidan eskisiga
+    assert [row["occurred_on"] for row in body["items"]] == [
+        SALE_DAY.isoformat(),
+        (SALE_DAY - timedelta(days=20)).isoformat(),
+    ]
+    row = body["items"][0]
+    assert {
+        "id", "occurred_on", "external_id", "branch", "direction", "agent_id",
+        "agent_name", "amount", "currency", "amount_usd", "verdict",
+        "broken_rules", "skip_reason", "last_call_at", "last_call_agent",
+        "days_before", "previous_sale_on", "calls_between", "calls_total",
+        "review_status",
+    } == set(row)
+    assert row["verdict"] == "ok"
+    assert row["broken_rules"] == []
+    # ⚠️ «Toza» degani aynan oyna ichida suhbat topilgani — dalil
+    # bo'sh bo'lolmaydi.
+    assert row["last_call_at"] is not None
+    assert row["days_before"] == 0
+    assert row["calls_total"] == 1
+    assert row["review_status"] is None
+    assert body["items"][1]["verdict"] == "suspicious"
+    assert "R1" in body["items"][1]["broken_rules"]
+
+
+@pytest.mark.asyncio
+async def test_kartochkadagi_savdo_davri_qongiroqlar_bilan_bir_xil(
+    admin_client, dataset, sale_client_key
+) -> None:
+    """Davr ikkala so'rovda ham BIR XIL parametr bilan yuboriladi.
+
+    Frontend `rangeToQuery` dan `…T00:00:00.000Z` ko'rinishidagi ISO
+    qiymat beradi — savdo endpointi ham aynan shuni tushunishi kerak,
+    aks holda kartochkada ikki xil davr ko'rinardi.
+    """
+    data = await dataset(scores=[])
+    key = await sale_client_key(
+        data.agent_id, [(SALE_DAY, 100), (SALE_DAY - timedelta(days=20), 200)]
+    )
+
+    params = {
+        "date_from": f"{SALE_DAY.isoformat()}T00:00:00.000Z",
+        "date_to": f"{SALE_DAY.isoformat()}T23:59:59.999Z",
+    }
+    body = (await admin_client.get(f"{API}/clients/{key}/sales", params=params)).json()
+
+    assert body["total"] == 1
+    assert body["amount_usd"] == 100.0
+    assert body["items"][0]["occurred_on"] == SALE_DAY.isoformat()
+
+
+@pytest.mark.asyncio
+async def test_savdosiz_mijozda_bosh_javob(admin_client, dataset) -> None:
+    """Savdosi yo'q mijoz — 200 va nollar, xato EMAS.
+
+    Kartochka savdo bo'lmasa ham ochiladi: 404 qaytarilsa sahifa
+    nosozlikka o'xshab ko'rinardi.
+    """
+    data = await dataset(scores=[])
+    await _add_calls(data.agent_id, [{"phone": "901112233"}])
+
+    body = (await admin_client.get(f"{API}/clients/901112233/sales")).json()
+    assert body["items"] == []
+    assert body["total"] == 0
+    assert body["amount_usd"] == 0.0
+
+
+@pytest.mark.asyncio
+async def test_savdo_xodimi_kartochkada_savdoni_kormaydi(sales_client) -> None:
+    """⚠️ SALES mijozni ko'radi, uning savdo nazoratini KO'RMAYDI.
+
+    Kartochka savdo xodimiga ochiq (o'z mijozi), lekin `sales:read`
+    unda yo'q. Ruxsat kartochkani ochish huquqidan meros olinmasligi
+    kerak: aks holda xodim o'z savdosi shubhali deb belgilanganini
+    ko'rib, tekshiruvdan oldin tayyorgarlik ko'rardi.
+    """
+    client, own = sales_client
+    await _add_calls(own.agent_id, [{"phone": "901112233", "name": "Meniki"}])
+
+    calls = await client.get(f"{API}/clients/901112233/calls")
+    assert calls.status_code == 200, "qo'ng'iroqlar ochiq qolishi kerak"
+
+    sales = await client.get(f"{API}/clients/901112233/sales")
+    assert sales.status_code == 403, sales.text

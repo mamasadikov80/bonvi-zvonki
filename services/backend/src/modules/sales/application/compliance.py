@@ -287,7 +287,50 @@ class ClientSale:
     amount_usd: float | None
     verdict: str
     broken_rules: list[str]
+
+    # ── DALIL ────────────────────────────────────────────────
+    #
+    # ⚠️ MAYDONLAR RO'YXATDAGI BILAN AYNAN BIR XIL (`SaleVerdict`).
+    # Kartochkadagi savdo qatori xulosani KO'RSATADI, demak uni
+    # tekshirish imkoni ham shu yerda bo'lishi kerak: «toza» degan
+    # yorliq yonida «oxirgi suhbat qachon bo'lgan» turmasa, rahbar
+    # nazorat ro'yxatini ochib qaytadan qidirishga majbur bo'lardi.
+    # Ikki ekran bir xil savolga ikki xil to'liqlikda javob bersa,
+    # ishonch ham shu yerda yo'qoladi.
+    last_call_at: datetime | None
+    last_call_agent: str | None
+    days_before: int | None
+    previous_sale_on: date | None
+    calls_between: int
+    calls_total: int
+
+    skip_reason: str | None
+    """⚠️ Kartochkada ham KERAK. Mijoz telefoni bo'yicha ochilgani
+    uchun `no_phone` bo'lishi mumkin emas, lekin `generic_code`
+    bo'ladi: umumiy kod («Разовый клиент») ostidagi savdo shu raqamga
+    ham tushib qoladi. Sababsiz «tekshirib bo'lmadi» yorlig'i
+    javobsiz savol bo'lardi."""
     review_status: str | None
+
+
+@dataclass(slots=True)
+class ClientSales:
+    """Mijozning savdolari + kartochka tepasidagi qisqa yig'ma.
+
+    ⚠️ SONLAR `items` DAN EMAS, BUTUN TANLOVDAN olinadi (oyna
+    funksiyasi `LIMIT` dan OLDIN hisoblanadi). Ro'yxat kesilgan
+    bo'lsa ham «nechta savdo, qanchaga, nechtasi shubhali» degan
+    javob to'g'ri qoladi — aks holda yig'ma jimgina kamayib ketardi.
+    """
+
+    items: list[ClientSale]
+    total: int
+    amount_usd: float
+    """Jami — DOLLARDA. Boshqa valyutadagi summalarni qo'shib
+    bo'lmaydi (`sales.amount` hujjat valyutasida), `amount_usd` esa
+    SAP ning o'zi bergan ekvivalent."""
+    suspicious: int
+    not_checkable: int
 
 
 @dataclass(slots=True)
@@ -805,48 +848,97 @@ class ComplianceService:
     # ── Mijoz kartochkasi (3-bosqich) ─────────────────────────
 
     async def for_client(
-        self, phone_key: str, *, limit: int = 50, window_days: int | None = None
-    ) -> list[ClientSale]:
+        self,
+        phone_key: str,
+        *,
+        since: date | None = None,
+        until: date | None = None,
+        limit: int = 200,
+        window_days: int | None = None,
+    ) -> ClientSales:
         """Bitta mijozning savdolari — yangisidan eskisiga.
 
         Qo'ng'iroqlar bilan bir vaqt chizig'ida ko'rsatish uchun
-        (shartnoma, 7-bo'lim). Filtr yo'q: kartochkada mijoz allaqachon
-        tanlangan.
+        (shartnoma, 7-bo'lim). Mijoz allaqachon tanlangan, shuning
+        uchun yagona filtr — DAVR, va u kartochkadagi qo'ng'iroqlar
+        bilan BIR XIL bo'lishi shart: bir ekranda ikki xil oyna
+        bo'lsa, vaqt chizig'i yolg'on ketma-ketlik ko'rsatardi.
+
+        ⚠️ Davr qoidalarni TORAYTIRMAYDI. «Oldingi savdo» (R2) va
+        «butun tarix» (R3) baribir butun tarixdan hisoblanadi
+        (`_previous_sale_cte`, `_evidence` izohlariga qarang) — davr
+        faqat ekranda nima KO'RINISHINI belgilaydi. Aks holda davr
+        boshidagi savdo «birinchi savdo» bo'lib ko'rinardi va o'sha
+        savdo nazorat ro'yxatida shubhali, kartochkada esa toza bo'lib
+        chiqardi.
         """
         f = ComplianceFilter(
+            since=since,
+            until=until,
             window_days=window_days
             if window_days is not None
-            else DEFAULT_WINDOW_DAYS
+            else DEFAULT_WINDOW_DAYS,
         )
         selected = self._selected(f, phone_key=phone_key)
         rows = self._rows(f, selected, self._evidence(selected)).subquery("client")
 
+        # Yig'ma OYNA FUNKSIYASI bilan — alohida so'rovsiz. `LIMIT`
+        # oyna funksiyasidan KEYIN qo'llanadi, ya'ni sonlar butun
+        # tanlov bo'yicha to'g'ri qoladi. Ikkinchi so'rov bo'lsa,
+        # ikkalasi orasida ma'lumot o'zgarib, yig'ma bilan ro'yxat
+        # bir-biriga zid chiqishi mumkin edi.
         result = (
             await self._session.execute(
-                select(rows)
+                select(
+                    rows,
+                    func.count().over().label("t_total"),
+                    func.sum(rows.c.amount_usd).over().label("t_amount"),
+                    func.count()
+                    .filter(rows.c.verdict == Verdict.SUSPICIOUS.value)
+                    .over()
+                    .label("t_suspicious"),
+                    func.count()
+                    .filter(rows.c.verdict == Verdict.NOT_CHECKABLE.value)
+                    .over()
+                    .label("t_not_checkable"),
+                )
                 .order_by(rows.c.occurred_on.desc(), rows.c.external_id.desc())
                 .limit(limit)
             )
         ).all()
 
-        return [
-            ClientSale(
-                sale_id=row.id,
-                occurred_on=row.occurred_on,
-                external_id=row.external_id,
-                branch=row.branch,
-                direction=row.direction,
-                agent_id=row.agent_id,
-                agent_name=row.agent_name,
-                amount=_number(row.amount),
-                currency=row.currency,
-                amount_usd=_number(row.amount_usd),
-                verdict=row.verdict,
-                broken_rules=_broken(row),
-                review_status=row.review_status,
-            )
-            for row in result
-        ]
+        head = result[0] if result else None
+        return ClientSales(
+            items=[
+                ClientSale(
+                    sale_id=row.id,
+                    occurred_on=row.occurred_on,
+                    external_id=row.external_id,
+                    branch=row.branch,
+                    direction=row.direction,
+                    agent_id=row.agent_id,
+                    agent_name=row.agent_name,
+                    amount=_number(row.amount),
+                    currency=row.currency,
+                    amount_usd=_number(row.amount_usd),
+                    verdict=row.verdict,
+                    broken_rules=_broken(row),
+                    last_call_at=row.last_call_at,
+                    last_call_agent=row.last_call_agent,
+                    days_before=row.days_before,
+                    previous_sale_on=row.previous_sale_on,
+                    calls_between=row.calls_between,
+                    calls_total=row.calls_total,
+                    skip_reason=row.skip_reason,
+                    review_status=row.review_status,
+                )
+                for row in result
+            ],
+            total=head.t_total if head else 0,
+            amount_usd=_number(head.t_amount) or 0.0 if head else 0.0,
+            suspicious=head.t_suspicious if head else 0,
+            not_checkable=head.t_not_checkable if head else 0,
+        )
 
 
 # ══════════════════════════════════════════════════════════════
@@ -918,6 +1010,7 @@ def _to_row(row: Any) -> ComplianceRow:
 __all__: Sequence[str] = (
     "AgentBreakdown",
     "ClientSale",
+    "ClientSales",
     "CompliancePage",
     "ComplianceFilter",
     "ComplianceService",

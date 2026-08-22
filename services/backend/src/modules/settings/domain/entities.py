@@ -243,6 +243,56 @@ SETTINGS_REGISTRY: list[SettingSpec] = [
             "kamayadi, lekin haqiqiy chetlanish ham yashirinadi."
         ),
     ),
+    # ── Kunlik Telegram xabari ────────────────────────────────
+    #
+    # ⚠️ BOSH KALIT SUKUT BO'YICHA O'CHIQ va shunday qolishi SHART.
+    # Bu tashqariga — begona Telegram chatiga — ketadigan yagona amal:
+    # noto'g'ri guruhga tushgan xabarni qaytarib bo'lmaydi. Shuning
+    # uchun tizim o'z-o'zidan hech qachon yubormaydi; rahbar avval
+    # kalitni yoqadi, guruhni ko'rsatadi va sinov tugmasi bilan
+    # matnni o'z ko'zi bilan ko'radi.
+    SettingSpec(
+        key="sales.digest_enabled",
+        category=SettingCategory.SALES,
+        label_uz="Kunlik Telegram xabari yoqilgan",
+        type="boolean",
+        default=False,
+        hint_uz=(
+            "BOSH KALIT. O'chirilgan bo'lsa hech qanday xabar "
+            "YUBORILMAYDI — na kechasi, na boshqa paytda. "
+            "Yoqishdan oldin quyidagi «Chat ID» ni to'ldiring va "
+            "«Sinov xabari» tugmasi bilan matnni ko'rib oling: xabar "
+            "guruhga ketgach uni qaytarib bo'lmaydi."
+        ),
+    ),
+    SettingSpec(
+        key="sales.digest_chat_id",
+        category=SettingCategory.SALES,
+        label_uz="Qaysi Telegram chatga yuborilsin (Chat ID)",
+        type="string",
+        default="",
+        hint_uz=(
+            "Guruh yoki shaxsiy chat identifikatori. Guruhniki manfiy "
+            "son bo'ladi: -1001234567890. Bot o'sha guruhda bo'lishi "
+            "shart. Bo'sh qoldirilsa xabar YUBORILMAYDI — kalit yoqilgan "
+            "bo'lsa ham: manzilsiz xabar yuborishning iloji yo'q."
+        ),
+    ),
+    SettingSpec(
+        key="sales.digest_min_amount",
+        category=SettingCategory.SALES,
+        label_uz="Xabarga tushadigan eng kichik savdo (dollarda)",
+        type="number",
+        default=0,
+        hint_uz=(
+            "Shu summadan past savdolar kunlik xabarga umuman kirmaydi "
+            "— sonlarga ham, ro'yxatga ham. 0 (sukut) — hammasi kiradi. "
+            "⚠️ Bu FAQAT Telegram xabariga tegishli: paneldagi ro'yxat "
+            "va sonlar o'zgarmaydi, ya'ni chegara hech narsani "
+            "yashirmaydi, faqat kechasi keladigan xabarni qisqartiradi. "
+            "Summasi noma'lum savdolar chegaradan qat'i nazar QOLADI."
+        ),
+    ),
     # ── So'rovnoma ────────────────────────────────────────────
     SettingSpec(
         key="survey.mode",

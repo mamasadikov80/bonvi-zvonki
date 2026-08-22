@@ -1,12 +1,20 @@
 """Kunlik avtomatik yurish — har kuni yarim tunda.
 
-Bitta vazifa ikki ishni ketma-ket bajaradi:
+Bitta vazifa uch ishni ketma-ket bajaradi:
 
   1. MoyZvonki'dan oxirgi sutkadagi qo'ng'iroqlarni tortadi;
-  2. shulardan baholanishi kerak bo'lganlarini navbatga qo'yadi.
+  2. shulardan baholanishi kerak bo'lganlarini navbatga qo'yadi;
+  3. rahbarga kunlik Telegram xabarini yuboradi (agar YOQILGAN bo'lsa).
 
 Tartib muhim: avval ma'lumot, keyin baholash. Teskarisida yangi
 qo'ng'iroqlar bazaga tushmagan bo'lardi va vazifa bo'sh ishlardi.
+
+⚠️ XABAR ENG OXIRIDA — VA AYNAN SHU VAZIFA ICHIDA. Uni alohida
+`beat_schedule` yozuviga chiqarish mumkin edi, lekin o'shanda ikki
+vazifaning tartibi vaqtga tayanardi: sinxronizatsiya cho'zilib
+ketsa xabar ESKIRGAN ma'lumot bilan chiqib ketardi va rahbar
+kechagi qo'ng'iroqlarni ko'rmagan ro'yxatni o'qirdi. Bitta vazifa
+ichida esa tartib kod bilan kafolatlangan.
 
 ════════════════════════════════════════════════════════════════
  NEGA KECHASI
@@ -42,6 +50,7 @@ from src.modules.moizvonki.application.factory import moizvonki_client
 from src.modules.moizvonki.application.ingest import IngestService
 from src.modules.pipeline.application.orchestrator import select_calls
 from src.modules.pipeline.application.queue import enqueue_calls
+from src.modules.sales.application.digest import run_daily_digest
 
 log = structlog.get_logger(__name__)
 
@@ -86,6 +95,7 @@ async def run_nightly(*, now: datetime | None = None) -> dict[str, Any]:
         "updated": 0,
         "queued": 0,
         "sync_error": None,
+        "digest": None,
     }
 
     # ── 1. MoyZvonki'dan tortish ──────────────────────────────
@@ -127,6 +137,23 @@ async def run_nightly(*, now: datetime | None = None) -> dict[str, Any]:
     if call_ids:
         enqueue_calls(call_ids)
         report["queued"] = len(call_ids)
+
+    # ── 3. Rahbarga kunlik xabar ──────────────────────────────
+    #
+    # ⚠️ SUKUT BO'YICHA HECH NARSA YUBORILMAYDI. `run_daily_digest()`
+    # birinchi navbatda `sales.digest_enabled` ni tekshiradi va u
+    # o'chiq bo'lsa (sukut holati) darhol qaytadi — matn ham
+    # yig'ilmaydi.
+    #
+    # Xato YUTILADI: Telegram tushib qolgani uchun butun tungi
+    # yurishni «yiqildi» deb belgilash noto'g'ri bo'lardi — qo'ng'iroq
+    # va baholash bosqichlari allaqachon bajarilgan. Sabab hisobotda
+    # va logda qoladi.
+    try:
+        report["digest"] = await run_daily_digest()
+    except Exception as exc:  # noqa: BLE001 — xabar butun yurishni yiqitmasin
+        report["digest"] = {"sent": False, "reason": "error", "error": str(exc)}
+        log.error("nightly.digest_failed", error=str(exc))
 
     log.info("nightly.done", **{k: v for k, v in report.items() if k != "sync_error"})
     return report

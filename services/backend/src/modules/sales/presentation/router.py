@@ -34,6 +34,7 @@ from src.modules.sales.application.compliance import (
     Verdict,
     resolve_window_days,
 )
+from src.modules.sales.application.digest import run_digest
 from src.modules.sales.application.importer import import_file
 from src.modules.sales.application.reader import SalesFileError
 from src.modules.sales.application.review import save_review
@@ -174,6 +175,35 @@ class BranchAssignIn(BaseModel):
         default=None,
         description="Xodim. `null` — biriktirishni bekor qiladi.",
     )
+
+
+class DigestTestOut(BaseModel):
+    """«Sinov xabari» tugmasining javobi.
+
+    ⚠️ `text` HAR DOIM qaytariladi — xabar yuborilmagan bo'lsa ham.
+    Tugmaning butun ma'nosi shu: rahbar kalitni yoqishdan OLDIN
+    nima ketishini o'z ko'zi bilan ko'rsin. Sozlama to'ldirilmagan
+    bo'lsa `sent=false` va `reason` bilan qaytadi (xato emas):
+    matnni ko'rsatib turib «endi chatni ko'rsating» deyish
+    422 qaytarishdan foydaliroq.
+    """
+
+    sent: bool
+    reason: str | None = Field(
+        default=None,
+        description=(
+            "no_chat — chat ko'rsatilmagan | no_token — bot tokeni yo'q | "
+            "no_sales — bazada savdo yo'q | bot_not_in_chat — bot guruhdan "
+            "chiqarilgan | send_failed — Telegram rad etdi"
+        ),
+    )
+    text: str
+    day: date | None = None
+    chat_id: str | None = None
+    error: str | None = None
+    counts: dict[str, int] = Field(default_factory=dict)
+    chars: int
+    """Matn uzunligi — Telegram chegarasi 4096 belgi."""
 
 
 class ReviewIn(BaseModel):
@@ -445,6 +475,49 @@ async def assign(
     """
     row: BranchRow = await assign_branch(session, branch, payload.agent_id)
     return BranchOut(**asdict(row))
+
+
+# ══════════════════════════════════════════════════════════════
+#  Kunlik Telegram xabari — QO'LDA SINASH
+# ══════════════════════════════════════════════════════════════
+#
+# ⚠️ BU YO'LDAN BOSHQA HECH QAYERDA XABAR YUBORILMAYDI (tungi
+# vazifadan tashqari, u ham faqat sozlama YOQILGAN bo'lsa). Ya'ni
+# tashqariga ketadigan amal ikki joyda va ikkalasi ham ochiq
+# ko'rinib turibdi.
+#
+# Ruxsat `sales:review` — `sales:read` EMAS. O'qish huquqi ro'yxatni
+# ko'rish uchun, bu esa TASHQARIGA xabar yuboradi: ikkalasini bir
+# darajaga qo'yish «ko'rish» va «guruhga yozish» ni chalkashtirardi.
+
+
+@router.post(
+    "/digest/test",
+    response_model=DigestTestOut,
+    summary="Kunlik xabarni HOZIR yuborish (sinov)",
+    dependencies=[CanReview],
+)
+async def digest_test(session: DbSession) -> DigestTestOut:
+    """Xabarni yig'adi va sozlangan chatga DARHOL yuboradi.
+
+    `sales.digest_enabled` kaliti TEKSHIRILMAYDI — tugmaning ma'nosi
+    aynan shu: kalitni yoqishdan oldin matnni ko'rib olish. Chat esa
+    baribir ko'rsatilgan bo'lishi shart.
+
+    Yozuv `kind='test'` bo'lib tushadi va kechasi keladigan haqiqiy
+    xabarga ta'sir qilmaydi.
+    """
+    outcome = await run_digest(session, manual=True)
+    return DigestTestOut(
+        sent=outcome.sent,
+        reason=outcome.reason,
+        text=outcome.text,
+        day=outcome.day,
+        chat_id=outcome.chat_id,
+        error=outcome.error,
+        counts=outcome.counts,
+        chars=len(outcome.text),
+    )
 
 
 # ══════════════════════════════════════════════════════════════

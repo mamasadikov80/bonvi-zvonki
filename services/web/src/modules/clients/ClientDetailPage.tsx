@@ -13,19 +13,41 @@
  *
  * ⚠️ Bo'sh davr «mijoz topilmadi» EMAS: backend nollar bilan javob
  * qaytaradi va sahifa ochiq qoladi (`ClientRow.first_call_at`).
+ *
+ * ARALASH VAQT CHIZIG'I (savdo nazorati, 3-bosqich). Jadvalda
+ * qo'ng'iroq va SAVDO bitta ro'yxatda turadi: rahbarning savoli
+ * «ketma-ketlik saqlanganmi?» — qo'ng'iroq → savdo → qo'ng'iroq →
+ * savdo. Ikki alohida jadval bu savolga javob bermasdi, sanalarni
+ * ko'z bilan solishtirishga to'g'ri kelardi.
+ *
+ * ⚠️ SAVDO QATORLARI FAQAT `sales:read` BOR ODAMGA. Kartochkani savdo
+ * xodimi ham ochadi (o'z mijozi), lekin savdo nazorati u ustidan olib
+ * boriladigan tekshiruv — u yerda ko'rinmasligi kerak. Ruxsat bo'lmasa
+ * so'rov umuman yuborilmaydi va sahifa AVVALGIDEK ishlaydi: bo'sh joy
+ * ham, xato ham yo'q.
  */
 
-import { ArrowLeft, Clock, PhoneMissed, Star, Users } from 'lucide-react'
-import { useState } from 'react'
+import { ArrowLeft, Clock, PhoneMissed, ShoppingBag, Star, Users } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
 
+import { useAuth } from '@/modules/auth/store'
 import { CallTypeBadge } from '@/modules/calls/CallTypeBadge'
 import { DirectionMark } from '@/modules/calls/DirectionMark'
-import { useClient, useClientCalls } from '@/modules/clients/api'
+import {
+  useClient,
+  useClientCalls,
+  useClientSales,
+  type ClientCall,
+  type ClientSale,
+} from '@/modules/clients/api'
+import { RuleBadges, VerdictBadge } from '@/modules/sales/badges'
 import { DateRangePicker } from '@/shared/ui/DateRangePicker'
 import { Page, PageHeader } from '@/shared/layout/Page'
 import {
+  formatFullDate,
+  localDate,
   rangeToQuery,
   resolvePreset,
   useDateFormat,
@@ -53,6 +75,31 @@ import {
 
 const PAGE_SIZE = 50
 
+const DAY_MS = 24 * 60 * 60 * 1000
+
+/**
+ * Savdoning vaqt chizig'idagi o'rni — o'sha KUNNING OXIRI.
+ *
+ * ⚠️ SAVDODA VAQT YO'Q, faqat sana (`docs/savdo-nazorati.md`, 2.1).
+ * Ya'ni kun ichida savdo qaysi qo'ng'iroqdan oldin yoki keyin
+ * bo'lganini BILIB BO'LMAYDI va biror taxmin tanlash shart.
+ *
+ * Tanlov qoidalar bilan bir xil: qoidalar savdo kunidagi suhbatni
+ * savdodan OLDIN bo'lgan deb hisoblaydi (o'sha hujjat, 7.2/2).
+ * Shuning uchun savdo o'sha kundagi qo'ng'iroqlardan KEYIN turadi —
+ * yangisi tepada bo'lgan ro'yxatda bu ularning USTIDA degani. Aks
+ * holda ekran «savdo → qo'ng'iroq» ko'rsatib, aynan o'zi tayangan
+ * taxminga zid gapirardi. Izohda ham shu ochiq yoziladi.
+ */
+function saleAt(occurredOn: string): number {
+  return localDate(occurredOn).getTime() + DAY_MS - 1
+}
+
+/** Aralash ro'yxatning bitta qatori — qo'ng'iroq yoki savdo. */
+type TimelineRow =
+  | { kind: 'call'; id: string; at: number; call: ClientCall }
+  | { kind: 'sale'; id: string; at: number; sale: ClientSale }
+
 export function ClientDetailPage() {
   const { t } = useTranslation()
   const { clientKey } = useParams<{ clientKey: string }>()
@@ -74,6 +121,75 @@ export function ClientDetailPage() {
     page,
     page_size: PAGE_SIZE,
   })
+
+  /* ── Savdo tarixi ─────────────────────────────────────────
+     Ruxsat bo'lmasa so'rov UMUMAN yuborilmaydi: 403 xatosi ham,
+     bo'sh joy ham ko'rinmasin — sahifa avvalgidek ishlasin. */
+  const canSeeSales = useAuth((state) => state.can)('sales:read')
+  const sales = useClientSales(clientKey, period, { enabled: canSeeSales })
+
+  const pages = Math.max(1, Math.ceil((calls.data?.total ?? 0) / PAGE_SIZE))
+
+  /* ⚠️ SAHIFA CHEGARASIDAGI SAVDO QAYSI SAHIFAGA TUSHADI.
+
+     Qo'ng'iroqlar sahifalab olinadi, savdolar esa hammasi birdan
+     keladi — demak har savdo AYNAN BITTA sahifada ko'rinishi kerak:
+     ikki sahifada takrorlansa son yolg'on bo'lardi, hech qaysisiga
+     tushmasa esa qator JIMGINA yo'qolardi (eng yomoni).
+
+     Sahifaning pastki chegarasi ma'lum (o'zidagi eng eski
+     qo'ng'iroq), yuqorigisi esa OLDINGI sahifaning eng eski
+     qo'ng'irog'i — u bu sahifada yo'q. Shuning uchun u bitta
+     qo'ng'iroqlik alohida so'rov bilan olinadi: `page_size=1` da
+     `page` global tartib raqamiga aylanadi, ya'ni `(page-1)*PAGE_SIZE`
+     — aynan oldingi sahifaning oxirgi qatori. Natijada sahifalarning
+     oynalari uzluksiz va kesishmaydigan bo'ladi. */
+  const boundary = useClientCalls(
+    clientKey,
+    { ...period, page: (page - 1) * PAGE_SIZE, page_size: 1 },
+    { enabled: canSeeSales && page > 1 },
+  )
+  const boundaryAt = boundary.data?.items[0]
+    ? new Date(boundary.data.items[0].started_at).getTime()
+    : null
+
+  const timeline = useMemo<TimelineRow[]>(() => {
+    const rows: TimelineRow[] = (calls.data?.items ?? []).map((call) => ({
+      kind: 'call',
+      id: `call-${call.id}`,
+      at: new Date(call.started_at).getTime(),
+      call,
+    }))
+
+    // Chegara hali kelmagan bo'lsa savdo QO'SHILMAYDI: taxmin qilib
+    // qo'yilgan qator keyin joyini o'zgartirsa, ro'yxat sakrab
+    // ko'rinardi.
+    const saleRows = sales.data?.items ?? []
+    const ready = page === 1 || boundaryAt !== null
+    if (saleRows.length && ready) {
+      const upper = page === 1 ? Infinity : (boundaryAt as number)
+      const lower =
+        page >= pages || !rows.length ? -Infinity : rows[rows.length - 1].at
+
+      for (const sale of saleRows) {
+        const at = saleAt(sale.occurred_on)
+        // Yuqori chegara QAT'IY (`<`), pastkisi esa kiruvchi (`>=`):
+        // shu tufayli qo'shni sahifalarning oynalari bir-biriga
+        // tegib turadi, lekin ustma-ust tushmaydi.
+        if (at < upper && at >= lower) {
+          rows.push({ kind: 'sale', id: `sale-${sale.id}`, at, sale })
+        }
+      }
+    }
+
+    // Ikkilamchi mezon — bir xil vaqtli qatorlar har chizilganda
+    // joyini almashtirmasligi uchun tartib BARQAROR bo'lsin.
+    return rows.sort((a, b) => b.at - a.at || (a.id < b.id ? -1 : 1))
+  }, [calls.data, sales.data, page, pages, boundaryAt])
+
+  /* Savdosi umuman yo'q mijozda ekran AVVALGIDEK qoladi: yig'ma ham,
+     yangi sarlavha ham paydo bo'lmaydi. */
+  const showSales = canSeeSales && (sales.data?.total ?? 0) > 0
 
   if (detail.isLoading) {
     return (
@@ -101,7 +217,6 @@ export function ClientDetailPage() {
   }
 
   const { client, agents } = detail.data
-  const pages = Math.max(1, Math.ceil((calls.data?.total ?? 0) / PAGE_SIZE))
 
   return (
     <Page>
@@ -241,11 +356,14 @@ export function ClientDetailPage() {
       </Card>
       )}
 
-      {/* ── Suhbatlar ─────────────────────────────────────── */}
+      {/* ── Vaqt chizig'i: qo'ng'iroq + savdo ─────────────── */}
       <Card>
         <CardHeader
-          title={t('clients.callsTitle')}
-          hint={t('clients.callsHint')}
+          /* Sarlavha VAZIFANI aytadi. Savdo qatorlari ko'rinmasa
+             jadval avvalgidek «Barcha suhbatlar» bo'lib qoladi —
+             ruxsati yo'q odamga yo'q narsa va'da qilinmasin. */
+          title={showSales ? t('clients.timeline.title') : t('clients.callsTitle')}
+          hint={showSales ? t('clients.timeline.hint') : t('clients.callsHint')}
           action={
             calls.data ? (
               <span className="tnum text-xs text-muted">
@@ -255,13 +373,54 @@ export function ClientDetailPage() {
           }
         />
 
+        {/* Qisqa yig'ma — jadvaldan OLDIN. Rahbarning birinchi uch
+            savoli: nechta savdo, qanchaga va nechtasi tekshirishni
+            talab qiladi. Ular jadvalni varaqlamasdan javob olsin.
+
+            ⚠️ Sonlar butun DAVR bo'yicha, ko'rilayotgan sahifa
+            bo'yicha emas — aks holda «2 ta shubhali» degan son
+            sahifadan sahifaga o'zgarib turardi. */}
+        {showSales && sales.data && (
+          <CardBody className="pt-0">
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl bg-surface-2/50 px-3.5 py-2.5">
+              <SaleStat
+                label={t('clients.timeline.salesCount')}
+                value={formatNumber(sales.data.total)}
+              />
+              <SaleStat
+                label={t('clients.timeline.salesAmount')}
+                value={`${formatNumber(Math.round(sales.data.amount_usd))} $`}
+              />
+              <SaleStat
+                label={t('clients.timeline.salesSuspicious')}
+                value={formatNumber(sales.data.suspicious)}
+                tone={sales.data.suspicious > 0 ? 'warn' : 'muted'}
+              />
+              {/* «Tekshirib bo'lmadi» — YASHIRILMAYDI. U «toza»
+                  degani emas, SAP dagi ma'lumot sifatining
+                  ko'rsatkichi (shartnoma, 4-bo'lim). Noldan katta
+                  bo'lsagina ko'rsatiladi: doimiy nol qator yig'mani
+                  suyultirardi. */}
+              {sales.data.not_checkable > 0 && (
+                <SaleStat
+                  label={t('clients.timeline.salesNotCheckable')}
+                  value={formatNumber(sales.data.not_checkable)}
+                />
+              )}
+              <span className="text-2xs leading-relaxed text-muted">
+                {t('sales.windowNote', { count: sales.data.window_days })}
+              </span>
+            </div>
+          </CardBody>
+        )}
+
         {calls.isLoading ? (
           <CardBody className="space-y-2 pt-0">
             {Array.from({ length: 8 }).map((_, i) => (
               <Skeleton key={i} className="h-11 w-full" />
             ))}
           </CardBody>
-        ) : !calls.data?.items.length ? (
+        ) : !timeline.length ? (
           /* Davr tanlangan bo'lsa bo'sh jadval «ma'lumot yo'q»
              degani EMAS — shu oraliqda aloqa bo'lmagan. Chiqish
              yo'li darhol taklif qilinadi. */
@@ -294,7 +453,23 @@ export function ClientDetailPage() {
                 </tr>
               </thead>
               <tbody>
-                {calls.data.items.map((call) => {
+                {timeline.map((row) => {
+                  /* Savdo qatori ALOHIDA ko'rinadi: boshqa ikonka,
+                     boshqa fon va summa. Aynan shu farq ketma-ketlikni
+                     bir qarashda o'qishga imkon beradi — «qo'ng'iroq →
+                     savdo → qo'ng'iroq → savdo» naqshi buzilgani ko'zga
+                     tashlanadi. */
+                  if (row.kind === 'sale') {
+                    return (
+                      <SaleRow
+                        key={row.id}
+                        sale={row.sale}
+                        windowDays={sales.data?.window_days}
+                      />
+                    )
+                  }
+
+                  const call = row.call
                   const callTone = scoreTone(call.score) as
                     | 'accent'
                     | 'good'
@@ -304,7 +479,7 @@ export function ClientDetailPage() {
 
                   return (
                     <tr
-                      key={call.id}
+                      key={row.id}
                       onClick={() => navigate(`/calls/${call.id}`)}
                       className="cursor-pointer border-b border-border/60 transition-colors last:border-0 hover:bg-surface-2/60"
                     >
@@ -444,6 +619,162 @@ export function ClientDetailPage() {
 }
 
 /* ── Kichik qismlar ──────────────────────────────────────── */
+
+/**
+ * Vaqt chizig'idagi SAVDO qatori.
+ *
+ * ⚠️ OXIRGI UCH USTUN BITTA KATAKKA BIRLASHTIRILGAN (`colSpan`).
+ * Sarlavhalar qo'ng'iroqniki — «Davomiylik», «Ball», «Holat» — va
+ * savdoda ularning uchalasi ham yo'q. Summani «Davomiylik» ustuniga
+ * yozib qo'yish jadvalni jimgina yolg'onga aylantirardi; birlashgan
+ * katak esa savdo qatorining BOSHQA ekanini o'zi ko'rsatadi va
+ * o'nga tortilgan summa baribir raqamlar ustunida turadi.
+ *
+ * Qator BOSILMAYDI: savdoning alohida sahifasi yo'q. Yolg'on
+ * «bosiladigan» ko'rinish (kursor, hover) bo'sh va'da bo'lardi.
+ */
+function SaleRow({ sale, windowDays }: { sale: ClientSale; windowDays?: number }) {
+  const { t } = useTranslation()
+
+  return (
+    <tr className="border-b border-border/60 bg-accent-soft/40 last:border-0">
+      <td className="whitespace-nowrap px-4 py-3">
+        <div className="tnum text-sm font-medium">
+          {formatFullDate(`${sale.occurred_on}T00:00:00`)}
+        </div>
+        {/* Vaqt o'rnida — SAP dagi operatsiya raqami. Qo'ng'iroqda bu
+            joyda soat turadi, savdoda esa soat YO'Q; raqam bo'sh
+            joyni to'ldiribgina qolmay, rahbarga qatorni SAP da topish
+            imkonini beradi. */}
+        <div className="tnum text-2xs text-muted">{sale.external_id}</div>
+      </td>
+
+      <td className="whitespace-nowrap px-4 py-3">
+        <div className="flex items-center gap-2">
+          <span className="icon-tile size-7 shrink-0 bg-accent-soft text-accent">
+            <ShoppingBag className="size-3.5" />
+          </span>
+          <div>
+            <div className="text-sm font-medium">{t('clients.timeline.sale')}</div>
+            <div className="text-2xs text-muted">
+              {t('clients.timeline.noTime')}
+            </div>
+          </div>
+        </div>
+      </td>
+
+      <td className="px-4 py-3">
+        <div className="max-w-[220px] truncate">
+          {/* Xodimsiz savdo YASHIRILMAYDI: filiali biriktirilmagan
+              qatorlar ham nazoratda turadi (shartnoma, 4-bo'lim) */}
+          <span className={sale.agent_name ? '' : 'text-warn'}>
+            {sale.agent_name ?? t('sales.noAgent')}
+          </span>
+        </div>
+        <div className="truncate text-2xs text-muted">
+          {sale.branch ?? '—'}
+          {sale.direction ? ` · ${sale.direction}` : ''}
+        </div>
+      </td>
+
+      <td className="px-4 py-3" colSpan={3}>
+        <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1.5">
+          {/* ⚠️ DALIL — XULOSA BILAN BIR QATORDA.
+
+              Xulosani ko'rsatib, uni tekshirish imkonini bermaslik
+              mumkin emas (shartnoma, 4-bo'lim: «har qator
+              tekshiriladigan bo'lsin»). Vaqt chizig'i ketma-ketlikni
+              ko'rsatadi, lekin «oxirgi suhbat necha kun oldin
+              bo'lgan» degan songa ko'z bilan javob berib bo'lmaydi —
+              ayniqsa suhbat sahifaning boshqa yeriga tushib qolsa.
+              Shuning uchun son qatorning O'ZIDA turadi va nazorat
+              ro'yxatidagi bilan bir xil so'z bilan yoziladi. */}
+          {sale.verdict !== 'not_checkable' && (
+            <span className="text-2xs leading-relaxed text-muted">
+              {sale.last_call_at ? (
+                <>
+                  {formatFullDate(sale.last_call_at)}
+                  {' · '}
+                  {t('sales.daysBefore', { count: sale.days_before ?? 0 })}
+                </>
+              ) : (
+                /* «Umuman yo'q» bo'sh katak bilan almashtirilmaydi:
+                   bo'sh katak «ma'lumot yuklanmadi» deb o'qilardi,
+                   bu esa aynan teskari xulosa. */
+                <span className="text-warn">{t('sales.noCallEver')}</span>
+              )}
+            </span>
+          )}
+          {/* R2 ning dalili — oldingi savdo va oraliqdagi suhbatlar.
+              «R2» yorlig'ini bilgan odam ham darhol «oldingi savdo
+              qachon edi?» deb so'raydi. */}
+          {sale.broken_rules.includes('R2') && sale.previous_sale_on && (
+            <span className="text-2xs leading-relaxed text-muted">
+              {t('sales.betweenCalls', {
+                date: formatFullDate(`${sale.previous_sale_on}T00:00:00`),
+                count: sale.calls_between,
+              })}
+            </span>
+          )}
+          {sale.broken_rules.includes('R3') && (
+            <span className="text-2xs leading-relaxed text-bad">
+              {t('sales.callsTotal', { count: sale.calls_total })}
+            </span>
+          )}
+          {/* Buzilgan qoida BO'LSAGINA. `RuleBadges` bo'sh ro'yxatga
+              «—» chizadi va u toza savdo yonida ortiqcha shovqin
+              bo'lardi — bu yerda ustun emas, qator ichidagi belgi. */}
+          {sale.broken_rules.length > 0 && (
+            <RuleBadges rules={sale.broken_rules} windowDays={windowDays} />
+          )}
+          <VerdictBadge verdict={sale.verdict} skipReason={sale.skip_reason} />
+          {/* Rahbar qaror qo'ygan bo'lsa u ham ko'rinadi: kartochkaga
+              kirgan odam «bu allaqachon ko'rilganmi?» degan savolga
+              javobni shu yerdan olsin */}
+          {sale.review_status && (
+            <Badge tone={sale.review_status === 'justified' ? 'good' : 'bad'}>
+              {t(`sales.review.${sale.review_status}`)}
+            </Badge>
+          )}
+          <div className="whitespace-nowrap text-right">
+            {/* Dollar — asosiy son (valyutalar aralash bo'lgani uchun
+                taqqoslash faqat unda ma'noli), hujjat valyutasi ostida */}
+            <div className="tnum font-semibold">
+              {sale.amount_usd != null
+                ? `${formatNumber(Math.round(sale.amount_usd))} $`
+                : '—'}
+            </div>
+            {sale.currency !== 'USD' && sale.amount != null && (
+              <div className="tnum text-2xs text-muted">
+                {formatNumber(Math.round(sale.amount))} {sale.currency}
+              </div>
+            )}
+          </div>
+        </div>
+      </td>
+    </tr>
+  )
+}
+
+/** Yig'madagi bitta son — yorlig'i bilan, bitta qatorda. */
+function SaleStat({
+  label,
+  value,
+  tone,
+}: {
+  label: string
+  value: string
+  tone?: 'warn' | 'muted'
+}) {
+  return (
+    <span className="flex items-baseline gap-1.5 text-2xs">
+      <span className={cn('tnum text-sm font-semibold', tone === 'warn' && 'text-warn')}>
+        {value}
+      </span>
+      <span className="text-muted">{label}</span>
+    </span>
+  )
+}
 
 function Stat({
   icon: Icon,

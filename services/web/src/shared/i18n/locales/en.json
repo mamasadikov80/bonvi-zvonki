@@ -405,6 +405,16 @@
       "internal": "Internal numbers",
       "all": "All"
     },
+    "timeline": {
+      "title": "Timeline",
+      "hint": "Calls and sales in one list, newest first. A sale has only a DATE — the exact time within the day is unknown, so a sale is placed after that day's calls, meaning above them in the list.",
+      "sale": "Sale",
+      "noTime": "time unknown",
+      "salesCount": "sales",
+      "salesAmount": "total amount",
+      "salesSuspicious": "suspicious",
+      "salesNotCheckable": "not checkable"
+    },
     "detail": {
       "period": "{{from}} — {{to}} · {{count}} calls in total (full history)",
       "all": "Full history",
