@@ -13,26 +13,46 @@
  *   · uchala toifa ham ekranda turadi, hech biri yashirilmaydi —
  *     shu jumladan «tekshirib bo'lmadi» (u SAP dagi ma'lumot
  *     sifatining ko'rsatkichi, «toza» degani emas);
- *   · har qatorda DALIL bor va u qisqartirilmaydi: rahbar sonni
- *     qo'lda qayta hisoblab tekshirishi kerak (shartnoma, 4-bo'lim).
+ *   · har qatorda DALIL bor: sana, mijoz kodi, telefon va oxirgi
+ *     suhbat — rahbar sonni SAP da qo'lda tekshirishi kerak
+ *     (shartnoma, 4-bo'lim).
+ *
+ * ⚠️ DALIL JADVALGA JUMLA BO'LIB YOZILMAYDI. Bir urinib ko'rilgan:
+ * «Oldingi savdo 19/08/2026 — orasida 0 ta suhbat» degan matn tor
+ * katakda to'rt qatorga o'ralib, qatorni qo'shnilaridan uch barobar
+ * baland qildi va jadval o'qib bo'lmas holga keldi. Endi taqsimot
+ * shunday:
+ *   · JADVAL — faqat holat kodlari (`Shubhali`, `R1`, `R2`), har
+ *     katak bir xil balandlikda, hech qayerda o'ralish yo'q;
+ *   · KODLARNING MA'NOSI — jadval sarlavhasi ostidagi bitta qator
+ *     izohda (`RuleLegend`), hamma qator uchun bir marta;
+ *   · TAFSILOT — qator bosilganda ochiladigan XRONOLOGIYA oynasida,
+ *     u yerda joy bor (`SaleTimelineModal`).
  *
  * ⚠️ Sana filtri `YYYY-MM-DD` yuboradi, ISO vaqt EMAS: savdoda vaqt
  * yo'q (`sales.occurred_on` — `date`), shuning uchun ilovadagi
  * `rangeToQuery` bu yerda ishlatilmaydi.
  */
 
+import type { TFunction } from 'i18next'
 import {
+  Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
+  CircleHelp,
   ClipboardCheck,
   Flag,
   RotateCcw,
   Sheet,
   ShieldAlert,
+  ShieldCheck,
   SlidersHorizontal,
   Store,
+  TriangleAlert,
   Upload,
   User,
+  type LucideIcon,
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -53,11 +73,19 @@ import {
   type SaleSort,
   type SaleVerdict,
 } from '@/modules/sales/api'
-import { ReviewBadge, RuleBadges, RuleLegend, VerdictBadge } from '@/modules/sales/badges'
+import {
+  ReviewBadge,
+  RuleBadges,
+  RuleLegend,
+  SkipBadge,
+  VerdictBadge,
+} from '@/modules/sales/badges'
 import { BranchesModal } from '@/modules/sales/BranchesModal'
 import { exportCompliance } from '@/modules/sales/export'
 import { ImportModal } from '@/modules/sales/ImportModal'
+import { useSaleReason } from '@/modules/sales/reason'
 import { ReviewModal } from '@/modules/sales/ReviewModal'
+import { SaleTimelineModal } from '@/modules/sales/SaleTimelineModal'
 import { Page, PageHeader } from '@/shared/layout/Page'
 import {
   formatFullDate,
@@ -70,7 +98,6 @@ import { cn, formatNumber } from '@/shared/lib/utils'
 import { DateRangePicker } from '@/shared/ui/DateRangePicker'
 import { MultiSelect, type MultiSelectOption } from '@/shared/ui/MultiSelect'
 import {
-  Badge,
   Button,
   Card,
   EmptyState,
@@ -85,8 +112,15 @@ const PAGE_SIZES = [20, 50] as const
 
 const VERDICTS: SaleVerdict[] = ['ok', 'suspicious', 'not_checkable']
 
+/** «Diqqat talab qiladi» blokidagi qatorlar soni */
+const ATTENTION_SIZE = 5
+
 const orUndefined = (list: string[]): string[] | undefined =>
   list.length ? list : undefined
+
+/** Dollardagi summa — jadvalda ham, blokda ham bir xil yoziladi */
+const usd = (value: number | null): string =>
+  value != null ? `${formatNumber(Math.round(value))} $` : '—'
 
 export function SalesControlPage() {
   const { t } = useTranslation()
@@ -120,9 +154,16 @@ export function SalesControlPage() {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState<number>(PAGE_SIZES[0])
 
+  /** Xronologiya oynasi — qator bosilganda ochiladi */
+  const [tracked, setTracked] = useState<ComplianceRow | null>(null)
+  /** Qaror oynasi — xronologiyadan chaqiriladi */
   const [picked, setPicked] = useState<ComplianceRow | null>(null)
   const [importOpen, setImportOpen] = useState(false)
   const [branchesOpen, setBranchesOpen] = useState(false)
+  /* «Diqqat talab qiladi» sukut bo'yicha OCHIQ: direktor sahifani
+     aynan shu ro'yxat uchun ochadi. Yig'ib qo'yish esa kundalik ish
+     qiladigan odam uchun — u pastdagi navbat bilan ishlaydi. */
+  const [attentionOpen, setAttentionOpen] = useState(true)
 
   const since = toInputValue(range.from)
   const until = toInputValue(range.to)
@@ -164,9 +205,36 @@ export function SalesControlPage() {
    */
   const summary = useComplianceSummary(scope)
 
+  /**
+   * ⚠️ DIREKTOR UCHUN — eng katta summali ko'rilmagan shubhalilar.
+   *
+   * Sabab oddiy: 451 qatorli ro'yxatni hech kim boshdan-oyoq
+   * o'qimaydi, rahbar esa eng katta puldan boshlaydi. Filtr EKRANDAGI
+   * tanlovga ergashmaydi (`verdict`/`review`/`rule` bu yerda qat'iy):
+   * blok «bu davrda nima kutyapti» degan savolga javob beradi va u
+   * pastdagi ro'yxat qanday saralanganidan qat'i nazar bir xil
+   * bo'lishi kerak.
+   *
+   * Yangi endpoint YO'Q — o'sha `/sales/compliance`, boshqa saralash
+   * va besh qator bilan.
+   */
+  const attention = useCompliance({
+    ...scope,
+    verdict: 'suspicious',
+    review: 'new',
+    page: 1,
+    page_size: ATTENTION_SIZE,
+    sort: 'amount',
+    order: 'desc',
+  })
+
   const total = list.data?.total ?? 0
   const pages = Math.max(1, Math.ceil(total / pageSize))
   const windowDays = list.data?.window_days ?? summary.data?.window_days
+
+  /* Jumla — jadvalda EMAS, faqat shu blokda va xronologiya oynasida:
+     jadvalda u qatorni uch barobar baland qilib qo'yardi. */
+  const reasonOf = useSaleReason(windowDays)
 
   /* Har qanday o'zgarish birinchi sahifaga qaytaradi — aks holda
      5-sahifada turib filtrni toraytirgan odam bo'sh jadval ko'rardi
@@ -279,22 +347,37 @@ export function SalesControlPage() {
         title={t('sales.title')}
         subtitle={t('sales.subtitle')}
         actions={
-          <div className="flex flex-wrap items-center gap-2">
+          /* ⚠️ TUGMALAR IXCHAM. Uchta to'liq yozuv sarlavha qatoriga
+             sig'masdi va uchinchisi qirqilib turardi. Endi ikkilamchi
+             ikkitasi tor ekranda faqat belgicha (nomi maslahatnomada
+             va ekran o'quvchi uchun `aria-label` da), asosiy amal —
+             import — esa har doim yozuvi bilan. */
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <Button
               variant="secondary"
+              className="px-3 xl:px-4"
               onClick={runExport}
               disabled={!total || exporting}
               title={t('sales.export.hint')}
+              aria-label={t('sales.export.button')}
             >
               <Sheet className="size-4" />
-              {exporting ? t('sales.export.running') : t('sales.export.button')}
+              <span className={exporting ? 'inline' : 'hidden xl:inline'}>
+                {exporting ? t('sales.export.running') : t('sales.export.button')}
+              </span>
             </Button>
-            <Button variant="secondary" onClick={() => setBranchesOpen(true)}>
+            <Button
+              variant="secondary"
+              className="px-3 xl:px-4"
+              onClick={() => setBranchesOpen(true)}
+              title={t('sales.branches.title')}
+              aria-label={t('sales.branches.button')}
+            >
               <Store className="size-4" />
-              {t('sales.branches.button')}
+              <span className="hidden xl:inline">{t('sales.branches.button')}</span>
             </Button>
             {canImport && (
-              <Button onClick={() => setImportOpen(true)}>
+              <Button onClick={() => setImportOpen(true)} title={t('sales.import.hint')}>
                 <Upload className="size-4" />
                 {t('sales.import.button')}
               </Button>
@@ -312,7 +395,11 @@ export function SalesControlPage() {
       {/* ── Uch toifa ────────────────────────────────────────
           Uchalasi ham ko'rinadi va uchalasi ham bosiladi. Sonlar
           davr va kesim bo'yicha — pastdagi filtr ularni
-          o'zgartirmaydi, aks holda tanlov o'z asosini yo'q qilardi. */}
+          o'zgartirmaydi, aks holda tanlov o'z asosini yo'q qilardi.
+
+          ⚠️ Kartochka IXCHAM: katta son va bitta yorliq. Avval har
+          birida ikki qatorlik izoh turardi va uchalasi ekranning
+          uchdan birini yeb qo'yardi — izoh endi maslahatnomada. */}
       <div className="grid gap-3 sm:grid-cols-3">
         {VERDICTS.map((key) => (
           <VerdictTile
@@ -326,9 +413,76 @@ export function SalesControlPage() {
         ))}
       </div>
 
+      {/* ── Diqqat talab qiladi ──────────────────────────────── */}
+      {(attention.data?.items.length ?? 0) > 0 && (
+        <Card className="animate-fade-up overflow-hidden">
+          <button
+            type="button"
+            aria-expanded={attentionOpen}
+            onClick={() => setAttentionOpen((open) => !open)}
+            className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors duration-250 ease-ios hover:bg-surface-2/40"
+          >
+            <span className="icon-tile size-8 shrink-0 bg-warn/10 text-warn">
+              <TriangleAlert className="size-4" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold">
+                {t('sales.attention.title')}
+              </span>
+              <span className="block truncate text-2xs text-muted">
+                {t('sales.attention.hint')}
+              </span>
+            </span>
+            <ChevronDown
+              className={cn(
+                'size-4 shrink-0 text-muted transition-transform duration-250 ease-ios',
+                attentionOpen && 'rotate-180',
+              )}
+            />
+          </button>
+
+          {attentionOpen && (
+            <ul className="border-t border-border">
+              {attention.data?.items.map((row) => (
+                <li key={row.id} className="border-b border-border/60 last:border-0">
+                  <button
+                    type="button"
+                    onClick={() => setTracked(row)}
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors duration-250 ease-ios hover:bg-surface-2/60"
+                  >
+                    <span className="tnum w-[5.5rem] shrink-0 text-2xs text-muted">
+                      {formatFullDate(`${row.occurred_on}T00:00:00`)}
+                    </span>
+                    <span
+                      className="min-w-0 flex-1 truncate text-sm font-medium"
+                      title={row.partner_name ?? row.partner_code}
+                    >
+                      {row.partner_name || row.partner_code}
+                    </span>
+                    <span className="tnum w-24 shrink-0 text-right text-sm font-semibold">
+                      {usd(row.amount_usd)}
+                    </span>
+                    {/* Sabab jumlasi — aynan shu blokning ma'nosi.
+                        Tor ekranda yashiriladi: bir qatorga sig'masa
+                        u yerda ham o'ralib ketardi. */}
+                    <span
+                      className="hidden min-w-0 flex-[2] truncate text-2xs text-muted lg:block"
+                      title={reasonOf(row)}
+                    >
+                      {reasonOf(row)}
+                    </span>
+                    <ChevronRight className="size-4 shrink-0 text-muted" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      )}
+
       {/* ── Filtrlar ─────────────────────────────────────────── */}
       <div className="card animate-fade-up p-4">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-3">
           <div className="flex items-center gap-2 text-muted">
             <SlidersHorizontal className="size-4" />
             <span className="label-eyebrow">{t('filters.title')}</span>
@@ -358,11 +512,13 @@ export function SalesControlPage() {
             />
           )}
 
+          {/* ⚠️ Yorliqlar QISQA: «Har qanday xulosa» tanlagichga
+              sig'masdi va «Har qanday q…» bo'lib qirqilardi. */}
           <Select
             compact
             icon={ShieldAlert}
             active={Boolean(verdict)}
-            className="w-44"
+            className="w-36"
             value={verdict}
             onChange={(e) => reset(setVerdict)(e.target.value as SaleVerdict | '')}
           >
@@ -378,7 +534,7 @@ export function SalesControlPage() {
             compact
             icon={Flag}
             active={Boolean(rule)}
-            className="w-36"
+            className="w-28"
             value={rule}
             onChange={(e) => reset(setRule)(e.target.value as SaleRule | '')}
           >
@@ -398,7 +554,7 @@ export function SalesControlPage() {
             compact
             icon={ClipboardCheck}
             active={review !== 'new'}
-            className="w-52"
+            className="w-48"
             value={review}
             onChange={(e) => reset(setReview)(e.target.value as SaleReviewFilter)}
           >
@@ -416,23 +572,23 @@ export function SalesControlPage() {
             </Button>
           )}
         </div>
+
+        {/* Oyna ochiq yoziladi: savdoda vaqt yo'q, shuning uchun
+            qidiruv oynasi = savdo kuni + oldingi N kun. Buni aytmasak
+            «kecha gaplashgan edim-ku» degan e'tirozga javob
+            bo'lmasdi. Alohida blok emas, filtrlarning ostidagi bitta
+            kulrang qator: u har kuni o'qiladigan matn emas. */}
+        {windowDays != null && (
+          <p className="mt-3 border-t border-border/60 pt-2.5 text-2xs leading-relaxed text-muted">
+            {t('sales.windowNote', { count: windowDays })}
+          </p>
+        )}
       </div>
-
-      {/* Oyna ochiq yoziladi: savdoda vaqt yo'q, shuning uchun qidiruv
-          oynasi = savdo kuni + oldingi N kun. Buni aytmasak «kecha
-          gaplashgan edim-ku» degan e'tirozga javob bo'lmasdi. */}
-      {windowDays != null && (
-        <p className="rounded-xl bg-surface-2/50 px-3.5 py-2.5 text-2xs leading-relaxed text-muted">
-          {t('sales.windowNote', { count: windowDays })}
-        </p>
-      )}
-
-      <RuleLegend windowDays={windowDays} />
 
       <Card>
         <div className="flex flex-wrap items-center gap-3 border-b border-border p-4">
           <SearchInput
-            className="min-w-[240px] flex-1"
+            className="min-w-[220px] flex-1"
             placeholder={t('sales.searchPlaceholder')}
             value={search}
             onChange={reset((next: string) => {
@@ -451,6 +607,15 @@ export function SalesControlPage() {
               label: t('sales.perPage', { count: size }),
             }))}
           />
+        </div>
+
+        {/* Kodlarning ma'nosi — bir marta, hamma qator uchun */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border px-4 py-2.5">
+          <RuleLegend windowDays={windowDays} />
+          <span className="ml-auto inline-flex items-center gap-1.5 text-2xs text-muted">
+            <CircleHelp className="size-3.5" />
+            {t('sales.rowHint')}
+          </span>
         </div>
 
         {list.isLoading ? (
@@ -476,8 +641,21 @@ export function SalesControlPage() {
             }
           />
         ) : (
+          /* ⚠️ `scroll-x` — jadval o'z konteynerida suriladi, SAHIFA
+             emas. `table-fixed` + foizli kengliklar keng monitorda
+             bo'sh joy qoldirmaydi (ustunlar nisbat bilan yoyiladi),
+             `min-w` esa tor ekranda ularni siqilib ketishdan saqlaydi. */
           <div className="scroll-x">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[68rem] table-fixed text-sm">
+              <colgroup>
+                <col className="w-[9%]" />
+                <col className="w-[20%]" />
+                <col className="w-[15%]" />
+                <col className="w-[9%]" />
+                <col className="w-[19%]" />
+                <col className="w-[15%]" />
+                <col className="w-[13%]" />
+              </colgroup>
               <thead>
                 <tr className="border-b border-border text-left">
                   {/* Saralanadigan ustunlar — backenddagi
@@ -512,58 +690,70 @@ export function SalesControlPage() {
                     state={sort}
                     onChange={reset(setSort)}
                   />
-                  <th className="px-4 py-3 text-2xs font-medium uppercase tracking-wider text-muted">
-                    {t('sales.col.verdict')}
-                  </th>
-                  <th className="px-4 py-3 text-2xs font-medium uppercase tracking-wider text-muted">
-                    {t('sales.col.rules')}
-                  </th>
-                  <th className="px-4 py-3 text-2xs font-medium uppercase tracking-wider text-muted">
-                    {t('sales.col.lastCall')}
-                  </th>
-                  <th className="px-4 py-3 text-2xs font-medium uppercase tracking-wider text-muted">
-                    {t('sales.col.decision')}
-                  </th>
+                  <Th>{t('sales.col.verdict')}</Th>
+                  <Th>{t('sales.col.lastCall')}</Th>
+                  <Th>{t('sales.col.decision')}</Th>
                 </tr>
               </thead>
               <tbody>
                 {list.data.items.map((row) => (
+                  /* ⚠️ BALANDLIK QAT'IY BELGILANGAN. `h-14` jadval
+                     qatorida eng KICHIK balandlik degani, ya'ni
+                     kafolat faqat hech bir katak undan oshmasa
+                     ishlaydi — shuning uchun har katakda ko'pi bilan
+                     ikki qator matn bor va hammasi `truncate`. */
                   <tr
                     key={row.id}
-                    onClick={canReview ? () => setPicked(row) : undefined}
+                    onClick={() => setTracked(row)}
+                    tabIndex={0}
+                    role="button"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        setTracked(row)
+                      }
+                    }}
                     className={cn(
-                      'border-b border-border/60 align-top transition-colors last:border-0',
-                      canReview && 'cursor-pointer hover:bg-surface-2/60',
+                      'h-14 cursor-pointer border-b border-border/60 align-middle',
+                      'transition-colors last:border-0',
+                      'hover:bg-surface-2/60 focus-visible:bg-surface-2/60 focus-visible:outline-none',
                     )}
                   >
                     {/* Sana — vaqtsiz. Ostida SAP dagi operatsiya
                         raqami: rahbar shu raqam bilan SAP da qatorni
                         topadi, busiz dalilni tekshirib bo'lmaydi. */}
-                    <td className="whitespace-nowrap px-4 py-3">
-                      <div className="tnum text-sm">
+                    <Td>
+                      <div className="tnum truncate text-sm">
                         {formatFullDate(`${row.occurred_on}T00:00:00`)}
                       </div>
-                      <div className="tnum text-2xs text-muted">{row.external_id}</div>
-                    </td>
+                      <div className="tnum truncate text-2xs text-muted">
+                        {row.external_id}
+                      </div>
+                    </Td>
 
                     {/* Mijoz: nomi, ostida kodi va telefoni. Ikkalasi
                         ham DALIL — kod SAP uchun, telefon esa
                         qo'ng'iroqlar tarixi uchun. */}
-                    <td className="px-4 py-3">
-                      <div className="max-w-[260px] truncate font-medium">
+                    <Td>
+                      <div
+                        className="truncate font-medium"
+                        title={row.partner_name ?? row.partner_code}
+                      >
                         {/* Nomi bo'lmasa KOD sarlavha bo'ladi: «—»
                             hech narsa bermaydi, kod esa SAP da
                             qidirsa ham ishlaydi */}
                         {row.partner_name || row.partner_code}
                       </div>
-                      <div className="tnum text-2xs text-muted">
+                      <div className="tnum truncate text-2xs text-muted">
                         {row.partner_code}
                         {row.phone ? ` · ${row.phone}` : ''}
                       </div>
-                    </td>
+                    </Td>
 
-                    <td className="px-4 py-3">
-                      <div className="max-w-[200px] truncate">{row.branch ?? '—'}</div>
+                    <Td>
+                      <div className="truncate" title={row.branch ?? undefined}>
+                        {row.branch ?? '—'}
+                      </div>
                       <div
                         className={cn(
                           'truncate text-2xs',
@@ -573,70 +763,55 @@ export function SalesControlPage() {
                         {row.agent_name ?? t('sales.noAgent')}
                         {row.direction ? ` · ${row.direction}` : ''}
                       </div>
-                    </td>
+                    </Td>
 
                     {/* Dollar — asosiy son (taqqoslash faqat unda
-                        ma'noli), hujjat valyutasi ostida. Summa
-                        `null` bo'lishi mumkin: SAP eksportida katak
-                        bo'sh qolgan qatorlar uchraydi. */}
-                    <td className="whitespace-nowrap px-4 py-3 text-right">
-                      <div className="tnum font-semibold">
-                        {row.amount_usd != null
-                          ? `${formatNumber(Math.round(row.amount_usd))} $`
-                          : '—'}
+                        ma'noli), hujjat valyutasi ostida va FAQAT u
+                        boshqa bo'lsa: dollarlik savdoda «340 $» ni
+                        ikki marta yozish shovqin. */}
+                    <Td className="text-right">
+                      <div className="tnum truncate font-semibold">
+                        {usd(row.amount_usd)}
                       </div>
                       {row.currency !== 'USD' && row.amount != null && (
-                        <div className="tnum text-2xs text-muted">
+                        <div className="tnum truncate text-2xs text-muted">
                           {formatNumber(Math.round(row.amount))} {row.currency}
                         </div>
                       )}
-                    </td>
+                    </Td>
 
-                    <td className="px-4 py-3">
-                      <VerdictBadge verdict={row.verdict} skipReason={row.skip_reason} />
-                      {row.verdict === 'not_checkable' && row.skip_reason && (
-                        <div className="mt-1 max-w-[180px] text-2xs leading-relaxed text-muted">
-                          {t(`sales.skip.${row.skip_reason}`)}
-                        </div>
-                      )}
-                    </td>
-
-                    {/* Qoidalar + ularning DALILI. Yorliqning o'zi
-                        yetmaydi: «R2» nima ekanini bilgan odam ham
-                        «oldingi savdo qachon edi?» deb so'raydi. */}
-                    <td className="px-4 py-3">
-                      <RuleBadges rules={row.broken_rules} windowDays={windowDays} />
-                      {row.broken_rules.length > 0 && (
-                        <div className="mt-1 max-w-[220px] space-y-0.5 text-2xs leading-relaxed text-muted">
-                          {row.broken_rules.includes('R2') && (
-                            <div>
-                              {row.previous_sale_on
-                                ? t('sales.betweenCalls', {
-                                    date: formatFullDate(
-                                      `${row.previous_sale_on}T00:00:00`,
-                                    ),
-                                    count: row.calls_between,
-                                  })
-                                : t('sales.noPreviousSale')}
-                            </div>
-                          )}
-                          {row.broken_rules.includes('R3') && (
-                            <div className="text-bad">
-                              {t('sales.callsTotal', { count: row.calls_total })}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </td>
+                    {/* ⚠️ FAQAT HOLAT KODLARI, bitta qatorda.
+                        Sabab matni («Umumiy kod: bitta kod ostida ko'p
+                        mijoz…», «Oldingi savdo … orasida 0 ta suhbat»)
+                        BU YERGA YOZILMAYDI — u katakda paragrafga
+                        aylanadi. Ma'nosi tepadagi izohda, tafsiloti
+                        esa qator bosilganda ochiladigan oynada. */}
+                    <Td>
+                      <div className="flex items-center gap-1.5 overflow-hidden">
+                        <VerdictBadge
+                          verdict={row.verdict}
+                          skipReason={row.skip_reason}
+                        />
+                        {row.skip_reason && <SkipBadge reason={row.skip_reason} />}
+                        <RuleBadges
+                          rules={row.broken_rules}
+                          windowDays={windowDays}
+                          hints={ruleHints(row, t, fmt.date)}
+                        />
+                      </div>
+                    </Td>
 
                     {/* Oxirgi qo'ng'iroq — ustunlarning eng qimmati.
-                        «Umuman yo'q» bo'sh katak bilan almashtirilmaydi:
-                        bo'sh katak «ma'lumot yuklanmadi» deb o'qilardi,
-                        bu esa aynan teskari xulosa. */}
-                    <td className="whitespace-nowrap px-4 py-3">
+                        «Suhbat bo'lmagan» bo'sh katak bilan
+                        almashtirilmaydi: bo'sh katak «ma'lumot
+                        yuklanmadi» deb o'qilardi, bu esa aynan
+                        teskari xulosa. Lekin u QIZIL YORLIQ ham
+                        emas — rang faqat odam qaror qilgandan keyin
+                        paydo bo'ladi. */}
+                    <Td>
                       {row.last_call_at ? (
                         <>
-                          <div className="tnum text-sm">
+                          <div className="tnum truncate text-sm">
                             {fmt.dateTime(row.last_call_at)}
                           </div>
                           <div className="truncate text-2xs text-muted">
@@ -647,51 +822,32 @@ export function SalesControlPage() {
                           </div>
                         </>
                       ) : (
-                        <Badge tone="bad">{t('sales.noCallEver')}</Badge>
+                        <span className="truncate text-xs text-muted">
+                          {t('sales.noCallPlain')}
+                        </span>
                       )}
-                    </td>
+                    </Td>
 
-                    {/* Qaror TO'LIQ ko'rinadi: sabab, KIM qo'ygani,
-                        QACHON va izohi bilan.
-
-                        Faqat yorliq qoldirilsa («Oqlandi») ro'yxat
-                        savolga javob bermas edi: rahbar bir oydan
-                        keyin qaytganda «kim oqlagan va nima deb
-                        yozgan?» deb har bir qatorni ochib ko'rishga
-                        majbur bo'lardi — ya'ni tekshiruv tarixi
-                        bor, lekin ko'rinmas.
-
-                        Izoh 500 belgigacha bo'lishi mumkin, shuning
-                        uchun ikki qatorga qisqaradi; to'lig'i esa
-                        maslahatnomada va qaror modalida turadi. */}
-                    <td className="px-4 py-3">
+                    {/* Qaror: yorliq va ostida KIM qo'ygani. Sabab va
+                        izoh maslahatnomada — ular katakda ikki-uch
+                        qator bo'lib, qatorni cho'zib yuborardi.
+                        To'lig'i qaror oynasida turadi. */}
+                    <Td>
                       <ReviewBadge review={row.review} />
                       {row.review && (
-                        <div className="mt-1 max-w-[220px] space-y-0.5 text-2xs leading-relaxed text-muted">
-                          {row.review.reason && (
-                            <div>{t(`sales.reason.${row.review.reason}`)}</div>
-                          )}
-                          {(row.review.reviewed_by || row.review.reviewed_at) && (
-                            <div className="truncate">
-                              {t('sales.decision.by', {
-                                who: row.review.reviewed_by ?? '—',
-                                when: row.review.reviewed_at
-                                  ? fmt.date(row.review.reviewed_at)
-                                  : '—',
-                              })}
-                            </div>
-                          )}
-                          {row.review.note && (
-                            <div
-                              className="line-clamp-2 text-text/80"
-                              title={row.review.note}
-                            >
-                              «{row.review.note}»
-                            </div>
-                          )}
+                        <div
+                          className="mt-1 truncate text-2xs text-muted"
+                          title={reviewTitle(row, t, fmt.date)}
+                        >
+                          {t('sales.decision.by', {
+                            who: row.review.reviewed_by ?? '—',
+                            when: row.review.reviewed_at
+                              ? fmt.date(row.review.reviewed_at)
+                              : '—',
+                          })}
                         </div>
                       )}
-                    </td>
+                    </Td>
                   </tr>
                 ))}
               </tbody>
@@ -729,6 +885,22 @@ export function SalesControlPage() {
         )}
       </Card>
 
+      {/* Qator bosilsa AVVAL xronologiya ochiladi — «nega shubhali»
+          degan savolga javob qarordan oldin kerak. Qaror oynasi esa
+          o'sha yerdan chaqiriladi (ruxsati borlarda). */}
+      <SaleTimelineModal
+        sale={tracked}
+        windowDays={windowDays}
+        onClose={() => setTracked(null)}
+        onReview={
+          canReview
+            ? (row) => {
+                setTracked(null)
+                setPicked(row)
+              }
+            : undefined
+        }
+      />
       <ReviewModal
         sale={picked}
         windowDays={windowDays}
@@ -744,12 +916,98 @@ export function SalesControlPage() {
   )
 }
 
+/* ── Jadvalning kichik qismlari ──────────────────────────── */
+
+function Th({ children }: { children: React.ReactNode }) {
+  return (
+    <th className="truncate px-4 py-3 text-2xs font-medium uppercase tracking-wider text-muted">
+      {children}
+    </th>
+  )
+}
+
+/** Katak — hamma joyda bir xil bo'shliq va bir xil `overflow` */
+function Td({
+  children,
+  className,
+}: {
+  children: React.ReactNode
+  className?: string
+}) {
+  return (
+    <td className={cn('overflow-hidden px-4 py-2 align-middle', className)}>
+      {children}
+    </td>
+  )
+}
+
+/** Qoida yorlig'ining maslahatnomasiga qo'shiladigan DALIL */
+function ruleHints(
+  row: ComplianceRow,
+  t: TFunction,
+  date: (value: string) => string,
+): Partial<Record<SaleRule, string>> {
+  const hints: Partial<Record<SaleRule, string>> = {}
+
+  if (row.broken_rules.includes('R2')) {
+    hints.R2 = row.previous_sale_on
+      ? t('sales.betweenCalls', {
+          date: date(`${row.previous_sale_on}T00:00:00`),
+          count: row.calls_between,
+        })
+      : t('sales.noPreviousSale')
+  }
+  if (row.broken_rules.includes('R3')) {
+    hints.R3 = t('sales.callsTotal', { count: row.calls_total })
+  }
+
+  return hints
+}
+
+/** Qarorning to'liq matni — maslahatnomada (sabab va izoh bilan) */
+function reviewTitle(
+  row: ComplianceRow,
+  t: TFunction,
+  date: (value: string) => string,
+): string | undefined {
+  if (!row.review) return undefined
+
+  return [
+    row.review.reason ? t(`sales.reason.${row.review.reason}`) : null,
+    t('sales.decision.by', {
+      who: row.review.reviewed_by ?? '—',
+      when: row.review.reviewed_at ? date(row.review.reviewed_at) : '—',
+    }),
+    row.review.note ? `«${row.review.note}»` : null,
+  ]
+    .filter(Boolean)
+    .join('\n')
+}
+
 /* ── Toifa kartochkasi ───────────────────────────────────── */
 
-const TILE: Record<SaleVerdict, { tone: string; ring: string }> = {
-  ok: { tone: 'text-good', ring: 'ring-good/40' },
-  suspicious: { tone: 'text-warn', ring: 'ring-warn/40' },
-  not_checkable: { tone: 'text-muted', ring: 'ring-border' },
+const TILE: Record<
+  SaleVerdict,
+  { icon: LucideIcon; tone: string; tile: string; ring: string }
+> = {
+  ok: {
+    icon: ShieldCheck,
+    tone: 'text-good',
+    tile: 'bg-good/10 text-good',
+    ring: 'ring-good/40',
+  },
+  suspicious: {
+    icon: TriangleAlert,
+    tone: 'text-warn',
+    tile: 'bg-warn/10 text-warn',
+    ring: 'ring-warn/40',
+  },
+  not_checkable: {
+    icon: CircleHelp,
+    tone: 'text-muted',
+    tile: '',
+    ring: 'ring-border',
+  },
 }
 
 function VerdictTile({
@@ -767,35 +1025,48 @@ function VerdictTile({
 }) {
   const { t } = useTranslation()
   const look = TILE[verdict]
+  const Icon = look.icon
 
   return (
     <button
       type="button"
       aria-pressed={active}
       onClick={onClick}
+      /* Uzun izoh SHU YERDA qoladi — ekranda emas. «Tekshirishning
+         iloji yo'q. Bu "toza" degani EMAS» degan jumla kartochkada
+         ikki qator bo'lib turardi va uchalasi birgalikda ekranning
+         uchdan birini yeb qo'yardi. */
       title={t(`sales.verdictHint.${verdict}`)}
       className={cn(
-        'card card-hover flex items-start gap-3.5 p-5 text-left',
+        'card card-hover flex items-center gap-3 p-3.5 text-left',
         'transition-all duration-250 ease-ios active:scale-[0.99]',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40',
         active && `ring-2 ring-inset ${look.ring}`,
       )}
     >
+      <span className={cn('icon-tile size-9 shrink-0', look.tile)}>
+        <Icon className="size-4" />
+      </span>
       <div className="min-w-0 flex-1">
         {loading ? (
-          <Skeleton className="h-8 w-20" />
+          <Skeleton className="h-7 w-16" />
         ) : (
-          <div className={cn('tnum text-[1.75rem] font-semibold leading-none', look.tone)}>
+          <div className={cn('tnum text-2xl font-semibold leading-none', look.tone)}>
             {value != null ? formatNumber(value) : '—'}
           </div>
         )}
-        <div className="mt-1.5 truncate text-[0.8125rem] text-muted">
+        <div className="mt-1 truncate text-2xs text-muted">
           {t(`sales.verdict.${verdict}`)}
         </div>
-        <div className="mt-1 text-2xs leading-relaxed text-muted/80">
-          {t(`sales.verdictHint.${verdict}`)}
-        </div>
       </div>
+      {/* Kartochka FILTR ekani ko'rinib tursin: faol holatda ramka
+          va belgi, aks holda uni oddiy ko'rsatkich deb o'ylashadi */}
+      <Check
+        className={cn(
+          'size-4 shrink-0 text-accent transition-opacity duration-250 ease-ios',
+          active ? 'opacity-100' : 'opacity-0',
+        )}
+      />
     </button>
   )
 }

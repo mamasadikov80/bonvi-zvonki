@@ -721,9 +721,10 @@ function SaleRow({ sale, windowDays }: { sale: ClientSale; windowDays?: number }
               {t('sales.callsTotal', { count: sale.calls_total })}
             </span>
           )}
-          {/* Buzilgan qoida BO'LSAGINA. `RuleBadges` bo'sh ro'yxatga
-              «—» chizadi va u toza savdo yonida ortiqcha shovqin
-              bo'lardi — bu yerda ustun emas, qator ichidagi belgi. */}
+          {/* Buzilgan qoida BO'LSAGINA — bu yerda ustun emas, qator
+              ichidagi belgi. (`RuleBadges` bo'sh ro'yxatda o'zi ham
+              hech narsa chizmaydi; shart ochiq qoldirilgan, chunki
+              niyat shu yerda ko'rinib tursin.) */}
           {sale.broken_rules.length > 0 && (
             <RuleBadges rules={sale.broken_rules} windowDays={windowDays} />
           )}

@@ -12,7 +12,14 @@
  * sinxronizatsiyasi bilan o'zi to'ladi.
  */
 
-import { ChevronLeft, ChevronRight, Tag } from 'lucide-react'
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  ChevronLeft,
+  ChevronRight,
+  Phone,
+  Tag,
+} from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
@@ -26,7 +33,7 @@ import {
   type ClientsQuery,
 } from '@/modules/clients/api'
 import { FilterBar } from '@/modules/dashboard/components/FilterBar'
-import { Page, PageHeader } from '@/shared/layout/Page'
+import { Page } from '@/shared/layout/Page'
 import {
   rangeToQuery,
   resolvePreset,
@@ -57,21 +64,40 @@ import { SortHeader, type SortState } from '@/shared/ui/SortHeader'
 const PAGE_SIZES = [20, 50] as const
 
 /** Saralanadigan ustunlar. Raqamlilar avval kattadan kichikka:
- *  «eng ko'p gaplashilgan mijoz» ko'proq so'raladigan savol. */
+ *  «eng ko'p gaplashilgan mijoz» ko'proq so'raladigan savol.
+ *
+ *  Sarlavha QISQA — uzuni ikki qatorga bo'linib, butun jadval
+ *  qatorini balandlashtirardi. To'liq ma'nosi `titleKey` orqali
+ *  kursor ostida qoladi, ya'ni hech narsa yo'qolmaydi. */
 const COLUMNS: {
   field: ClientSort
   labelKey: string
+  /** Qisqartirilgan sarlavhaning to'liq ma'nosi */
+  titleKey?: string
   align?: 'left' | 'right'
   firstOrder?: 'asc' | 'desc'
 }[] = [
   { field: 'name', labelKey: 'clients.colClient' },
   { field: 'calls', labelKey: 'clients.colCalls', align: 'right', firstOrder: 'desc' },
-  { field: 'missed', labelKey: 'clients.colMissed', align: 'right', firstOrder: 'desc' },
+  {
+    field: 'missed',
+    labelKey: 'clients.colMissedShort',
+    titleKey: 'clients.colMissed',
+    align: 'right',
+    firstOrder: 'desc',
+  },
   { field: 'talk', labelKey: 'clients.colTalk', align: 'right', firstOrder: 'desc' },
-  { field: 'score', labelKey: 'clients.colScore', align: 'right', firstOrder: 'desc' },
+  {
+    field: 'score',
+    labelKey: 'clients.colScoreShort',
+    titleKey: 'clients.colScore',
+    align: 'right',
+    firstOrder: 'desc',
+  },
   {
     field: 'last_call',
-    labelKey: 'clients.colLastCall',
+    labelKey: 'clients.colLastCallShort',
+    titleKey: 'clients.colLastCall',
     align: 'right',
     firstOrder: 'desc',
   },
@@ -131,12 +157,18 @@ export function ClientsPage() {
 
   return (
     <Page>
-      <PageHeader
-        title={t('clients.title')}
-        subtitle={
-          clients.data ? t('clients.found', { count: total }) : t('clients.subtitle')
-        }
-      />
+      {/* Sarlavha bloki IXCHAM: son alohida qatorga tushmaydi, chunki
+          u sarlavhaning izohi emas — o'sha ro'yxatning o'lchami.
+          Bitta qatorda turgani sahifaning yuqorisidan ~24px bo'sh
+          joyni oladi va jadval tezroq boshlanadi. */}
+      <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
+        <h1 className="text-xl font-semibold tracking-tight 2xl:text-2xl">
+          {t('clients.title')}
+        </h1>
+        <p className="text-sm text-muted">
+          {clients.data ? t('clients.found', { count: total }) : t('clients.subtitle')}
+        </p>
+      </div>
 
       <FilterBar
         value={filters}
@@ -221,16 +253,18 @@ export function ClientsPage() {
                       key={column.field}
                       field={column.field}
                       label={t(column.labelKey)}
+                      title={column.titleKey ? t(column.titleKey) : undefined}
                       align={column.align}
                       firstOrder={column.firstOrder}
                       state={sort}
                       onChange={reset(setSort)}
+                      className="whitespace-nowrap"
                     />
                   ))}
                   {/* Xodim ustuni saralanmaydi: u yig'ma qiymat
                       («eng ko'p gaplashgani») va u bo'yicha saralash
                       ma'noli tartib bermaydi */}
-                  <th className="px-4 py-3 text-2xs font-medium uppercase tracking-wider text-muted">
+                  <th className="whitespace-nowrap px-4 py-3 text-2xs font-medium uppercase tracking-wider text-muted">
                     {t('clients.colAgent')}
                   </th>
                   <th className="w-10 px-2 py-3" />
@@ -253,20 +287,38 @@ export function ClientsPage() {
                     <tr
                       key={row.key}
                       onClick={() => navigate(`/clients/${row.key}`)}
-                      className="cursor-pointer border-b border-border/60 transition-colors last:border-0 hover:bg-surface-2/60"
+                      /* Balandlik QAT'IY: qatorlar mazmuniga qarab
+                         (nomi bormi, raqamlari uzunmi) turlicha
+                         cho'zilib, ro'yxat notekis ko'rinardi. 60px —
+                         ikki qatorli katakning tabiiy o'lchami, ya'ni
+                         hech narsa siqilmaydi. */
+                      className="h-[60px] cursor-pointer border-b border-border/60 transition-colors last:border-0 hover:bg-surface-2/60"
                     >
                       {/* Mijoz: nomi bo'lmasa raqamning o'zi sarlavha
                           bo'ladi — «—» hech narsa bermaydi, raqam esa
                           terib ko'rsa ham, CRM da qidirsa ham ishlaydi */}
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2.5">
-                          <Avatar name={row.name || row.phone || '?'} size="sm" />
+                          {/* Nomsiz mijozda bosh harf yo'q: raqamdan
+                              olingani «+» bo'lib chiqardi va bu avatar
+                              emas, xato kabi ko'rinardi. O'rniga —
+                              neytral telefon belgisi. */}
+                          {row.name ? (
+                            <Avatar name={row.name} size="sm" />
+                          ) : (
+                            <span
+                              className="grid size-7 shrink-0 place-items-center rounded-full bg-surface-2 text-muted"
+                              aria-hidden
+                            >
+                              <Phone className="size-3.5" />
+                            </span>
+                          )}
                           <div className="min-w-0">
                             <div className="truncate font-medium">
                               {row.name || row.phone || row.key}
                             </div>
                             {row.name && row.phone && (
-                              <div className="tnum text-2xs text-muted">
+                              <div className="tnum truncate text-2xs text-muted">
                                 {row.phone}
                               </div>
                             )}
@@ -274,44 +326,70 @@ export function ClientsPage() {
                         </div>
                       </td>
 
-                      {/* Jami — kiruvchi/chiquvchi taqsimoti ostida.
-                          Alohida ustunlar jadvalni kengaytirardi, bu
-                          yerda esa ikkala son bir qarashda o'qiladi. */}
-                      <td className="px-4 py-3 text-right">
-                        <div className="tnum font-medium">
-                          {formatNumber(row.calls_total)}
-                        </div>
-                        <div className="tnum text-2xs text-muted">
-                          {t('clients.inOut', {
-                            inbound: row.inbound,
-                            outbound: row.outbound,
-                          })}
-                        </div>
+                      {/* Jami — kiruvchi/chiquvchi taqsimoti YONIDA.
+                          Avval taqsimot so'z bilan ostida turardi va
+                          tor ustunda ikki qatorga o'ralib, butun
+                          qatorni ikki barobar balandlashtirardi.
+                          Strelka o'sha ma'noni bir qatorga sig'diradi,
+                          so'zi esa kursor ostida qoladi. */}
+                      <td className="whitespace-nowrap px-4 py-3 text-right">
+                        <span className="inline-flex items-center gap-2">
+                          <span className="tnum font-medium">
+                            {formatNumber(row.calls_total)}
+                          </span>
+                          <span className="inline-flex items-center gap-1 text-2xs text-muted">
+                            <span
+                              className="inline-flex items-center gap-0.5"
+                              title={t('clients.inboundHint')}
+                            >
+                              <ArrowDownLeft className="size-3" aria-hidden />
+                              <span className="tnum">{row.inbound}</span>
+                            </span>
+                            <span aria-hidden>·</span>
+                            <span
+                              className="inline-flex items-center gap-0.5"
+                              title={t('clients.outboundHint')}
+                            >
+                              <ArrowUpRight className="size-3" aria-hidden />
+                              <span className="tnum">{row.outbound}</span>
+                            </span>
+                          </span>
+                        </span>
                       </td>
 
                       <td
                         className={cn(
-                          'tnum px-4 py-3 text-right',
+                          'tnum whitespace-nowrap px-4 py-3 text-right',
                           row.missed ? 'font-medium text-bad' : 'text-muted',
                         )}
                       >
                         {formatNumber(row.missed)}
                       </td>
 
-                      <td className="tnum px-4 py-3 text-right text-muted">
+                      <td className="tnum whitespace-nowrap px-4 py-3 text-right text-muted">
                         {formatLongDuration(row.talk_seconds)}
                       </td>
 
                       {/* Ball — faqat baholangan suhbatlar bo'yicha.
                           Bahosi yo'q mijoz «0» emas, «—»: nol yomon
-                          ish degan yolg'on ma'no berardi. */}
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-end gap-2">
-                          <span className={cn('tnum font-semibold', TONE_CLASS[tone])}>
-                            {row.avg_score != null ? Math.round(row.avg_score) : '—'}
+                          ish degan yolg'on ma'no berardi.
+                          Chiziqcha ham CHIZILMAYDI: bo'sh bar «nol ball»
+                          deb o'qilardi va baholanmagan qatorlar ko'p
+                          bo'lgani uchun butun ustunni shovqinga
+                          to'ldirardi. */}
+                      <td className="whitespace-nowrap px-4 py-3 text-right">
+                        {row.avg_score != null ? (
+                          <span className="inline-flex items-center gap-2">
+                            <span
+                              className={cn('tnum font-semibold', TONE_CLASS[tone])}
+                            >
+                              {Math.round(row.avg_score)}
+                            </span>
+                            <MiniBar value={row.avg_score} tone={tone} width={44} />
                           </span>
-                          <MiniBar value={row.avg_score} tone={tone} width={44} />
-                        </div>
+                        ) : (
+                          <span className="text-muted">—</span>
+                        )}
                       </td>
 
                       <td className="whitespace-nowrap px-4 py-3 text-right">
@@ -334,7 +412,7 @@ export function ClientsPage() {
                             color={row.main_agent_color ?? undefined}
                             size="sm"
                           />
-                          <span className="truncate text-muted">
+                          <span className="min-w-0 truncate text-muted">
                             {row.main_agent_name || '—'}
                           </span>
                           {/* Nechta BOSHQA xodim gaplashgan. Bu son

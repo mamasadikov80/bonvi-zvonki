@@ -383,7 +383,12 @@
     "colTalk": "Talk time",
     "colScore": "Average score",
     "colLastCall": "Last contact",
+    "colMissedShort": "Missed",
+    "colScoreShort": "Score",
+    "colLastCallShort": "Last",
     "inOut": "{{inbound}} from customer · {{outbound}} to customer",
+    "inboundHint": "Calls from the customer",
+    "outboundHint": "Calls to the customer",
     "dirFromClient": "From customer",
     "dirToClient": "To customer",
     "dirNoAnswer": "agent didn't answer",
@@ -434,11 +439,13 @@
     "emptyQueueHint": "The review queue is empty — every suspicious sale in this period has been reviewed",
     "noAgent": "No agent linked",
     "noCallEver": "Never",
+    "noCallPlain": "no call ever",
     "noPreviousSale": "No previous sale",
     "daysBefore": "{{count}} days before the sale",
     "betweenCalls": "Previous sale {{date}} — {{count}} calls in between",
     "callsTotal": "{{count}} calls in the whole history",
     "windowNote": "A sale has no time, only a date. So a call is looked for on the sale day and the {{count}} days before it.",
+    "rowHint": "Click a row — the timeline opens",
     "branchCount": "{{count}} branches",
     "summaryTitle": "By category",
     "total": "Total",
@@ -456,11 +463,45 @@
       "generic_code": "Generic code: many clients under one code («Разовый клиент»)",
       "no_phone": "No phone or an unreliable one — cannot be matched to calls"
     },
+    "skipShort": {
+      "generic_code": "Generic code",
+      "no_phone": "No phone"
+    },
     "rule": {
       "R1": "No call before the sale",
       "R1window": "No call before the sale — on the sale day and the {{count}} days before it",
       "R2": "No call between two sales",
       "R3": "Never talked — not a single call in the whole history"
+    },
+    "ruleShort": {
+      "R1": "no call before the sale",
+      "R2": "none between two sales",
+      "R3": "never talked at all"
+    },
+    "why": {
+      "never": "This client has never been talked to",
+      "noCallBefore": "No call before the sale — the last one {{count}} days earlier, {{date}}",
+      "noCallWindow": "No call in the {{count}} days before the sale",
+      "betweenSales": "Not a single call between the sales of {{from}} and {{to}}",
+      "ok": "There was a call on {{date}} — {{agent}}",
+      "okShort": "There was a call on {{date}}",
+      "genericCode": "Generic code — the client cannot be identified",
+      "noPhone": "No phone number"
+    },
+    "attention": {
+      "title": "Needs attention",
+      "hint": "Unreviewed suspicious sales — largest amount first"
+    },
+    "timeline": {
+      "title": "Timeline",
+      "window": "±{{count}} days around the sale",
+      "call": "Call",
+      "thisSale": "this sale",
+      "noTime": "A sale has no time, only a date. So a call on the same day is shown before the sale — the rules count it exactly the same way.",
+      "empty": "Nothing else happened within {{count}} days of this sale",
+      "more": "{{count}} more calls did not fit in the list",
+      "noPhone": "The client has no phone — a timeline cannot be built",
+      "decide": "Make a decision"
     },
     "review": {
       "new": "Not reviewed",
@@ -476,8 +517,8 @@
       "other": "Other"
     },
     "filter": {
-      "anyVerdict": "Any verdict",
-      "anyRule": "Any rule"
+      "anyVerdict": "Verdict",
+      "anyRule": "Rule"
     },
     "col": {
       "date": "Date",

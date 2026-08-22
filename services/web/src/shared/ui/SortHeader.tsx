@@ -23,6 +23,9 @@ export function SortHeader<F extends string>({
   align = 'left',
   /** Boshlang'ich yo'nalish. Raqamlar uchun odatda kamayish qulayroq */
   firstOrder = 'asc',
+  /** Sarlavha qisqartirilgan bo'lsa — to'liq ma'nosi kursor ostida */
+  title,
+  className,
 }: {
   field: F
   label: string
@@ -30,6 +33,8 @@ export function SortHeader<F extends string>({
   onChange: (next: SortState<F>) => void
   align?: 'left' | 'right'
   firstOrder?: 'asc' | 'desc'
+  title?: string
+  className?: string
 }) {
   const active = state.field === field
   const order = active ? state.order : null
@@ -46,6 +51,7 @@ export function SortHeader<F extends string>({
       className={cn(
         'px-4 py-3 text-2xs font-medium uppercase tracking-wider',
         align === 'right' ? 'text-right' : 'text-left',
+        className,
       )}
       aria-sort={
         active ? (state.order === 'asc' ? 'ascending' : 'descending') : 'none'
@@ -54,6 +60,7 @@ export function SortHeader<F extends string>({
       <button
         type="button"
         onClick={toggle}
+        title={title}
         className={cn(
           'group inline-flex items-center gap-1 rounded-md px-1 py-0.5 -mx-1',
           'uppercase tracking-wider transition-colors duration-250 ease-ios',

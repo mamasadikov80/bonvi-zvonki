@@ -383,7 +383,12 @@
     "colTalk": "Suhbat",
     "colScore": "O'rtacha ball",
     "colLastCall": "Oxirgi aloqa",
+    "colMissedShort": "Ko'tarmadi",
+    "colScoreShort": "Ball",
+    "colLastCallShort": "Oxirgi",
     "inOut": "{{inbound}} ta mijozdan · {{outbound}} ta mijozga",
+    "inboundHint": "Mijozdan kelgan qo'ng'iroqlar",
+    "outboundHint": "Mijozga qilingan qo'ng'iroqlar",
     "dirFromClient": "Mijozdan",
     "dirToClient": "Mijozga",
     "dirNoAnswer": "xodim ko'tarmadi",
@@ -434,11 +439,13 @@
     "emptyQueueHint": "Tekshiruv navbati bo'sh — bu davrdagi shubhali savdolarning hammasi ko'rib chiqilgan",
     "noAgent": "Xodim biriktirilmagan",
     "noCallEver": "Umuman yo'q",
+    "noCallPlain": "suhbat bo'lmagan",
     "noPreviousSale": "Oldingi savdo yo'q",
     "daysBefore": "savdodan {{count}} kun oldin",
     "betweenCalls": "Oldingi savdo {{date}} — orasida {{count}} ta suhbat",
     "callsTotal": "Butun tarixda {{count}} ta suhbat",
     "windowNote": "Savdoda vaqt yo'q, faqat sana. Shuning uchun qo'ng'iroq savdo kuni va undan oldingi {{count}} kun ichida qidiriladi.",
+    "rowHint": "Qatorni bosing — xronologiya ochiladi",
     "branchCount": "{{count}} ta filial",
     "summaryTitle": "Toifalar bo'yicha",
     "total": "Jami",
@@ -456,11 +463,45 @@
       "generic_code": "Umumiy kod: bitta kod ostida ko'p mijoz («Разовый клиент»)",
       "no_phone": "Telefon yo'q yoki ishonchsiz — qo'ng'iroqlar bilan bog'lab bo'lmaydi"
     },
+    "skipShort": {
+      "generic_code": "Umumiy kod",
+      "no_phone": "Telefonsiz"
+    },
     "rule": {
       "R1": "Savdo oldidan qo'ng'iroq yo'q",
       "R1window": "Savdo oldidan qo'ng'iroq yo'q — savdo kuni va undan oldingi {{count}} kun ichida",
       "R2": "Ikki savdo orasida qo'ng'iroq yo'q",
       "R3": "Umuman gaplashilmagan — butun tarixda birorta suhbat yo'q"
+    },
+    "ruleShort": {
+      "R1": "savdo oldidan qo'ng'iroq yo'q",
+      "R2": "ikki savdo orasida yo'q",
+      "R3": "umuman gaplashilmagan"
+    },
+    "why": {
+      "never": "Bu mijoz bilan hech qachon gaplashilmagan",
+      "noCallBefore": "Savdodan oldin suhbat yo'q — oxirgisi {{count}} kun oldin, {{date}}",
+      "noCallWindow": "Savdo oldidagi {{count}} kunda suhbat yo'q",
+      "betweenSales": "{{from}} va {{to}} savdolari orasida birorta suhbat yo'q",
+      "ok": "{{date}} kuni suhbat bo'lgan — {{agent}}",
+      "okShort": "{{date}} kuni suhbat bo'lgan",
+      "genericCode": "Umumiy kod — mijoz aniqlanmaydi",
+      "noPhone": "Telefon raqami yo'q"
+    },
+    "attention": {
+      "title": "Diqqat talab qiladi",
+      "hint": "Ko'rilmagan shubhali savdolar — eng katta summadan boshlab"
+    },
+    "timeline": {
+      "title": "Xronologiya",
+      "window": "Savdo atrofidagi ±{{count}} kun",
+      "call": "Suhbat",
+      "thisSale": "shu savdo",
+      "noTime": "Savdoda vaqt yo'q, faqat sana. Shuning uchun o'sha kundagi suhbat savdodan oldin ko'rsatiladi — qoidalar ham aynan shunday hisoblaydi.",
+      "empty": "Bu savdo atrofidagi {{count}} kunda boshqa hodisa yo'q",
+      "more": "Ro'yxatga sig'magan yana {{count}} ta suhbat bor",
+      "noPhone": "Mijozning telefoni yo'q — xronologiya tuzib bo'lmaydi",
+      "decide": "Qaror qo'yish"
     },
     "review": {
       "new": "Ko'rilmagan",
@@ -476,8 +517,8 @@
       "other": "Boshqa"
     },
     "filter": {
-      "anyVerdict": "Har qanday xulosa",
-      "anyRule": "Har qanday qoida"
+      "anyVerdict": "Xulosa",
+      "anyRule": "Qoida"
     },
     "col": {
       "date": "Sana",
