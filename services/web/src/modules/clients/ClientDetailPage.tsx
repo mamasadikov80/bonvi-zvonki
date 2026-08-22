@@ -1,12 +1,18 @@
 /**
- * Bitta mijoz — kartochka va u bilan bo'lgan BARCHA suhbatlar.
+ * Bitta mijoz — kartochka va u bilan bo'lgan suhbatlar.
  *
- * ⚠️ DAVR FILTRI ATAYLAB YO'Q. Ro'yxatda davr tanlanadi (masalan «shu
- * oy»), bu yerda esa butun tarix ko'rinadi: kartochkaga kirishdan
- * maqsad — «bu mijoz bilan umuman nima bo'lgan?» degan savol.
- * Shuning uchun sarlavhada birinchi va oxirgi aloqa sanasi ochiq
- * yozilgan, ya'ni sonlar qaysi oraliqqa tegishli ekani ko'rinib
- * turadi va ro'yxatdagi son bilan farqi savol tug'dirmaydi.
+ * SUKUT BO'YICHA BUTUN TARIX. Kartochkaga kirishdan maqsad — «bu
+ * mijoz bilan umuman nima bo'lgan?» degan savol, shuning uchun
+ * boshlanishida hech narsa kesilmaydi.
+ *
+ * DAVR TANLASH ham bor: «qachon va kim bilan gaplashgan?» degan
+ * savolga javob shu. Tanlangan davr SAHIFANING HAMMASIGA tegadi —
+ * ko'rsatkichlar, «kim gaplashgan» va suhbatlar jadvali. Faqat
+ * jadvalni filtrlash chalkash bo'lardi: yuqoridagi 23 ta va
+ * pastdagi 4 ta qator bir-biriga zid ko'rinardi.
+ *
+ * ⚠️ Bo'sh davr «mijoz topilmadi» EMAS: backend nollar bilan javob
+ * qaytaradi va sahifa ochiq qoladi (`ClientRow.first_call_at`).
  */
 
 import { ArrowLeft, Clock, PhoneMissed, Star, Users } from 'lucide-react'
@@ -17,8 +23,14 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { CallTypeBadge } from '@/modules/calls/CallTypeBadge'
 import { DirectionMark } from '@/modules/calls/DirectionMark'
 import { useClient, useClientCalls } from '@/modules/clients/api'
+import { DateRangePicker } from '@/shared/ui/DateRangePicker'
 import { Page, PageHeader } from '@/shared/layout/Page'
-import { useDateFormat } from '@/shared/lib/date'
+import {
+  rangeToQuery,
+  resolvePreset,
+  useDateFormat,
+  type DateRange,
+} from '@/shared/lib/date'
 import {
   cn,
   formatDuration,
@@ -35,6 +47,7 @@ import {
   CardBody,
   CardHeader,
   EmptyState,
+  Segmented,
   Skeleton,
 } from '@/shared/ui/primitives'
 
@@ -46,9 +59,21 @@ export function ClientDetailPage() {
   const navigate = useNavigate()
   const fmt = useDateFormat()
 
+  /* «Butun tarix» yoki tanlangan davr. Ikki holat ALOHIDA
+     saqlanadi: «davr» rejimidan chiqib qaytgan odam o'zi tanlagan
+     oraliqni qayta terib o'tirmasin. */
+  const [mode, setMode] = useState<'all' | 'range'>('all')
+  const [range, setRange] = useState<DateRange>(() => resolvePreset('last30'))
+
+  const period = mode === 'range' ? rangeToQuery(range) : {}
+
   const [page, setPage] = useState(1)
-  const detail = useClient(clientKey)
-  const calls = useClientCalls(clientKey, { page, page_size: PAGE_SIZE })
+  const detail = useClient(clientKey, period)
+  const calls = useClientCalls(clientKey, {
+    ...period,
+    page,
+    page_size: PAGE_SIZE,
+  })
 
   if (detail.isLoading) {
     return (
@@ -84,16 +109,54 @@ export function ClientDetailPage() {
         /* Nomi bo'lmasa raqam sarlavha bo'ladi: «Noma'lum mijoz»
            degan yozuv hech narsa bermaydi, raqam esa taniladi */
         title={client.name || client.phone || client.key}
-        subtitle={t('clients.detail.period', {
-          from: fmt.date(new Date(client.first_call_at)),
-          to: fmt.date(new Date(client.last_call_at)),
-          count: client.calls_total,
-        })}
+        /* Sarlavha ostidagi qator SONLAR QAYSI ORALIQQA tegishli
+           ekanini aytadi. «Butun tarix» rejimida chegaralar ma'lumotdan
+           olinadi (birinchi va oxirgi aloqa), davr tanlanganda esa
+           tanlovning o'zidan — aks holda bo'sh davrda ko'rsatadigan
+           sana qolmasdi. */
+        subtitle={
+          mode === 'all' && client.first_call_at && client.last_call_at
+            ? t('clients.detail.period', {
+                from: fmt.date(new Date(client.first_call_at)),
+                to: fmt.date(new Date(client.last_call_at)),
+                count: client.calls_total,
+              })
+            : t('clients.detail.periodRange', {
+                from: fmt.date(range.from),
+                to: fmt.date(range.to),
+                count: client.calls_total,
+              })
+        }
         actions={
-          <Button variant="secondary" onClick={() => navigate('/clients')}>
-            <ArrowLeft className="size-4" />
-            {t('common.back')}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Davr — «qachon va kim bilan gaplashgan?» degan savol
+                uchun. Sukut «Butun tarix»: kartochka to'liq ochilsin,
+                keyin foydalanuvchi o'zi toraytiradi. */}
+            <Segmented
+              value={mode}
+              onChange={(value) => {
+                setMode(value as 'all' | 'range')
+                setPage(1)
+              }}
+              items={[
+                { value: 'all', label: t('clients.detail.all') },
+                { value: 'range', label: t('clients.detail.range') },
+              ]}
+            />
+            {mode === 'range' && (
+              <DateRangePicker
+                value={range}
+                onChange={(next) => {
+                  setRange(next)
+                  setPage(1)
+                }}
+              />
+            )}
+            <Button variant="secondary" onClick={() => navigate('/clients')}>
+              <ArrowLeft className="size-4" />
+              {t('common.back')}
+            </Button>
+          </div>
         }
       />
 
@@ -144,6 +207,9 @@ export function ClientDetailPage() {
           Mijoz bir necha xodim bilan gaplashgan bo'lishi mumkin —
           almashinuv, ta'til, hududning o'zgarishi. Rahbarning
           birinchi savoli aynan shu bo'ladi. */}
+      {/* Bo'sh davrda bu karta ko'rsatadigan narsa yo'q — o'rniga
+          pastdagi jadval sababini aytadi */}
+      {agents.length > 0 && (
       <Card>
         <CardHeader title={t('clients.agentsTitle')} hint={t('clients.agentsHint')} />
         <CardBody className="pt-0">
@@ -173,6 +239,7 @@ export function ClientDetailPage() {
           </div>
         </CardBody>
       </Card>
+      )}
 
       {/* ── Suhbatlar ─────────────────────────────────────── */}
       <Card>
@@ -195,7 +262,24 @@ export function ClientDetailPage() {
             ))}
           </CardBody>
         ) : !calls.data?.items.length ? (
-          <EmptyState message={t('table.empty')} />
+          /* Davr tanlangan bo'lsa bo'sh jadval «ma'lumot yo'q»
+             degani EMAS — shu oraliqda aloqa bo'lmagan. Chiqish
+             yo'li darhol taklif qilinadi. */
+          <EmptyState
+            message={t('table.empty')}
+            hint={mode === 'range' ? t('clients.detail.emptyPeriod') : undefined}
+            action={
+              mode === 'range'
+                ? {
+                    label: t('clients.detail.all'),
+                    onClick: () => {
+                      setMode('all')
+                      setPage(1)
+                    },
+                  }
+                : undefined
+            }
+          />
         ) : (
           <div className="scroll-x">
             <table className="w-full text-sm">

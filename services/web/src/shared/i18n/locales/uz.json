@@ -405,7 +405,11 @@
       "all": "Hammasi"
     },
     "detail": {
-      "period": "{{from}} — {{to}} · jami {{count}} ta qo'ng'iroq (butun tarix)"
+      "period": "{{from}} — {{to}} · jami {{count}} ta qo'ng'iroq (butun tarix)",
+      "all": "Butun tarix",
+      "range": "Davr",
+      "periodRange": "{{from}} — {{to}} · {{count}} ta qo'ng'iroq",
+      "emptyPeriod": "Tanlangan davrda bu mijoz bilan aloqa bo'lmagan. Davrni kengaytiring yoki butun tarixga qayting"
     }
   },
   "agents": {

@@ -263,6 +263,63 @@ async def test_savdo_xodimi_faqat_ozinikini_koradi(sales_client, dataset) -> Non
 
 
 @pytest.mark.asyncio
+async def test_bosh_davr_mijozni_yoqotmaydi(admin_client, dataset) -> None:
+    """⚠️ Tanlangan davrda aloqa bo'lmasa ham kartochka OCHILADI.
+
+    Kartochkada davr tanlanadi («qachon kim bilan gaplashgan?») va
+    bo'sh oraliq «bunday mijoz yo'q» degani emas. 404 qaytarilsa
+    foydalanuvchi davrni toraytirib mijozni butunlay yo'qotgandek
+    ko'rardi va bu nosozlikka o'xshardi.
+    """
+    data = await dataset(scores=[])
+    await _add_calls(data.agent_id, [{"phone": "901112233", "name": "Ali"}])
+
+    # Qo'ng'iroqlar bugungi kunda — o'tgan yilgi oraliqda hech nima yo'q
+    params = {
+        "agent_ids": str(data.agent_id),
+        "date_from": "2020-01-01T00:00:00Z",
+        "date_to": "2020-01-31T00:00:00Z",
+    }
+
+    response = await admin_client.get(f"{API}/clients/901112233", params=params)
+    assert response.status_code == 200, response.text
+    body = response.json()
+
+    assert body["client"]["name"] == "Ali", "nomi butun tarixdan olinadi"
+    assert body["client"]["calls_total"] == 0
+    assert body["client"]["last_call_at"] is None
+    assert body["agents"] == []
+
+    calls = await admin_client.get(f"{API}/clients/901112233/calls", params=params)
+    assert calls.json()["total"] == 0
+
+
+@pytest.mark.asyncio
+async def test_kartochkada_davr_ishlaydi(admin_client, dataset) -> None:
+    """Davr tanlanganda sonlar ham, xodimlar ro'yxati ham qisqaradi."""
+    data = await dataset(scores=[])
+    ids = await _add_calls(
+        data.agent_id,
+        [{"phone": "901112233"} for _ in range(3)],
+    )
+    assert len(ids) == 3
+
+    # `_add_calls` har qo'ng'iroqni bir soat orqaga suradi: eng eskisi
+    # ~3 soat oldin. Oxirgi ikki soat — ikkita qo'ng'iroq.
+    since = (datetime.now(UTC) - timedelta(hours=2, minutes=10)).isoformat()
+    params = {"agent_ids": str(data.agent_id), "date_from": since}
+
+    body = (await admin_client.get(f"{API}/clients/901112233", params=params)).json()
+    assert body["client"]["calls_total"] == 2
+    assert body["agents"][0]["calls"] == 2
+
+    calls = (
+        await admin_client.get(f"{API}/clients/901112233/calls", params=params)
+    ).json()
+    assert calls["total"] == 2
+
+
+@pytest.mark.asyncio
 async def test_notogri_kalit_tushunarli_xato(admin_client) -> None:
     """`/clients/undefined` bo'sh sahifa emas, aniq javob bersin."""
     response = await admin_client.get(f"{API}/clients/undefined")

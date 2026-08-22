@@ -24,7 +24,7 @@ ustuniga tayanadi va u RAQAM bo'yicha aniqlanadi
 (`calls/domain/routing.py`), ya'ni ishonchli.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from enum import StrEnum
 from uuid import UUID
@@ -104,8 +104,13 @@ class ClientRow:
     """Kiruvchi va javobsiz — «propushenniy». Faollik bo'limidagi
     ta'rif bilan bir xil."""
     talk_seconds: int
-    first_call_at: datetime
-    last_call_at: datetime
+    first_call_at: datetime | None
+    """`None` — tanlangan davrda bu mijoz bilan aloqa bo'lmagan.
+
+    Ro'yxatda bunday qator YO'Q (guruh kamida bitta qo'ng'iroqdan
+    tuziladi), lekin kartochkada bor: u yerda davr tanlanadi va bo'sh
+    davr «mijoz topilmadi» degani EMAS."""
+    last_call_at: datetime | None
     agent_count: int
     main_agent_id: UUID | None
     main_agent_name: str | None
@@ -394,8 +399,41 @@ class ClientDirectory:
         )
         aggregate = self._aggregate(one).where(_KEY == key).subquery()
         row = (await self._session.execute(select(aggregate))).first()
+
         if row is None:
-            return None
+            # ⚠️ TANLANGAN DAVRDA aloqa bo'lmagan bo'lishi mumkin — bu
+            # «bunday mijoz yo'q» degani EMAS. Sanani olib tashlab
+            # qayta qaraymiz: raqam umuman bo'lsa, kartochka ochiladi
+            # va nollar ko'rsatiladi. Aks holda davrni toraytirgan
+            # foydalanuvchi «mijoz topilmadi» degan xatoni ko'rardi.
+            #
+            # Xodim, hudud va `scope` shartlari SAQLANADI: savdo xodimi
+            # o'zi gaplashmagan mijozning kartochkasini ocholmasligi
+            # kerak.
+            outside = self._aggregate(
+                replace(one, since=None, until=None)
+            ).where(_KEY == key).subquery()
+            known = (await self._session.execute(select(outside))).first()
+            if known is None:
+                return None
+            return ClientRow(
+                key=known.key,
+                name=known.name,
+                phone=known.phone,
+                calls_total=0,
+                inbound=0,
+                outbound=0,
+                missed=0,
+                talk_seconds=0,
+                first_call_at=None,
+                last_call_at=None,
+                agent_count=0,
+                main_agent_id=None,
+                main_agent_name=None,
+                main_agent_color=None,
+                avg_score=None,
+                scored=0,
+            )
 
         agents = await self._agents({row.main_agent_id})
         return ClientRow(

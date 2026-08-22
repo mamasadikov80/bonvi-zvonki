@@ -243,7 +243,11 @@ export function ClientsPage() {
                     | 'good'
                     | 'warn'
                     | 'bad'
-                  const last = new Date(row.last_call_at)
+                  /* Ro'yxatda sana HAR DOIM bor — guruh kamida bitta
+                     qo'ng'iroqdan tuziladi. Tekshiruv turi uchun:
+                     maydon kartochka bilan UMUMIY va u yerda bo'sh
+                     davr bo'lishi mumkin. */
+                  const last = row.last_call_at ? new Date(row.last_call_at) : null
 
                   return (
                     <tr
@@ -311,8 +315,16 @@ export function ClientsPage() {
                       </td>
 
                       <td className="whitespace-nowrap px-4 py-3 text-right">
-                        <div className="tnum text-sm">{fmt.date(last)}</div>
-                        <div className="tnum text-2xs text-muted">{fmt.time(last)}</div>
+                        {last ? (
+                          <>
+                            <div className="tnum text-sm">{fmt.date(last)}</div>
+                            <div className="tnum text-2xs text-muted">
+                              {fmt.time(last)}
+                            </div>
+                          </>
+                        ) : (
+                          <span className="text-muted">—</span>
+                        )}
                       </td>
 
                       <td className="px-4 py-3">

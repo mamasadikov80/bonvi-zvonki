@@ -405,7 +405,11 @@
       "all": "All"
     },
     "detail": {
-      "period": "{{from}} — {{to}} · {{count}} calls in total (full history)"
+      "period": "{{from}} — {{to}} · {{count}} calls in total (full history)",
+      "all": "Full history",
+      "range": "Period",
+      "periodRange": "{{from}} — {{to}} · {{count}} calls",
+      "emptyPeriod": "No contact with this customer in the selected period. Widen the range or go back to the full history"
     }
   },
   "agents": {

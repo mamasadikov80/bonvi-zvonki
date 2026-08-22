@@ -30,8 +30,9 @@ export interface ClientRow {
   /** Kiruvchi va javobsiz — kompaniya javob bermagani */
   missed: number
   talk_seconds: number
-  first_call_at: string
-  last_call_at: string
+  /** `null` — kartochkada tanlangan davrda aloqa bo'lmagan */
+  first_call_at: string | null
+  last_call_at: string | null
   /** Nechta xodim gaplashgan */
   agent_count: number
   /** Eng ko'p gaplashgan xodim */
@@ -85,11 +86,23 @@ export interface ClientDetail {
   agents: ClientAgent[]
 }
 
-/** Bitta mijoz — BUTUN tarixi bo'yicha (davr filtri qo'yilmaydi) */
-export const useClient = (key: string | undefined) =>
+/** Kartochkadagi davr. Bo'sh — butun tarix. */
+export interface ClientPeriod {
+  date_from?: string
+  date_to?: string
+}
+
+/**
+ * Bitta mijoz. Davr berilmasa — butun tarix.
+ *
+ * ⚠️ Tanlangan davrda aloqa bo'lmasa ham javob KELADI: sonlari nol,
+ * sanalari bo'sh. «Mijoz topilmadi» degan xato faqat raqam umuman
+ * bo'lmaganda chiqadi — davrni toraytirish mijozni yo'qotmaydi.
+ */
+export const useClient = (key: string | undefined, period: ClientPeriod = {}) =>
   useQuery({
-    queryKey: ['clients', 'detail', key],
-    queryFn: () => api.get<ClientDetail>(`/clients/${key}`),
+    queryKey: ['clients', 'detail', key, period],
+    queryFn: () => api.get<ClientDetail>(`/clients/${key}`, period as never),
     enabled: Boolean(key),
   })
 
@@ -120,7 +133,7 @@ export interface PaginatedClientCalls {
 
 export const useClientCalls = (
   key: string | undefined,
-  query: { page?: number; page_size?: number } = {},
+  query: ClientPeriod & { page?: number; page_size?: number } = {},
 ) =>
   useQuery({
     queryKey: ['clients', 'calls', key, query],

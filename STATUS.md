@@ -153,10 +153,17 @@ hudud filtri), `GET /clients/{kalit}` (yig'ma + gaplashgan xodimlar),
 `GET /clients/{kalit}/calls`. Ruxsat qo'ng'iroqlarniki — bu o'sha
 ma'lumotning boshqa kesimi; SALES faqat o'zi gaplashganlarni ko'radi.
 
-Kartochkada davr filtri ATAYLAB yo'q: u yerda butun tarix ko'rinadi va
-sarlavhada birinchi–oxirgi aloqa sanasi yozib qo'yiladi.
+Kartochka sukut bo'yicha BUTUN TARIXNI ko'rsatadi, lekin «Davr»
+tugmasi bilan oraliq tanlash mumkin — «bu mijoz bilan qachon va kim
+gaplashgan?» degan savol uchun. Tanlangan davr sahifaning hammasiga
+tegadi: ko'rsatkichlar, «kim gaplashgan» va suhbatlar jadvali.
+Sarlavha ostida sonlar qaysi oraliqqa tegishli ekani yozilib turadi.
 
-10 ta yangi test (`modules/clients/tests`).
+⚠️ Bo'sh davr «mijoz topilmadi» EMAS: backend nollar bilan javob
+qaytaradi (nomi butun tarixdan olinadi) va sahifa ochiq qoladi.
+Aks holda davrni toraytirgan odam mijozni yo'qotgandek ko'rardi.
+
+12 ta yangi test (`modules/clients/tests`).
 
 ### Shu seansda o'zgargani — qo'ng'iroq turi va baholash yengilligi
 

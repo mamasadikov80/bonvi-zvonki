@@ -78,8 +78,9 @@ class ClientListItem(BaseModel):
     missed: int
     """Kiruvchi va javobsiz — kompaniya javob bermagani."""
     talk_seconds: int
-    first_call_at: datetime
-    last_call_at: datetime
+    first_call_at: datetime | None
+    """`None` — tanlangan davrda aloqa bo'lmagan (faqat kartochkada)."""
+    last_call_at: datetime | None
     agent_count: int
     main_agent_id: UUID | None
     main_agent_name: str | None
