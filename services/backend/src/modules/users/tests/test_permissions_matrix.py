@@ -45,6 +45,9 @@ KUTILGAN: dict[Role, set[str]] = {
         "analytics:read", "analytics:read_all",
         "rubric:read", "rubric:write",
         "settings:read", "settings:write",
+        # «Savdo nazorati» — xodim ustidan tekshiruv, shuning uchun
+        # faqat ADMIN va MANAGER da (`docs/savdo-nazorati.md`, 7.1)
+        "sales:read", "sales:review", "sales:import",
     },
     Role.MANAGER: {
         "agents:read",
@@ -57,6 +60,7 @@ KUTILGAN: dict[Role, set[str]] = {
         "analytics:read", "analytics:read_all",
         "rubric:read",
         "settings:read",
+        "sales:read", "sales:review", "sales:import",
     },
     Role.SALES: {
         "calls:read:own",

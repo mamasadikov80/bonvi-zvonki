@@ -32,6 +32,7 @@ ADMIN_KUTILGAN = {
     "analytics:read", "analytics:read_all",
     "rubric:read", "rubric:write",
     "settings:read", "settings:write",
+    "sales:read", "sales:review", "sales:import",
 }
 
 MANAGER_KUTILGAN = {
@@ -45,6 +46,7 @@ MANAGER_KUTILGAN = {
     "analytics:read", "analytics:read_all",
     "rubric:read",
     "settings:read",
+    "sales:read", "sales:review", "sales:import",
 }
 
 SALES_KUTILGAN = {

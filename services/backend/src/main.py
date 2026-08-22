@@ -30,6 +30,8 @@ from src.modules.pipeline.infrastructure import models as _pipeline  # noqa: F40
 from src.modules.pipeline.presentation.router import router as pipeline_router
 from src.modules.regions.infrastructure import models as _regions  # noqa: F401
 from src.modules.regions.presentation.router import router as regions_router
+from src.modules.sales.infrastructure import models as _sales  # noqa: F401
+from src.modules.sales.presentation.router import router as sales_router
 from src.modules.scoring.infrastructure import models as _scoring  # noqa: F401
 from src.modules.scoring.infrastructure import rubric_models as _rubric  # noqa: F401
 from src.modules.scoring.presentation.router import router as rubric_router
@@ -128,3 +130,4 @@ app.include_router(groups_router, prefix=api)
 app.include_router(regions_router, prefix=api)
 app.include_router(settings_router, prefix=api)
 app.include_router(pipeline_router, prefix=api)
+app.include_router(sales_router, prefix=api)

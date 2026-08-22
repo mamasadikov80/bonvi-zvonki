@@ -166,6 +166,30 @@ def normalize_branch(name: str | None) -> str:
 # unga qaraydi.
 WALK_IN_PARTNER_CODE = "К00001"
 
+#: UMUMIY KODLAR — bitta kod ostida KO'P odam turadi.
+#
+# Bularda «shu mijoz bilan gaplashilganmi?» degan savolning O'ZI
+# ma'nosiz: kod bitta, mijoz esa yuzta. Shuning uchun qoidalar ularni
+# tekshirmaydi va savdo `not_checkable` toifasiga tushadi
+# (`skip_reason = "generic_code"`). ⚠️ Bu «toza» degani EMAS —
+# uchinchi toifa ekranda alohida son bo'lib turadi.
+#
+# O'lchandi (22.08.2026, 1039 savdo):
+#   · `К00001` «Разовый клиент»                    — 152 savdo
+#   · `К02370` «Салл сентр»                        —  20 savdo
+#   · `К03223` «Разовый клиент — Тошкент телефон савдо» — 2 savdo
+#
+# ⚠️ Harf `К` — KIRILL (U+041A), lotin `K` emas. SAP shunday yozadi;
+# lotin harfi bilan yozilsa ro'yxat JIMGINA ishlamay qolardi.
+#
+# Yangi umumiy kod paydo bo'lsa — shu ro'yxatga qo'shiladi. Uni
+# sozlamaga chiqarish ko'rib chiqilgan va rad etilgan: ro'yxat yiliga
+# bir marta o'zgaradi, sozlama esa noto'g'ri to'ldirilsa butun bo'limni
+# jimgina bo'shatib qo'yardi.
+GENERIC_PARTNER_CODES: frozenset[str] = frozenset(
+    {WALK_IN_PARTNER_CODE, "К02370", "К03223"}
+)
+
 #: `Код группы` ning mijoz degan qiymati. Qolganlari (yetkazib
 #: beruvchi, taʼsischi, transport…) nazoratdan tashqarida.
 CLIENT_GROUP = "Клиенты"

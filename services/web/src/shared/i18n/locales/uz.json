@@ -22,7 +22,8 @@
     "groups": "Telegram guruhlari",
     "regions": "Hududlar",
     "activity": "Faollik",
-    "clients": "Mijozlar"
+    "clients": "Mijozlar",
+    "sales": "Savdo nazorati"
   },
   "auth": {
     "login": "Kirish",
@@ -410,6 +411,174 @@
       "range": "Davr",
       "periodRange": "{{from}} — {{to}} · {{count}} ta qo'ng'iroq",
       "emptyPeriod": "Tanlangan davrda bu mijoz bilan aloqa bo'lmagan. Davrni kengaytiring yoki butun tarixga qayting"
+    }
+  },
+  "sales": {
+    "title": "Savdo nazorati",
+    "subtitle": "Bu ro'yxat ayblamaydi. U savdo rasmiy suhbatdan keyin bo'lganini tekshirish uchun navbat tayyorlaydi — qaror rahbarniki.",
+    "found": "{{count}} ta savdo",
+    "perPage": "{{count}} ta",
+    "searchPlaceholder": "Mijoz nomi, kodi yoki telefoni bo'yicha qidirish",
+    "emptyHint": "Bu davr va filtr bo'yicha savdo topilmadi — davrni kengaytiring yoki SAP eksportini yuklang",
+    "emptySearchHint": "Bu so'rov bo'yicha savdo topilmadi. Mijoz kodini (К02711) yoki telefonni bo'shliqsiz yozib ko'ring",
+    "emptyQueueHint": "Tekshiruv navbati bo'sh — bu davrdagi shubhali savdolarning hammasi ko'rib chiqilgan",
+    "noAgent": "Xodim biriktirilmagan",
+    "noCallEver": "Umuman yo'q",
+    "noPreviousSale": "Oldingi savdo yo'q",
+    "daysBefore": "savdodan {{count}} kun oldin",
+    "betweenCalls": "Oldingi savdo {{date}} — orasida {{count}} ta suhbat",
+    "callsTotal": "Butun tarixda {{count}} ta suhbat",
+    "windowNote": "Savdoda vaqt yo'q, faqat sana. Shuning uchun qo'ng'iroq savdo kuni va undan oldingi {{count}} kun ichida qidiriladi.",
+    "branchCount": "{{count}} ta filial",
+    "summaryTitle": "Toifalar bo'yicha",
+    "total": "Jami",
+    "verdict": {
+      "ok": "Toza",
+      "suspicious": "Shubhali",
+      "not_checkable": "Tekshirib bo'lmadi"
+    },
+    "verdictHint": {
+      "ok": "Savdo oldidan suhbat bo'lgan",
+      "suspicious": "Qoida buzilgan — tekshirish mumkin edi",
+      "not_checkable": "Tekshirishning iloji yo'q. Bu «toza» degani EMAS"
+    },
+    "skip": {
+      "generic_code": "Umumiy kod: bitta kod ostida ko'p mijoz («Разовый клиент»)",
+      "no_phone": "Telefon yo'q yoki ishonchsiz — qo'ng'iroqlar bilan bog'lab bo'lmaydi"
+    },
+    "rule": {
+      "R1": "Savdo oldidan qo'ng'iroq yo'q",
+      "R1window": "Savdo oldidan qo'ng'iroq yo'q — savdo kuni va undan oldingi {{count}} kun ichida",
+      "R2": "Ikki savdo orasida qo'ng'iroq yo'q",
+      "R3": "Umuman gaplashilmagan — butun tarixda birorta suhbat yo'q"
+    },
+    "review": {
+      "new": "Ko'rilmagan",
+      "justified": "Oqlandi",
+      "confirmed": "Haqiqatan shubhali"
+    },
+    "reason": {
+      "walk_in": "Kelib oldi",
+      "telegram": "Telegram / SMS",
+      "visit": "Vizit",
+      "contract": "Shartnoma",
+      "other": "Boshqa"
+    },
+    "filter": {
+      "anyVerdict": "Har qanday xulosa",
+      "anyRule": "Har qanday qoida"
+    },
+    "col": {
+      "date": "Sana",
+      "operation": "Operatsiya №",
+      "client": "Mijoz",
+      "code": "Mijoz kodi",
+      "phone": "Telefon",
+      "branch": "Filial",
+      "branchAgent": "Filial / xodim",
+      "direction": "Yo'nalish",
+      "agent": "Xodim",
+      "amountUsd": "Summa ($)",
+      "amount": "Summa (hujjat valyutasida)",
+      "currency": "Valyuta",
+      "verdict": "Xulosa",
+      "skipReason": "Nega tekshirib bo'lmadi",
+      "rules": "Buzilgan qoidalar",
+      "window": "Oyna (kun)",
+      "lastCall": "Oxirgi qo'ng'iroq",
+      "lastCallAgent": "Kim bilan",
+      "daysBefore": "Savdodan necha kun oldin",
+      "previousSale": "Oldingi savdo",
+      "callsBetween": "Orasidagi suhbatlar",
+      "callsTotal": "Jami suhbatlar",
+      "decision": "Qaror",
+      "decisionReason": "Qaror sababi",
+      "note": "Izoh",
+      "reviewedBy": "Kim ko'rdi",
+      "reviewedAt": "Qachon",
+      "sales": "Savdolar"
+    },
+    "decision": {
+      "title": "Savdo bo'yicha qaror",
+      "question": "Sizning qaroringiz",
+      "justifiedHint": "Kelishuv tizimdan tashqarida bo'lgan, lekin sababi bor",
+      "confirmedHint": "Tushuntirib bo'lmaydi — tekshirishni davom ettirish kerak",
+      "reason": "Sabab",
+      "reasonHint": "Sabablar taqsimoti tizimning kamchiligini ko'rsatadi: savdolarning yarmi Telegram orqali kelishilsa, muammo xodimda emas.",
+      "note": "Izoh (ixtiyoriy)",
+      "noteRequired": "Izoh — majburiy",
+      "notePlaceholder": "Nima aniqlandi va endi nima qilinadi",
+      "noteCount": "{{count}} / {{limit}} belgi",
+      "previous": "Oldingi qaror: {{who}} · {{when}}",
+      "save": "Qarorni saqlash",
+      "saving": "Saqlanmoqda…"
+    },
+    "import": {
+      "button": "Excel yuklash",
+      "title": "SAP eksportini yuklash",
+      "hint": "Registr, katalog yoki balans — tizim o'zi tanaydi",
+      "doneTitle": "Import tugadi",
+      "choose": "Faylni tanlang",
+      "chooseHint": "Faqat .xlsx. Fayl turi sarlavhaga qarab aniqlanadi",
+      "size": "{{value}} MB",
+      "kindNote": "Uchala eksport ham shu yerdan yuklanadi: operatsiyalar registri («savdo kunlik»), kontragentlar katalogi va mijoz balansi hisoboti. Turini tanlash shart emas — u sarlavha ustunlariga qarab aniqlanadi.",
+      "idempotentNote": "Bir faylni ikki marta yuklash xavfsiz: qatorlar operatsiya raqami bo'yicha yangilanadi, nusxa paydo bo'lmaydi. Tartib ham muhim emas — katalog keyin kelsa, savdolarning bog'lanishi tiklanadi.",
+      "start": "Yuklash",
+      "running": "Yuklanmoqda…",
+      "runningHint": "Fayl katta bo'lsa bir necha soniya ketishi mumkin",
+      "failed": "Faylni o'qib bo'lmadi",
+      "another": "Yana fayl yuklash",
+      "created": "{{count}} ta yangi qator qo'shildi",
+      "kindLine": "{{kind}} · {{file}}",
+      "stat": {
+        "read": "O'qildi",
+        "created": "Yangi",
+        "updated": "Yangilandi",
+        "skipped": "Tashlab ketildi",
+        "unknown_partner": "Kodi topilmadi",
+        "unknown_op_type": "Turi tanilmadi"
+      },
+      "linkedSales": "{{count}} ta savdoning bog'lanishi tiklandi — katalog kelgach telefonlar joyiga tushdi",
+      "phonesFilled": "{{count}} ta telefon balans hisobotidan to'ldirildi",
+      "unmatchedBranches": "{{count}} ta filial xodimga biriktirilmagan",
+      "unmatchedHint": "«Filiallar» oynasida qo'lda biriktiring — busiz bu filiallarning savdolari xodimsiz qoladi",
+      "kind": {
+        "register": "Operatsiyalar registri",
+        "catalog": "Kontragentlar katalogi",
+        "balance": "Balans hisoboti"
+      }
+    },
+    "branches": {
+      "button": "Filiallar",
+      "title": "Filial → xodim xaritasi",
+      "hint": "SAP da sotuvchining ismi yo'q — savdo xodimga aynan shu xarita orqali bog'lanadi",
+      "filter": "Filial",
+      "branch": "SAP filiali",
+      "match": "Moslik",
+      "auto": "Avtomatik",
+      "autoHint": "Nom bo'yicha aynan tenglik. Keyingi import buni yangilashi mumkin",
+      "manual": "Qo'lda",
+      "manualHint": "Rahbar qo'ygan — importlar bunga tegmaydi",
+      "none": "Biriktirilmagan",
+      "noneHint": "Bu filialning savdolari xodimsiz qoladi, lekin baribir nazoratda turadi",
+      "unassigned": "{{total}} filialdan {{count}} tasi xodimga biriktirilmagan",
+      "allAssigned": "Hamma {{count}} filial xodimga biriktirilgan",
+      "empty": "Filiallar ro'yxati bo'sh",
+      "emptyHint": "Ro'yxat savdo registri yuklangandan keyin to'ladi",
+      "manualNote": "Qo'lda o'zgartirilgan qator «Qo'lda» belgisini oladi va keyingi importlarda o'zgarmaydi. Xodimni bo'sh qoldirish ham to'g'ri tanlov: ba'zi filiallar bizning xodimimizga tegishli emas."
+    },
+    "export": {
+      "button": "Excelga yuklash",
+      "hint": "Ekrandagi filtr bo'yicha — barcha qatorlar va dalil ustunlari bilan",
+      "running": "Tayyorlanmoqda…",
+      "failed": "Faylni tayyorlab bo'lmadi — qaytadan urinib ko'ring",
+      "file": "savdo-nazorati",
+      "period": "{{from}} — {{to}}",
+      "generated": "Yuklab olindi: {{value}}",
+      "rows": "{{count}} ta qator",
+      "search": "Qidiruv: {{value}}",
+      "sheetSales": "Savdolar",
+      "sheetSummary": "Yig'ma"
     }
   },
   "agents": {

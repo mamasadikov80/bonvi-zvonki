@@ -22,7 +22,8 @@
     "groups": "Telegram groups",
     "regions": "Regions",
     "activity": "Activity",
-    "clients": "Clients"
+    "clients": "Clients",
+    "sales": "Sales control"
   },
   "auth": {
     "login": "Sign in",
@@ -410,6 +411,174 @@
       "range": "Period",
       "periodRange": "{{from}} — {{to}} · {{count}} calls",
       "emptyPeriod": "No contact with this customer in the selected period. Widen the range or go back to the full history"
+    }
+  },
+  "sales": {
+    "title": "Sales control",
+    "subtitle": "This list does not accuse. It builds a review queue: whether a sale followed a recorded conversation — the decision is the manager's.",
+    "found": "{{count}} sales",
+    "perPage": "{{count}}",
+    "searchPlaceholder": "Search by client name, code or phone",
+    "emptyHint": "No sales for this period and filter — widen the period or upload a SAP export",
+    "emptySearchHint": "Nothing found for this query. Try the client code (К02711) or the phone without spaces",
+    "emptyQueueHint": "The review queue is empty — every suspicious sale in this period has been reviewed",
+    "noAgent": "No agent linked",
+    "noCallEver": "Never",
+    "noPreviousSale": "No previous sale",
+    "daysBefore": "{{count}} days before the sale",
+    "betweenCalls": "Previous sale {{date}} — {{count}} calls in between",
+    "callsTotal": "{{count}} calls in the whole history",
+    "windowNote": "A sale has no time, only a date. So a call is looked for on the sale day and the {{count}} days before it.",
+    "branchCount": "{{count}} branches",
+    "summaryTitle": "By category",
+    "total": "Total",
+    "verdict": {
+      "ok": "Clean",
+      "suspicious": "Suspicious",
+      "not_checkable": "Not checkable"
+    },
+    "verdictHint": {
+      "ok": "There was a conversation before the sale",
+      "suspicious": "A rule was broken — checking was possible",
+      "not_checkable": "Cannot be checked. This does NOT mean clean"
+    },
+    "skip": {
+      "generic_code": "Generic code: many clients under one code («Разовый клиент»)",
+      "no_phone": "No phone or an unreliable one — cannot be matched to calls"
+    },
+    "rule": {
+      "R1": "No call before the sale",
+      "R1window": "No call before the sale — on the sale day and the {{count}} days before it",
+      "R2": "No call between two sales",
+      "R3": "Never talked — not a single call in the whole history"
+    },
+    "review": {
+      "new": "Not reviewed",
+      "justified": "Justified",
+      "confirmed": "Confirmed suspicious"
+    },
+    "reason": {
+      "walk_in": "Walked in",
+      "telegram": "Telegram / SMS",
+      "visit": "Visit",
+      "contract": "Contract",
+      "other": "Other"
+    },
+    "filter": {
+      "anyVerdict": "Any verdict",
+      "anyRule": "Any rule"
+    },
+    "col": {
+      "date": "Date",
+      "operation": "Operation no.",
+      "client": "Client",
+      "code": "Client code",
+      "phone": "Phone",
+      "branch": "Branch",
+      "branchAgent": "Branch / agent",
+      "direction": "Direction",
+      "agent": "Agent",
+      "amountUsd": "Amount ($)",
+      "amount": "Amount (document currency)",
+      "currency": "Currency",
+      "verdict": "Verdict",
+      "skipReason": "Why not checkable",
+      "rules": "Broken rules",
+      "window": "Window (days)",
+      "lastCall": "Last call",
+      "lastCallAgent": "With whom",
+      "daysBefore": "Days before the sale",
+      "previousSale": "Previous sale",
+      "callsBetween": "Calls in between",
+      "callsTotal": "Calls in total",
+      "decision": "Decision",
+      "decisionReason": "Decision reason",
+      "note": "Note",
+      "reviewedBy": "Reviewed by",
+      "reviewedAt": "Reviewed at",
+      "sales": "Sales"
+    },
+    "decision": {
+      "title": "Decision on the sale",
+      "question": "Your decision",
+      "justifiedHint": "The deal happened outside the system, but there is a reason",
+      "confirmedHint": "No explanation — the check has to continue",
+      "reason": "Reason",
+      "reasonHint": "The mix of reasons shows the system's own gaps: if half the deals are agreed in Telegram, the problem is not the agent.",
+      "note": "Note (optional)",
+      "noteRequired": "Note — required",
+      "notePlaceholder": "What was found and what happens next",
+      "noteCount": "{{count}} / {{limit}} characters",
+      "previous": "Previous decision: {{who}} · {{when}}",
+      "save": "Save decision",
+      "saving": "Saving…"
+    },
+    "import": {
+      "button": "Upload Excel",
+      "title": "Upload a SAP export",
+      "hint": "Register, catalogue or balance — the system detects it itself",
+      "doneTitle": "Import finished",
+      "choose": "Choose a file",
+      "chooseHint": "Only .xlsx. The file type is detected from the headers",
+      "size": "{{value}} MB",
+      "kindNote": "All three exports are uploaded here: the operations register («savdo kunlik»), the counterparty catalogue and the client balance report. You do not pick the type — it is detected from the header columns.",
+      "idempotentNote": "Uploading the same file twice is safe: rows are updated by operation number, no duplicates appear. Order does not matter either — if the catalogue arrives later, the sales links are restored.",
+      "start": "Upload",
+      "running": "Uploading…",
+      "runningHint": "A large file can take a few seconds",
+      "failed": "The file could not be read",
+      "another": "Upload another file",
+      "created": "{{count}} new rows added",
+      "kindLine": "{{kind}} · {{file}}",
+      "stat": {
+        "read": "Read",
+        "created": "New",
+        "updated": "Updated",
+        "skipped": "Skipped",
+        "unknown_partner": "Code not found",
+        "unknown_op_type": "Type not recognised"
+      },
+      "linkedSales": "Links restored for {{count}} sales — the catalogue put the phones back in place",
+      "phonesFilled": "{{count}} phones filled in from the balance report",
+      "unmatchedBranches": "{{count}} branches have no agent",
+      "unmatchedHint": "Link them by hand in the «Branches» dialog — otherwise sales of those branches stay without an agent",
+      "kind": {
+        "register": "Operations register",
+        "catalog": "Counterparty catalogue",
+        "balance": "Balance report"
+      }
+    },
+    "branches": {
+      "button": "Branches",
+      "title": "Branch → agent map",
+      "hint": "SAP has no salesperson name — a sale is linked to an agent through this very map",
+      "filter": "Branch",
+      "branch": "SAP branch",
+      "match": "Match",
+      "auto": "Automatic",
+      "autoHint": "Exact match by name. A later import may update it",
+      "manual": "Manual",
+      "manualHint": "Set by the manager — imports leave it alone",
+      "none": "Unassigned",
+      "noneHint": "Sales of this branch stay without an agent, but remain under control",
+      "unassigned": "{{count}} of {{total}} branches have no agent",
+      "allAssigned": "All {{count}} branches are linked to agents",
+      "empty": "The branch list is empty",
+      "emptyHint": "The list fills up after the sales register is uploaded",
+      "manualNote": "A manually changed row gets the «Manual» mark and later imports leave it alone. Leaving the agent empty is a valid choice too: some branches do not belong to our staff."
+    },
+    "export": {
+      "button": "Export to Excel",
+      "hint": "By the filter on screen — every row, with the evidence columns",
+      "running": "Preparing…",
+      "failed": "The file could not be prepared — try again",
+      "file": "sales-control",
+      "period": "{{from}} — {{to}}",
+      "generated": "Generated: {{value}}",
+      "rows": "{{count}} rows",
+      "search": "Search: {{value}}",
+      "sheetSales": "Sales",
+      "sheetSummary": "Summary"
     }
   },
   "agents": {

@@ -14,6 +14,7 @@ import {
   Phone,
   PhoneCall,
   Settings,
+  ShieldAlert,
   Star,
   Sun,
   Users,
@@ -86,6 +87,20 @@ const NAV: NavItem[] = [
     labelKey: 'nav.clients',
     icon: Contact,
     anyOf: ['calls:read', 'calls:read:own'],
+    group: 'nav.groupAnalyse',
+  },
+  {
+    // Savdo nazorati — «Tahlil» guruhida, Mijozlardan KEYIN. Tartib
+    // savolga qarab: qancha ishlangan → kim ishladi → kim bilan
+    // ishlandi → va nihoyat: ish rasmiy kelishuv bilan bo'ldimi.
+    //
+    // ⚠️ Ruxsat qo'ng'iroqlarnikidan ALOHIDA (`sales:read`). Bu
+    // ro'yxat xodim ustidan tekshiruv: uni xodimning o'zi ham,
+    // televizordagi monitor ham ko'rmasligi kerak.
+    to: '/sales',
+    labelKey: 'nav.sales',
+    icon: ShieldAlert,
+    anyOf: ['sales:read'],
     group: 'nav.groupAnalyse',
   },
   {

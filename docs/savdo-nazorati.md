@@ -352,6 +352,11 @@ class ComplianceService:
 `SETTINGS_REGISTRY` ga bitta qator: `sales.window_days` (son, sukut 3)
 — «Savdo oldidan qo'ng'iroq qidiriladigan kunlar soni».
 
+Kategoriya: yangi `SettingCategory.SALES` («Savdo nazorati»). Mavjud
+sakkiztasining birortasi ham mos kelmadi (`scoring` — rubrika
+chegaralari, ya'ni butunlay boshqa mavzu), sozlamalar sahifasi esa
+kategoriyalarni dinamik chizadi — yangi bo'lim o'zi paydo bo'ladi.
+
 ### Ruxsatlar (yangi)
 
 `sales:read` (ro'yxat va hisobot), `sales:review` (qaror qo'yish),
@@ -365,7 +370,7 @@ ko'rmasligi kerak.
 | Metod | Yo'l | Ruxsat | Nima qaytaradi |
 | --- | --- | --- | --- |
 | POST | `/sales/import` | `sales:import` | `ImportReport` (multipart fayl) |
-| GET | `/sales/compliance` | `sales:read` | `{items, total, page, page_size}` |
+| GET | `/sales/compliance` | `sales:read` | `{items, total, page, page_size, window_days}` |
 | GET | `/sales/compliance/summary` | `sales:read` | toifalar soni + xodimlar kesimi |
 | POST | `/sales/{id}/review` | `sales:review` | qaror qo'yadi |
 | GET | `/sales/branches` | `sales:read` | filial → xodim xaritasi + dalil |
@@ -390,13 +395,92 @@ ko'rmasligi kerak.
 }
 ```
 
+### 7.2 Qurilishda aniqlangan tafsilotlar (2-bosqich)
+
+Yuqoridagi nomlar O'ZGARMADI. Quyidagilar shartnomada ochiq
+qoldirilgan joylar — mexanizm yozilganda hal qilindi va shu yerga
+yozib qo'yildi, chunki ekran ham, Telegram xabari ham (3-bosqich)
+shularga tayanadi.
+
+1. **Qo'ng'iroq sanasi mahalliy vaqtda o'qiladi** (`Asia/Tashkent`).
+   Savdoda faqat sana bor, qo'ng'iroqda esa UTC dagi vaqt: soat 2 dagi
+   suhbat UTC bo'yicha «kechagi» bo'lib qolardi va oyna bir kunga
+   siljirdi. Faollik hisoboti bilan bir xil qoida.
+2. **R2 oralig'i: oldingi savdo KUNIDAGI suhbat sanalmaydi**
+   (`prev < kun ≤ savdo kuni`). U oldingi savdoni oqlagan bo'lishi
+   mumkin, ya'ni bitta suhbat ikki savdoni oqlab yuborardi. Shu savdo
+   kuni esa KIRADI — savdo vaqti noma'lum.
+3. **Bir kunda ikki savdo bo'lsa**, «oldingi savdo» o'sha kunning
+   o'zi EMAS, undan oldingi sana. Aks holda har ikkinchi savdo
+   avtomatik R2 bo'lib chiqardi.
+4. **Faqat `call_type = 'sales'`.** Ichki suhbat R1 ni oqlamaydi;
+   `calls_total` ham faqat shu turni sanaydi.
+5. **`R3` uchun «butun tarix» — davrsiz**, savdodan keyingi suhbatlar
+   ham hisobga olinadi. R3 eng qattiq signal, shuning uchun eng
+   ehtiyotkor shaklda.
+6. **`/sales/compliance` sukut bo'yicha `review=new`** qaytaradi —
+   tekshiruv navbati shu. To'liq ro'yxat: `review=new` |
+   `justified` | `confirmed` | **`all`**. `all` ATAYLAB alohida
+   qiymat, `review=` ni bo'sh qoldirish emas: rahbarga «hamma
+   qarorlarni ko'rsat» kerak bo'ladi (oqlanganlar statistikasi shu
+   ro'yxatdan o'qiladi), lekin bu aniq TANLOV bo'lsin — bo'sh
+   parametr «foydalanuvchi tanlamadi» degani va o'shanda sukut
+   baribir `new`.
+7. **`/sales/compliance/summary` `verdict`/`rule`/`review` filtrlarini
+   OLMAYDI**: uchala toifaning ham soni ekranda turishi kerak. Davr,
+   xodim, filial va qidiruv esa ta'sir qiladi.
+8. **Javobga `window_days` qo'shildi** (ro'yxatda ham, hisobotda ham):
+   «savdo kuni + oldingi N kun» degani ekranda ochiq yozilishi kerak,
+   frontend esa sozlamani alohida so'rab olmasin.
+9. **`PUT /sales/branches/{branch}` savdolarni ham ko'chiradi.**
+   `backfill_sale_links()` faqat BO'SH `agent_id` ni to'ldiradi, ya'ni
+   xato biriktirish tuzatilganda eski savdolar eski xodimda qolib
+   ketardi. Filial → xodim xaritasi yagona manba, savdolar unga
+   ergashadi.
+10. **`POST /sales/import`**: faqat `.xlsx`, eng ko'pi 20 MB, xato —
+    422 `sales_bad_file`. `openpyxl` faylni butunlay xotiraga ochadi.
+11. **Umumiy kodlar ro'yxati** — `sales/domain/entities.py` dagi
+    `GENERIC_PARTNER_CODES` (kirill `К`, lotin `K` emas). Sozlamaga
+    chiqarilmadi: yiliga bir marta o'zgaradi, noto'g'ri to'ldirilgan
+    sozlama esa butun bo'limni jimgina bo'shatib qo'yardi.
+
+**Haqiqiy ma'lumotdagi natija (22.08.2026, oyna 3 kun, 1 039 savdo,
+qo'ng'iroq tarixi atigi 1 oylik):** `ok` 407 (39%), `suspicious` 443
+(43%), `not_checkable` 189 (18%). Qoidalar bo'yicha: R1 403, R2 248,
+R3 265 (bir savdo bir necha qoidani buzishi mumkin).
+
+⚠️ 43% — ROSTGA O'XSHAMAYDI va bu kutilgan edi: 9-bo'limdagi ochiq
+savol aynan shu. Savdo mijozlarining 38% i bazada yo'q, chunki
+qo'ng'iroq tarixi bir oylik. Shubhalilarning katta qismi shundan.
+**1 yillik sinxronizatsiya ishga tushmaguncha bu ro'yxatni rahbarga
+ko'rsatib bo'lmaydi** — u ishonchni yo'qotardi.
+
+⚠️ **Xizmat qatlamini sinash YETARLI EMAS.** Uchidan-uchiga sinovda
+oltita endpointdan uchtasi 500 qaytardi — javob `slots=True`
+dataclass'dan `vars()` bilan yig'ilardi, unda esa `__dict__` yo'q
+(`dataclasses.asdict()` kerak). Xizmat qatlami testlari (861 ta)
+yashil turgan edi: bunday xato FAQAT HTTP chegarasida, Pydantic
+javobni yig'ayotganda chiqadi. Shuning uchun endi oltala yo'l uchun
+ham alohida HTTP testi bor (`test_compliance.py`, «HTTP chegarasi»
+bo'limi) va yangi endpoint shusiz qo'shilmaydi.
+
+**Unumdorlik (o'lchandi 22.08.2026, `EXPLAIN ANALYZE`).** Sahifa ham,
+hisobot ham BITTA so'rov: `calls` jadvali bir marta skanerlanadi,
+qolgani hash join. 1 039 savdo — sahifa 53 ms, hisobot 26 ms;
+17 663 savdoda (6 oylik eksportga taqlid) — sahifa 0.4 s, hisobot
+0.2 s. ⚠️ Tekshiruv holati filtri (`review`) ATAYLAB xulosa
+hisoblangandan KEYIN qo'llanadi: `LEFT JOIN … IS NULL` ni so'rov
+boshiga qo'yganda PostgreSQL qatorlar sonini 200 barobar kam
+baholab, `evidence` uchun nested loop tanladi va so'rov 0.24 s dan
+0.78 s ga chiqdi.
+
 ## 8. Bosqichlar
 
 | Bosqich | Nima | Holat |
 | --- | --- | --- |
-| 1 | Ma'lumot qatlami: jadvallar, import, katalog, filial→xodim | **bajarildi** (`POST /sales/import` — 2-bosqichda) |
-| 2 | Qoidalar mexanizmi + tekshiruv navbati + «Savdo nazorati» sahifasi | navbatda |
-| 3 | Mijoz kartochkasida savdo tarixi + Telegram xabari | navbatda |
+| 1 | Ma'lumot qatlami: jadvallar, import, katalog, filial→xodim | **bajarildi** |
+| 2 | Qoidalar mexanizmi + tekshiruv navbati + API | **bajarildi** (`compliance.py`, `branches.py`, `review.py`, `presentation/router.py`); «Savdo nazorati» sahifasi — frontendda |
+| 3 | Mijoz kartochkasida savdo tarixi + Telegram xabari | navbatda (`ComplianceService.for_client` tayyor) |
 
 ## 9. Ochiq savollar
 

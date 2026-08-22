@@ -15,6 +15,7 @@ import { GroupsPage } from '@/modules/groups/GroupsPage'
 import { RegionsPage } from '@/modules/regions/RegionsPage'
 import { ActivityPage } from '@/modules/activity/ActivityPage'
 import { RubricPage } from '@/modules/rubric/RubricPage'
+import { SalesControlPage } from '@/modules/sales/SalesControlPage'
 import { SettingsPage } from '@/modules/settings/SettingsPage'
 import { SurveyWebAppPage } from '@/modules/survey-webapp/SurveyWebAppPage'
 import { SurveysPage } from '@/modules/surveys/SurveysPage'
@@ -125,6 +126,20 @@ export function AppRouter() {
           element={
             <Gate anyOf={['calls:read', 'calls:read:own']}>
               <ClientDetailPage />
+            </Gate>
+          }
+        />
+
+        {/* Savdo nazorati — `sales:read`. Bu ro'yxat XODIM USTIDAN
+            tekshiruv, shuning uchun ruxsat qo'ng'iroqlarnikidan
+            ALOHIDA: SALES va VIEWER rollarida u yo'q va bo'lmaydi
+            (shartnoma, 7.1). Menyuni yashirishning o'zi yetarli
+            emas — manzilni qo'lda yozgan xodim sahifani ochib olardi. */}
+        <Route
+          path="sales"
+          element={
+            <Gate anyOf={['sales:read']}>
+              <SalesControlPage />
             </Gate>
           }
         />
