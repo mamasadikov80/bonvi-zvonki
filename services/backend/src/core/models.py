@@ -34,6 +34,7 @@ from src.modules.clients.infrastructure import models as _clients  # noqa: F401
 from src.modules.groups.infrastructure import models as _groups  # noqa: F401
 from src.modules.pipeline.infrastructure import models as _pipeline  # noqa: F401
 from src.modules.regions.infrastructure import models as _regions  # noqa: F401
+from src.modules.sales.infrastructure import models as _sales  # noqa: F401
 from src.modules.scoring.infrastructure import models as _scoring  # noqa: F401
 from src.modules.scoring.infrastructure import rubric_models as _rubric  # noqa: F401
 from src.modules.settings.infrastructure import models as _settings  # noqa: F401

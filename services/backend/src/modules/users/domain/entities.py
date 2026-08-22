@@ -48,6 +48,7 @@ ROLE_PERMISSIONS: dict[Role, set[str]] = {
         "analytics:read", "analytics:read_all",
         "rubric:read", "rubric:write",
         "settings:read", "settings:write",
+        "sales:read", "sales:review", "sales:import",
     },
     Role.MANAGER: {
         "agents:read",
@@ -60,6 +61,7 @@ ROLE_PERMISSIONS: dict[Role, set[str]] = {
         "analytics:read", "analytics:read_all",
         "rubric:read",
         "settings:read",
+        "sales:read", "sales:review", "sales:import",
         # agents:write / agents:sync / groups:write / regions:write — sozlamalar
         # orqali beriladi (access.manager_manages_agents), pastdagi
         # resolve_permissions() ga qarang
@@ -73,10 +75,21 @@ ROLE_PERMISSIONS: dict[Role, set[str]] = {
         "regions:read",
         # surveys:read:own — sozlamalar orqali beriladi
         # (access.sales_client_rating)
+        #
+        # ⚠️ `sales:*` BU YERDA YO'Q va `:own` ko'rinishi ham yo'q.
+        # «Savdo nazorati» — xodimning O'ZI ustidan olib boriladigan
+        # tekshiruv (`docs/savdo-nazorati.md`, 7.1). Xodim qaysi
+        # savdosi shubhali deb belgilanganini ko'rsa, tekshiruvdan
+        # oldin tayyorgarlik ko'rish imkoni tug'iladi va ro'yxatning
+        # ma'nosi qolmaydi.
     },
     Role.VIEWER: {
         "analytics:read",
         "regions:read",
+        # ⚠️ `sales:*` yo'q: VIEWER — savdo xonasidagi umumiy monitor.
+        # Shubhali savdolar ro'yxati devorga chiqib turadigan ma'lumot
+        # emas: u ayblov emas, TEKSHIRUV NAVBATI va faqat rahbar
+        # ko'radi.
     },
 }
 

@@ -48,6 +48,16 @@ watchfiles==1.2.0
 # ── Rasm qayta ishlash (avatar) ───────────────────────────────
 pillow==11.1.0
 
+# ── Excel (savdo nazorati importi) ────────────────────────────
+# SAP eksportlari `.xlsx` bo'lib keladi: operatsiyalar registri,
+# kontragentlar katalogi va balans hisoboti.
+#
+# ⚠️ Paket ilgari konteynerga QO'LDA o'rnatilgan edi, shu bois ishlab
+# turgan muhitda hammasi joyida ko'rinardi. Obraz qayta yig'ilganda esa
+# import `ModuleNotFoundError: openpyxl` bilan yiqilardi — ya'ni
+# nosozlik faqat deploy paytida, boshqa mashinada chiqardi.
+openpyxl==3.1.5
+
 # ── Yordamchi ─────────────────────────────────────────────────
 python-dateutil==2.9.0.post0
 structlog==24.4.0

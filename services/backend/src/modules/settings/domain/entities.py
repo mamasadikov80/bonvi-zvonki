@@ -27,6 +27,7 @@ class SettingCategory(StrEnum):
     STORAGE = "storage"  # audio arxiv
     SCORING = "scoring"  # rubrika chegaralari
     SURVEY = "survey"  # so'rovnoma kadansi
+    SALES = "sales"  # savdo nazorati qoidalari
 
 
 CATEGORY_LABEL_UZ: dict[SettingCategory, str] = {
@@ -38,6 +39,7 @@ CATEGORY_LABEL_UZ: dict[SettingCategory, str] = {
     SettingCategory.STORAGE: "Audio arxiv",
     SettingCategory.SCORING: "Baholash qoidalari",
     SettingCategory.SURVEY: "Client so'rovnomasi",
+    SettingCategory.SALES: "Savdo nazorati",
 }
 
 FieldType = Literal["string", "secret", "number", "boolean", "select"]
@@ -224,6 +226,22 @@ SETTINGS_REGISTRY: list[SettingSpec] = [
         type="number",
         default=50,
         hint_uz="Shu balldan past baho menejerga darhol xabar qiladi.",
+    ),
+    # ── Savdo nazorati ────────────────────────────────────────
+    SettingSpec(
+        key="sales.window_days",
+        category=SettingCategory.SALES,
+        label_uz="Savdo oldidan qo'ng'iroq qidiriladigan kunlar soni",
+        type="number",
+        default=3,
+        hint_uz=(
+            "Savdo rasmiy kelishuv bilan bo'lganini shu oyna aniqlaydi: "
+            "savdo kuni va undan oldingi shuncha kun ichida mijoz bilan "
+            "suhbat bo'lgan bo'lsa — savdo «toza». SAP savdo VAQTINI "
+            "bermaydi (faqat sana), shuning uchun oyna soat bilan emas, "
+            "kun bilan o'lchanadi. Oyna kattalashsa shubhali savdo "
+            "kamayadi, lekin haqiqiy chetlanish ham yashirinadi."
+        ),
     ),
     # ── So'rovnoma ────────────────────────────────────────────
     SettingSpec(

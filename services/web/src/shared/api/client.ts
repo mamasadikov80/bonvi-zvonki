@@ -92,23 +92,16 @@ function buildUrl(path: string, query?: Query): string {
   return url.toString()
 }
 
-async function request<T>(
-  method: string,
-  path: string,
-  options: { query?: Query; body?: unknown } = {},
-): Promise<T> {
-  const token = tokenStore.get()
-
-  const response = await fetch(buildUrl(path, options.query), {
-    method,
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: options.body ? JSON.stringify(options.body) : undefined,
-  })
-
+/**
+ * Javobni yagona qoida bo'yicha o'qiydi: 401 — logindan chiqarish,
+ * xato — `ApiError`, 204 — bo'sh natija.
+ *
+ * Alohida funksiya bo'lgani ataylab: JSON va fayl (`multipart`)
+ * so'rovlari faqat TANASI bilan farq qiladi, javobni esa ikkalasi
+ * ham bir xil o'qishi kerak. Ilgari fayl yuklash (avatar) buni
+ * o'zicha takrorlab yozgan edi va u yerda 401 ushlanmasdi.
+ */
+async function unwrap<T>(response: Response): Promise<T> {
   if (response.status === 401) {
     tokenStore.clear()
     if (!isPublicPath(location.pathname)) location.assign('/login')
@@ -132,10 +125,59 @@ async function request<T>(
   return (await response.json()) as T
 }
 
+async function request<T>(
+  method: string,
+  path: string,
+  options: { query?: Query; body?: unknown } = {},
+): Promise<T> {
+  const token = tokenStore.get()
+
+  const response = await fetch(buildUrl(path, options.query), {
+    method,
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: options.body ? JSON.stringify(options.body) : undefined,
+  })
+
+  return unwrap<T>(response)
+}
+
+/**
+ * Fayl yuborish — `multipart/form-data`.
+ *
+ * ⚠️ `Content-Type` QO'LDA YOZILMAYDI va yozilmasligi kerak.
+ * `multipart/form-data` sarlavhasining ichida `boundary=…` bo'ladi;
+ * uni faqat brauzer biladi, chunki chegara satrini `FormData` ning
+ * o'zi tasodifiy tanlaydi. Sarlavhani qo'lda yozsak chegara yo'qoladi
+ * va server tanani umuman ajrata olmaydi — natija «422: field
+ * required», ya'ni «fayl yubordim, lekin fayl yo'q» degan tushunarsiz
+ * xato. Shuning uchun `headers` da faqat token qoladi.
+ */
+export async function postForm<T>(
+  path: string,
+  form: FormData,
+  query?: Query,
+): Promise<T> {
+  const token = tokenStore.get()
+
+  const response = await fetch(buildUrl(path, query), {
+    method: 'POST',
+    credentials: 'include',
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    body: form,
+  })
+
+  return unwrap<T>(response)
+}
+
 export const api = {
   get: <T>(path: string, query?: Query) => request<T>('GET', path, { query }),
   post: <T>(path: string, body?: unknown) => request<T>('POST', path, { body }),
   put: <T>(path: string, body?: unknown) => request<T>('PUT', path, { body }),
   patch: <T>(path: string, body?: unknown) => request<T>('PATCH', path, { body }),
   delete: <T>(path: string) => request<T>('DELETE', path),
+  postForm,
 }
