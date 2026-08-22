@@ -105,12 +105,10 @@ export function SalesControlPage() {
   const [branches, setBranches] = useState<string[]>([])
   const [verdict, setVerdict] = useState<SaleVerdict | ''>('')
   const [rule, setRule] = useState<SaleRule | ''>('')
-  /* Sukut — KO'RILMAGANLAR: bu tekshiruv navbati, ko'rib bo'lingan
-     savdo unda turishi kerak emas (shartnoma, 5-bo'lim).
-
-     ⚠️ «Hammasi» varianti yo'q — sabab `api.ts` da: backendda
-     parametrning sukut qiymati `new`, ya'ni uni yubormaslik
-     «hammasi» emas, «ko'rilmaganlar» degani. */
+  /* Sukut — KO'RILMAGANLAR: bu tekshiruv navbati va sahifa ochilganda
+     birinchi navbatda KUTAYOTGAN ish ko'rinishi kerak (shartnoma,
+     5-bo'lim). Qaror qo'yilgan savdo yo'qolmaydi: «Oqlangan»,
+     «Haqiqatan shubhali» yoki «Hammasi» bilan qaytib ko'riladi. */
   const [review, setReview] = useState<SaleReviewFilter>('new')
 
   const [search, setSearch] = useState('')
@@ -392,10 +390,10 @@ export function SalesControlPage() {
             ))}
           </Select>
 
-          {/* Qaror holati. Uchta qiymat — «hammasi» YO'Q va bu
-              ataylab: backendda sukut qiymat `new`, ya'ni bo'sh
-              tanlov «hammasi» emas, «ko'rilmaganlar» bo'lardi va
-              yorliq yolg'on gapirardi. */}
+          {/* Qaror holati. «Hammasi» ham bor va u ANIQ qiymat
+              (`review=all`) yuboradi: parametrni tashlab ketish
+              backendda «ko'rilmaganlar» degani bo'lardi va yorliq
+              yolg'on gapirardi. */}
           <Select
             compact
             icon={ClipboardCheck}
@@ -653,11 +651,44 @@ export function SalesControlPage() {
                       )}
                     </td>
 
+                    {/* Qaror TO'LIQ ko'rinadi: sabab, KIM qo'ygani,
+                        QACHON va izohi bilan.
+
+                        Faqat yorliq qoldirilsa («Oqlandi») ro'yxat
+                        savolga javob bermas edi: rahbar bir oydan
+                        keyin qaytganda «kim oqlagan va nima deb
+                        yozgan?» deb har bir qatorni ochib ko'rishga
+                        majbur bo'lardi — ya'ni tekshiruv tarixi
+                        bor, lekin ko'rinmas.
+
+                        Izoh 500 belgigacha bo'lishi mumkin, shuning
+                        uchun ikki qatorga qisqaradi; to'lig'i esa
+                        maslahatnomada va qaror modalida turadi. */}
                     <td className="px-4 py-3">
                       <ReviewBadge review={row.review} />
-                      {row.review?.reason && (
-                        <div className="mt-1 text-2xs text-muted">
-                          {t(`sales.reason.${row.review.reason}`)}
+                      {row.review && (
+                        <div className="mt-1 max-w-[220px] space-y-0.5 text-2xs leading-relaxed text-muted">
+                          {row.review.reason && (
+                            <div>{t(`sales.reason.${row.review.reason}`)}</div>
+                          )}
+                          {(row.review.reviewed_by || row.review.reviewed_at) && (
+                            <div className="truncate">
+                              {t('sales.decision.by', {
+                                who: row.review.reviewed_by ?? '—',
+                                when: row.review.reviewed_at
+                                  ? fmt.date(row.review.reviewed_at)
+                                  : '—',
+                              })}
+                            </div>
+                          )}
+                          {row.review.note && (
+                            <div
+                              className="line-clamp-2 text-text/80"
+                              title={row.review.note}
+                            >
+                              «{row.review.note}»
+                            </div>
+                          )}
                         </div>
                       )}
                     </td>

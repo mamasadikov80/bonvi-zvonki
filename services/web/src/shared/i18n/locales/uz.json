@@ -455,7 +455,8 @@
     "review": {
       "new": "Ko'rilmagan",
       "justified": "Oqlandi",
-      "confirmed": "Haqiqatan shubhali"
+      "confirmed": "Haqiqatan shubhali",
+      "all": "Hammasi"
     },
     "reason": {
       "walk_in": "Kelib oldi",
@@ -511,7 +512,8 @@
       "noteCount": "{{count}} / {{limit}} belgi",
       "previous": "Oldingi qaror: {{who}} · {{when}}",
       "save": "Qarorni saqlash",
-      "saving": "Saqlanmoqda…"
+      "saving": "Saqlanmoqda…",
+      "by": "Ko'rdi: {{who}} · {{when}}"
     },
     "import": {
       "button": "Excel yuklash",

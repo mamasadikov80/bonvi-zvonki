@@ -53,16 +53,21 @@ export const REVIEW_REASONS: SaleReviewReason[] = [
 /**
  * Ro'yxat filtridagi qaror holati.
  *
- * ⚠️ «HAMMASI» VARIANTI YO'Q va bu ataylab. Backendda parametrning
- * SUKUT qiymati `new`, ya'ni uni yubormaslik «hammasi» degani emas —
- * «ko'rilmaganlar» degani. Ekranga «Har qanday holat» degan tanlov
- * qo'yilsa, u tanlangan holda ham faqat ko'rilmaganlar chiqardi:
- * yorlig'i yolg'on gapiradigan filtr — bo'lmagan filtrdan yomonroq.
- * Backend `review=all` kabi aniq qiymat qo'shsa, bu yerga qo'shiladi.
+ * ⚠️ «Hammasi» — ANIQ QIYMAT (`all`), parametrni yubormaslik EMAS.
+ * Backendda sukut qiymat `new`, ya'ni bo'sh so'rov «hammasi» degani
+ * emas, «ko'rilmaganlar» degani. Shuning uchun tanlov har doim ochiq
+ * yuboriladi; aks holda ekrandagi yorliq yolg'on gapirardi —
+ * «Hammasi» deb turib faqat ko'rilmaganlar chiqardi.
  */
-export type SaleReviewFilter = 'new' | SaleReviewStatus
+export type SaleReviewFilter = 'new' | 'all' | SaleReviewStatus
 
-export const REVIEW_STATES: SaleReviewFilter[] = ['new', 'justified', 'confirmed']
+/** Tanlagichdagi tartib: avval navbat, keyin arxiv, oxirida hammasi */
+export const REVIEW_STATES: SaleReviewFilter[] = [
+  'new',
+  'justified',
+  'confirmed',
+  'all',
+]
 
 /**
  * Saralanadigan ustunlar — backenddagi `ComplianceSort` ning aynan

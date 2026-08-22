@@ -455,7 +455,8 @@
     "review": {
       "new": "Not reviewed",
       "justified": "Justified",
-      "confirmed": "Confirmed suspicious"
+      "confirmed": "Confirmed suspicious",
+      "all": "All"
     },
     "reason": {
       "walk_in": "Walked in",
@@ -511,7 +512,8 @@
       "noteCount": "{{count}} / {{limit}} characters",
       "previous": "Previous decision: {{who}} · {{when}}",
       "save": "Save decision",
-      "saving": "Saving…"
+      "saving": "Saving…",
+      "by": "Reviewed by {{who}} · {{when}}"
     },
     "import": {
       "button": "Upload Excel",
