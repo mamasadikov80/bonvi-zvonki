@@ -21,7 +21,8 @@
     "myRatings": "Mening baholarim",
     "groups": "Telegram guruhlari",
     "regions": "Hududlar",
-    "activity": "Faollik"
+    "activity": "Faollik",
+    "clients": "Mijozlar"
   },
   "auth": {
     "login": "Kirish",
@@ -365,6 +366,41 @@
       "personal": "Ishga aloqasi yo'q suhbat",
       "other": "Boshqa",
       "no_content": "Baholash uchun mazmun yo'q"
+    }
+  },
+  "clients": {
+    "title": "Mijozlar",
+    "subtitle": "Kim bilan qancha gaplashilgan — raqam bo'yicha yig'ilgan ro'yxat",
+    "found": "{{count}} ta mijoz",
+    "searchPlaceholder": "Ism yoki telefon raqami bo'yicha qidirish",
+    "perPage": "{{count}} ta",
+    "colClient": "Mijoz",
+    "colAgent": "Xodim",
+    "colCalls": "Qo'ng'iroq",
+    "colMissed": "Javobsiz",
+    "colTalk": "Suhbat",
+    "colScore": "O'rtacha ball",
+    "colLastCall": "Oxirgi aloqa",
+    "inOut": "{{inbound}} kiruvchi · {{outbound}} chiquvchi",
+    "missedHint": "Mijoz qo'ng'iroq qilib javob olmagani",
+    "talkHint": "Jami gaplashilgan vaqt",
+    "scoredOf": "{{total}} tadan {{scored}} tasi baholangan",
+    "emptyHint": "Bu davrda birorta ham qo'ng'iroq yo'q — davrni kengaytiring yoki MoyZvonki'dan qo'ng'iroqlarni torting",
+    "emptySearchHint": "Bu so'rov bo'yicha mijoz topilmadi. Raqamni bo'shliqsiz yozib ko'ring",
+    "clearSearch": "Qidiruvni tozalash",
+    "notFound": "Bu raqam bo'yicha qo'ng'iroq topilmadi",
+    "agentsTitle": "Kim gaplashgan",
+    "agentsHint": "Bitta mijoz bir necha xodim bilan gaplashgan bo'lishi mumkin. Xodimni bosib uning sahifasiga o'tiladi",
+    "agentCalls": "{{count}} ta qo'ng'iroq",
+    "callsTitle": "Barcha suhbatlar",
+    "callsHint": "Yangisidan eskisiga. Qatorni bosib suhbat sahifasi ochiladi",
+    "scope": {
+      "clients": "Mijozlar",
+      "internal": "Ichki raqamlar",
+      "all": "Hammasi"
+    },
+    "detail": {
+      "period": "{{from}} — {{to}} · jami {{count}} ta qo'ng'iroq (butun tarix)"
     }
   },
   "agents": {

@@ -65,6 +65,28 @@ def require_permission(permission: str) -> Callable:
     return checker
 
 
+def require_any_permission(*permissions: str) -> Callable:
+    """Sanab o'tilganlardan BITTASI yetarli bo'lgan tekshiruv.
+
+    Qo'ng'iroq ma'lumotiga ikki xil huquq bilan kelinadi: ADMIN/MANAGER
+    da `calls:read`, SALES da esa faqat `calls:read:own`. Yagona
+    `require_permission("calls:read")` savdo xodimini ham to'sib
+    qo'yardi, shuning uchun qamrovni ruxsat emas, so'rovning o'zi
+    toraytiradi (`Role.SALES` sharti endpointda).
+
+    Qo'ng'iroqlar va mijozlar bo'limlari BIR XIL shartdan o'tadi:
+    mijoz ro'yxati o'sha qo'ng'iroqlarning boshqa kesimi, ya'ni ikki
+    joyda ikki xil ruxsat bo'lishi mumkin emas.
+    """
+
+    async def checker(user: CurrentUser) -> User:
+        if not any(has_permission(user.role, name) for name in permissions):
+            raise ForbiddenError("Ruxsat yetarli emas: " + " yoki ".join(permissions))
+        return user
+
+    return checker
+
+
 def require_roles(*roles: Role) -> Callable:
     async def checker(user: CurrentUser) -> User:
         if user.role not in roles:

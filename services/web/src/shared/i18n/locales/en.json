@@ -21,7 +21,8 @@
     "myRatings": "My ratings",
     "groups": "Telegram groups",
     "regions": "Regions",
-    "activity": "Activity"
+    "activity": "Activity",
+    "clients": "Clients"
   },
   "auth": {
     "login": "Sign in",
@@ -365,6 +366,41 @@
       "personal": "Not work related",
       "other": "Other",
       "no_content": "No content to score"
+    }
+  },
+  "clients": {
+    "title": "Clients",
+    "subtitle": "Who was talked to and how much — grouped by phone number",
+    "found": "{{count}} clients",
+    "searchPlaceholder": "Search by name or phone number",
+    "perPage": "{{count}}",
+    "colClient": "Client",
+    "colAgent": "Agent",
+    "colCalls": "Calls",
+    "colMissed": "Missed",
+    "colTalk": "Talk time",
+    "colScore": "Average score",
+    "colLastCall": "Last contact",
+    "inOut": "{{inbound}} in · {{outbound}} out",
+    "missedHint": "Client called and got no answer",
+    "talkHint": "Total time on calls",
+    "scoredOf": "{{scored}} of {{total}} scored",
+    "emptyHint": "No calls in this period — widen the range or pull calls from MoyZvonki",
+    "emptySearchHint": "No client matches this query. Try the number without spaces",
+    "clearSearch": "Clear search",
+    "notFound": "No calls found for this number",
+    "agentsTitle": "Who talked",
+    "agentsHint": "One client may have been handled by several agents. Click an agent to open their page",
+    "agentCalls": "{{count}} calls",
+    "callsTitle": "All conversations",
+    "callsHint": "Newest first. Click a row to open the call",
+    "scope": {
+      "clients": "Clients",
+      "internal": "Internal numbers",
+      "all": "All"
+    },
+    "detail": {
+      "period": "{{from}} — {{to}} · {{count}} calls in total (full history)"
     }
   },
   "agents": {

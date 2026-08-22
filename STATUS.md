@@ -125,6 +125,39 @@ bo'lsa botni o'zi qayta ishga tushiradi — admin panelda almashtirsangiz
 `docker compose restart` **kerak emas**. Noto'g'ri token kiritilsa bot o'chib
 qolmaydi, o'zbekcha ogohlantirish chiqarib to'g'risini kutadi.
 
+### Shu seansda qo'shilgani — Mijozlar bo'limi
+
+Tizim shu paytgacha faqat XODIM darajasida kesilardi. Endi menyuda
+«Mijozlar» bor va u boshqa savolga javob beradi: kim bilan qancha
+gaplashilgan, nechtasiga javob berilmagan, oxirgi aloqa qachon bo'lgan.
+
+**Mijoz alohida yozuv EMAS.** `clients` katalogi bo'sh (0 qator) va
+`calls.client_id` ning hech birida qiymat yo'q — katalog boshqa vazifa
+uchun (Telegram so'rovnomasi, unda hudud majburiy). MoyZvonki esa har
+qo'ng'iroqda raqamni va ko'pincha nomni beradi, shuning uchun ro'yxat
+QO'NG'IROQLARDAN yig'iladi. Kalit — raqamning oxirgi 9 tasi (tizimda
+hamma joyda shunday), ya'ni «+998 90 111-22-33», «998901112233» va
+«901112233» bitta mijoz. Hozir 2 238 ta mijoz chiqadi.
+
+Ichki suhbatlar sukut bo'yicha kirmaydi (hamkasb mijoz emas), lekin
+tanlagichda «Ichki raqamlar» va «Hammasi» variantlari bor — filtr
+yashirin emas.
+
+⚠️ `*700` bilan tugaydigan omborlar hozir MIJOZ bo'lib ko'rinadi
+(«Asosiy Ombor Zakas» — 870 qo'ng'iroq). Bu tasodif emas: suffiks
+qoidasi sozlamada ataylab yoqilmagan. Kerak bo'lsa
+`moizvonki.internal_numbers` ga `*700` yozilsa, ular «ichki» ga o'tadi.
+
+Endpointlar: `GET /clients` (sahifalash, saralash, qidiruv, davr/xodim/
+hudud filtri), `GET /clients/{kalit}` (yig'ma + gaplashgan xodimlar),
+`GET /clients/{kalit}/calls`. Ruxsat qo'ng'iroqlarniki — bu o'sha
+ma'lumotning boshqa kesimi; SALES faqat o'zi gaplashganlarni ko'radi.
+
+Kartochkada davr filtri ATAYLAB yo'q: u yerda butun tarix ko'rinadi va
+sarlavhada birinchi–oxirgi aloqa sanasi yozib qo'yiladi.
+
+10 ta yangi test (`modules/clients/tests`).
+
 ### Shu seansda o'zgargani — qo'ng'iroq turi va baholash yengilligi
 
 **1. Turlar ikkitaga tushdi: `sales` va `internal`.** Ilgari AI transkript

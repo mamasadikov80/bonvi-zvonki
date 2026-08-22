@@ -1,5 +1,6 @@
 import {
   ArrowLeft,
+  Contact,
   LayoutDashboard,
   ListChecks,
   LogOut,
@@ -74,6 +75,17 @@ const NAV: NavItem[] = [
     labelKey: 'nav.agents',
     icon: Users,
     anyOf: ['agents:read'],
+    group: 'nav.groupAnalyse',
+  },
+  {
+    // Mijozlar — «Tahlil» guruhining OXIRIDA. Tartib savolga qarab:
+    // qancha ishlangan (Faollik) → kim ishladi (Xodimlar) → kim bilan
+    // ishlandi (Mijozlar). Ruxsat qo'ng'iroqlarniki: bu o'sha
+    // ma'lumot, faqat raqam bo'yicha yig'ilgan boshqa kesimi.
+    to: '/clients',
+    labelKey: 'nav.clients',
+    icon: Contact,
+    anyOf: ['calls:read', 'calls:read:own'],
     group: 'nav.groupAnalyse',
   },
   {

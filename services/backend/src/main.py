@@ -22,6 +22,7 @@ from src.modules.analytics.presentation.router import router as analytics_router
 from src.modules.auth.presentation.router import router as auth_router
 from src.modules.calls.infrastructure import models as _calls  # noqa: F401
 from src.modules.calls.presentation.router import router as calls_router
+from src.modules.clients.presentation.router import router as clients_router
 from src.modules.clients.infrastructure import models as _clients  # noqa: F401
 from src.modules.groups.infrastructure import models as _groups  # noqa: F401
 from src.modules.groups.presentation.router import router as groups_router
@@ -119,6 +120,7 @@ app.include_router(auth_router, prefix=api)
 app.include_router(users_router, prefix=api)
 app.include_router(agents_router, prefix=api)
 app.include_router(calls_router, prefix=api)
+app.include_router(clients_router, prefix=api)
 app.include_router(analytics_router, prefix=api)
 app.include_router(rubric_router, prefix=api)
 app.include_router(surveys_router, prefix=api)

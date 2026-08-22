@@ -7,6 +7,8 @@ import { AgentsPage } from '@/modules/agents/AgentsPage'
 import { useAuth } from '@/modules/auth/store'
 import { CallDetailPage } from '@/modules/calls/CallDetailPage'
 import { CallsPage } from '@/modules/calls/CallsPage'
+import { ClientDetailPage } from '@/modules/clients/ClientDetailPage'
+import { ClientsPage } from '@/modules/clients/ClientsPage'
 import { DashboardPage } from '@/modules/dashboard/DashboardPage'
 import { MonitorPage } from '@/modules/dashboard/MonitorPage'
 import { GroupsPage } from '@/modules/groups/GroupsPage'
@@ -102,6 +104,27 @@ export function AppRouter() {
           element={
             <Gate anyOf={['calls:read', 'calls:read:own']}>
               <CallDetailPage />
+            </Gate>
+          }
+        />
+
+        {/* Mijozlar — qo'ng'iroqlar bilan BIR XIL ruxsat: bu
+            o'sha ma'lumotning boshqa kesimi (raqam bo'yicha
+            yig'ilgan), ya'ni ikki joyda ikki xil shart bo'lishi
+            mumkin emas. */}
+        <Route
+          path="clients"
+          element={
+            <Gate anyOf={['calls:read', 'calls:read:own']}>
+              <ClientsPage />
+            </Gate>
+          }
+        />
+        <Route
+          path="clients/:clientKey"
+          element={
+            <Gate anyOf={['calls:read', 'calls:read:own']}>
+              <ClientDetailPage />
             </Gate>
           }
         />

@@ -13,7 +13,12 @@ from pydantic import BaseModel, Field
 from sqlalchemy import false, func, nullslast, or_, select
 from sqlalchemy.orm import aliased
 
-from src.core.deps import CurrentUser, DbSession, require_permission
+from src.core.deps import (
+    CurrentUser,
+    DbSession,
+    require_any_permission,
+    require_permission,
+)
 from src.core.exceptions import ForbiddenError, NotFoundError, ValidationError
 from src.modules.agents.infrastructure.models import AgentModel
 from src.modules.calls.infrastructure.models import CallModel
@@ -31,24 +36,6 @@ from src.modules.scoring.infrastructure.rubric_models import RubricModel
 from src.modules.users.domain.entities import Role, User, has_permission
 
 router = APIRouter(prefix="/calls", tags=["Calls"])
-
-
-def require_any_permission(*permissions: str) -> Callable:
-    """Sanab o'tilganlardan BITTASI yetarli bo'lgan tekshiruv.
-
-    Qo'ng'iroqlarga ikki xil huquq bilan kelinadi: ADMIN/MANAGER da
-    `calls:read`, SALES da esa faqat `calls:read:own`. Yagona
-    `require_permission("calls:read")` savdo xodimini ham to'sib
-    qo'yardi, shuning uchun qamrovni ruxsat emas, so'rovning o'zi
-    toraytiradi (`Role.SALES` sharti pastda).
-    """
-
-    async def checker(user: CurrentUser) -> User:
-        if not any(has_permission(user.role, name) for name in permissions):
-            raise ForbiddenError("Ruxsat yetarli emas: " + " yoki ".join(permissions))
-        return user
-
-    return checker
 
 
 #: Qo'ng'iroq ma'lumotini o'qish uchun kirish sharti. Yozuv — eng nozik
