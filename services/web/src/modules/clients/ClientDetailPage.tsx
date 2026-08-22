@@ -202,6 +202,7 @@ export function ClientDetailPage() {
               <thead>
                 <tr className="border-b border-border text-left">
                   <Th>{t('table.date')}</Th>
+                  <Th>{t('clients.colDirection')}</Th>
                   <Th>{t('table.agent')}</Th>
                   <Th right>{t('table.duration')}</Th>
                   <Th right>{t('table.score')}</Th>
@@ -224,16 +225,49 @@ export function ClientDetailPage() {
                       className="cursor-pointer border-b border-border/60 transition-colors last:border-0 hover:bg-surface-2/60"
                     >
                       <td className="whitespace-nowrap px-4 py-3">
+                        <div className="tnum text-sm">{fmt.date(started)}</div>
+                        <div className="tnum text-2xs text-muted">
+                          {fmt.time(started)}
+                        </div>
+                      </td>
+
+                      {/* ⚠️ YO'NALISH SO'Z BILAN YOZILADI.
+                          Belgining o'zi yetarli emas edi: «kiruvchi»
+                          va «chiquvchi» butun tizimda XODIM tomonidan
+                          o'qiladi, mijoz kartochkasida esa o'sha
+                          so'zlar teskari tushunilardi («menga
+                          kiruvchimi yoki mijozgami?»). Endi ikkala
+                          tomon ham nomi bilan turadi. */}
+                      <td className="whitespace-nowrap px-4 py-3">
                         <div className="flex items-center gap-2">
                           <DirectionMark
                             direction={call.direction}
                             answered={call.answered}
                           />
                           <div>
-                            <div className="tnum text-sm">{fmt.date(started)}</div>
-                            <div className="tnum text-2xs text-muted">
-                              {fmt.time(started)}
+                            <div className="text-sm">
+                              {call.direction === 'inbound'
+                                ? t('clients.dirFromClient')
+                                : t('clients.dirToClient')}
                             </div>
+                            {/* Javob bo'lmagan bo'lsa — KIM ko'tarmagani.
+                                Mijoz ko'tarmagani xodimning aybi emas,
+                                shuning uchun u kulrang, kompaniya javob
+                                bermagani esa qizil. */}
+                            {call.answered === false && (
+                              <div
+                                className={cn(
+                                  'text-2xs',
+                                  call.direction === 'inbound'
+                                    ? 'text-bad'
+                                    : 'text-muted',
+                                )}
+                              >
+                                {call.direction === 'inbound'
+                                  ? t('clients.dirNoAnswer')
+                                  : t('clients.dirNotPicked')}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </td>
