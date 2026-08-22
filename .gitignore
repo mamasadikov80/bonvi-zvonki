@@ -35,3 +35,8 @@ Thumbs.db
 
 # Vaqtinchalik zaxiralar — mijoz raqamlari bor, repoga tushmasin
 *_zaxira.csv
+
+# SAP eksportlari — mijoz ismi, telefoni va qarzlari bor.
+# Git ga tushmaydi: ular ma'lumot, kod emas, va tarixdan o'chirib
+# bo'lmaydi. Namuna kerak bo'lsa maskalangan nusxa qo'shiladi.
+docs/*.xlsx
