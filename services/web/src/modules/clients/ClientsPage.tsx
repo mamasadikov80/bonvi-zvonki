@@ -20,7 +20,7 @@ import {
   Phone,
   Tag,
 } from 'lucide-react'
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
@@ -250,17 +250,35 @@ export function ClientsPage() {
               <thead>
                 <tr className="border-b border-border text-left">
                   {COLUMNS.map((column) => (
-                    <SortHeader
-                      key={column.field}
-                      field={column.field}
-                      label={t(column.labelKey)}
-                      title={column.titleKey ? t(column.titleKey) : undefined}
-                      align={column.align}
-                      firstOrder={column.firstOrder}
-                      state={sort}
-                      onChange={reset(setSort)}
-                      className="whitespace-nowrap"
-                    />
+                    <Fragment key={column.field}>
+                      <SortHeader
+                        field={column.field}
+                        label={t(column.labelKey)}
+                        title={column.titleKey ? t(column.titleKey) : undefined}
+                        align={column.align}
+                        firstOrder={column.firstOrder}
+                        state={sort}
+                        onChange={reset(setSort)}
+                        className="whitespace-nowrap"
+                      />
+
+                      {/* Taqsimot — «Qo'ng'iroq» ning YONIDA, alohida
+                          ustun. Jami son bilan bitta katakda turgani
+                          uchun ikkalasini ko'z bilan ajratish kerak
+                          bo'lardi; saralanmaydi, chunki ikkita sonli
+                          ustunni bitta tartibga solib bo'lmaydi.
+                          Sarlavhada IKKALA tomon nomi ham turadi —
+                          aynan shu joy ilgari chalkashlik tug'dirgan:
+                          qaysi son kimdan kelganini aytmasdi. */}
+                      {column.field === 'calls' && (
+                        <th
+                          title={t('clients.colInOutHint')}
+                          className="whitespace-nowrap px-4 py-3 text-right text-2xs font-medium uppercase tracking-wider text-muted"
+                        >
+                          {t('clients.colInOut')}
+                        </th>
+                      )}
+                    </Fragment>
                   ))}
                   {/* Xodim ustuni saralanmaydi: u yig'ma qiymat
                       («eng ko'p gaplashgani») va u bo'yicha saralash
@@ -338,33 +356,32 @@ export function ClientsPage() {
                         </div>
                       </td>
 
-                      {/* Jami — kiruvchi/chiquvchi taqsimoti YONIDA.
-                          Avval taqsimot so'z bilan ostida turardi va
-                          tor ustunda ikki qatorga o'ralib, butun
-                          qatorni ikki barobar balandlashtirardi.
-                          Strelka o'sha ma'noni bir qatorga sig'diradi,
-                          so'zi esa kursor ostida qoladi. */}
-                      <td className="whitespace-nowrap px-4 py-3 text-right">
-                        <span className="inline-flex items-center gap-2">
-                          <span className="tnum font-medium">
-                            {formatNumber(row.calls_total)}
+                      {/* Jami — faqat son. Saralash shu ustunda. */}
+                      <td className="tnum whitespace-nowrap px-4 py-3 text-right font-medium">
+                        {formatNumber(row.calls_total)}
+                      </td>
+
+                      {/* Taqsimot. Strelka so'zning o'rnini bosadi —
+                          «1 ta mijozdan · 3 ta mijozga» tor ustunda
+                          ikki qatorga o'ralib, butun qatorni ikki
+                          barobar balandlashtirardi. To'liq ma'nosi
+                          kursor ostida qoladi. */}
+                      <td className="whitespace-nowrap px-4 py-3 text-right text-muted">
+                        <span className="inline-flex items-center gap-1.5">
+                          <span
+                            className="inline-flex items-center gap-1"
+                            title={t('clients.inboundHint')}
+                          >
+                            <ArrowDownLeft className="size-3.5" aria-hidden />
+                            <span className="tnum">{formatNumber(row.inbound)}</span>
                           </span>
-                          <span className="inline-flex items-center gap-1 text-2xs text-muted">
-                            <span
-                              className="inline-flex items-center gap-0.5"
-                              title={t('clients.inboundHint')}
-                            >
-                              <ArrowDownLeft className="size-3" aria-hidden />
-                              <span className="tnum">{row.inbound}</span>
-                            </span>
-                            <span aria-hidden>·</span>
-                            <span
-                              className="inline-flex items-center gap-0.5"
-                              title={t('clients.outboundHint')}
-                            >
-                              <ArrowUpRight className="size-3" aria-hidden />
-                              <span className="tnum">{row.outbound}</span>
-                            </span>
+                          <span aria-hidden>·</span>
+                          <span
+                            className="inline-flex items-center gap-1"
+                            title={t('clients.outboundHint')}
+                          >
+                            <ArrowUpRight className="size-3.5" aria-hidden />
+                            <span className="tnum">{formatNumber(row.outbound)}</span>
                           </span>
                         </span>
                       </td>

@@ -378,6 +378,8 @@
     "colDirection": "Direction",
     "colAgent": "Agent",
     "colCalls": "Calls",
+    "colInOut": "From · To client",
+    "colInOutHint": "Left — calls from the customer, right — calls to the customer",
     "colMissed": "Agent didn't answer",
     "colTalk": "Talk time",
     "colScore": "Average score",

@@ -378,6 +378,8 @@
     "colDirection": "Yo'nalish",
     "colAgent": "Xodim",
     "colCalls": "Qo'ng'iroq",
+    "colInOut": "Mijozdan · Mijozga",
+    "colInOutHint": "Chapdagi son — mijozdan kelgan, o'ngdagi — mijozga qilingan qo'ng'iroqlar",
     "colMissed": "Xodim ko'tarmadi",
     "colTalk": "Suhbat",
     "colScore": "O'rtacha ball",
