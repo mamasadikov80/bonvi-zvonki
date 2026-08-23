@@ -570,13 +570,14 @@
       "button": "Upload Excel",
       "title": "Upload a SAP export",
       "hint": "Register, catalogue or balance — the system detects it itself",
+      "previewTitle": "Check before uploading",
+      "previewHint": "Nothing has been written to the database yet",
       "doneTitle": "Import finished",
       "choose": "Choose a file",
       "chooseHint": "Only .xlsx. The file type is detected from the headers",
       "size": "{{value}} MB",
       "kindNote": "All three exports are uploaded here: the operations register («savdo kunlik»), the counterparty catalogue and the client balance report. You do not pick the type — it is detected from the header columns.",
-      "idempotentNote": "Uploading the same file twice is safe: rows are updated by operation number, no duplicates appear. Order does not matter either — if the catalogue arrives later, the sales links are restored.",
-      "start": "Upload",
+      "start": "Check",
       "running": "Uploading…",
       "runningHint": "A large file can take a few seconds",
       "failed": "The file could not be read",
@@ -599,6 +600,35 @@
         "register": "Operations register",
         "catalog": "Counterparty catalogue",
         "balance": "Balance report"
+      },
+      "checking": "Checking…",
+      "checkingHint": "Reading the file — nothing is written to the database yet",
+      "confirm": "Confirm and write to the database",
+      "twoStepNote": "The file is uploaded in two steps: first you see the calculation, and it reaches the database only after you confirm. Uploading the same file twice is safe — rows are updated by operation number, no duplicates appear.",
+      "preview": {
+        "new": "New rows",
+        "existing": "Already in the database",
+        "total": "Rows in the file",
+        "dayCount": "{{count}} days",
+        "alreadyLoaded": "This file has already been uploaded — there are no new rows. If you confirm, the existing rows are refreshed from the file and no duplicates appear.",
+        "byType": {
+          "register": "Operation types",
+          "catalog": "By group",
+          "balance": "By branch"
+        },
+        "byDay": "Operations by day",
+        "warnings": "Please note",
+        "withoutPhone": "{{count}} rows give no phone key — they stay outside the sales control",
+        "unknownPartners": "{{count}} client codes were not found in the catalogue — those sales stay without a phone. Upload the counterparty catalogue as well."
+      },
+      "opType": {
+        "sale": "Sale",
+        "payment_in": "Incoming payment",
+        "purchase": "Purchase",
+        "payment_out": "Outgoing payment",
+        "sale_cancel": "Sale cancelled",
+        "accounting": "Accounting entry",
+        "other": "Other"
       }
     },
     "branches": {

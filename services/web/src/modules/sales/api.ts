@@ -243,6 +243,66 @@ export interface SalesImportReport {
   unmatched_branches: string[]
 }
 
+/**
+ * Import oldidagi hisob-kitobning bitta kesimi.
+ *
+ * Registrda bu OPERATSIYA TURI (`sale`, `payment_in`…), katalogda —
+ * guruh, balans hisobotida — bo'lim. Shuning uchun `type` erkin matn:
+ * tarjimasi bo'lsa ishlatiladi, bo'lmasa `label` (SAP dagi so'z)
+ * chiqadi.
+ */
+export interface SalesPreviewType {
+  type: string
+  label: string
+  count: number
+  /** `null` — bu faylda summa ustuni umuman yo'q */
+  amount_usd: number | null
+}
+
+/** Kun kesimi — faqat registr uchun keladi */
+export interface SalesPreviewDay {
+  /** `YYYY-MM-DD` */
+  day: string
+  count: number
+  amount_usd: number | null
+}
+
+/**
+ * Yuklashdan OLDINGI hisob-kitob.
+ *
+ * ⚠️ Bu javob bazaga hech narsa yozilmagan holatda qaytadi. Yozish
+ * faqat foydalanuvchi tasdiqlaganda, o'sha faylning O'ZI
+ * `/sales/import` ga yuborilganda bo'ladi.
+ *
+ * ⚠️ `rows` va `new_rows + existing_rows` teng bo'lmasligi mumkin va
+ * bu nosozlik emas: fayldagi bir operatsiya raqami ikki qatorda
+ * uchraydi (o'lchandi — 2384 qatorda 2383 noyob raqam). Shuning uchun
+ * ular ekranda ham qo'shilmaydi.
+ */
+export interface SalesImportPreview {
+  kind: SalesFileKind
+  filename: string
+  /** Fayldagi ma'noli qatorlar */
+  rows: number
+  /** `YYYY-MM-DD` — registrdan tashqarida `null` */
+  date_from: string | null
+  date_to: string | null
+  by_type: SalesPreviewType[]
+  by_day: SalesPreviewDay[]
+  /** Bazada YO'Q kalitlar. `0` — fayl allaqachon yuklangan */
+  new_rows: number
+  existing_rows: number
+  /** Katalogda topilmagan kodlar — eng ko'pi 20 tasi */
+  unknown_partners: string[]
+  /** Ularning to'liq soni (ro'yxat qisqartirilgan bo'lishi mumkin) */
+  unknown_partner_count: number
+  unmatched_branches: string[]
+  /** Telefon kaliti olinmaydigan qatorlar — nazorat qilib bo'lmaydi */
+  without_phone: number
+  /** Backendning o'zbekcha ogohlantirishlari — o'zgartirilmay chiqadi */
+  warnings: string[]
+}
+
 /* ── O'qish ──────────────────────────────────────────────── */
 
 /**
@@ -390,10 +450,38 @@ export function useAssignBranch() {
 }
 
 /**
- * Excel yuklash.
+ * 1-BOSQICH: hisob-kitob. Bazaga HECH NARSA YOZILMAYDI.
+ *
+ * ⚠️ `invalidate` ATAYLAB YO'Q. Bu so'rov hech narsani o'zgartirmaydi,
+ * ya'ni ro'yxatni qaytadan so'rash bekorga trafik bo'lardi — va bundan
+ * ham yomoni, ekrandagi jadval «yangilandi» degan yolg'on taassurot
+ * berardi, holbuki hali hech nima yuklanmagan.
+ *
+ * Xuddi shu sababdan javob KESHLANMAYDI (`useMutation`, `useQuery`
+ * emas): bir xil faylni ikkinchi marta tanlaganda hisob-kitob
+ * BOSHQACHA bo'lishi mumkin — oradan haqiqiy import o'tgan bo'lsa
+ * `new_rows` nolga tushadi.
+ */
+export function usePreviewSalesImport() {
+  return useMutation({
+    mutationFn: (file: File) => {
+      const form = new FormData()
+      form.append('file', file)
+      return postForm<SalesImportPreview>('/sales/import/preview', form)
+    },
+  })
+}
+
+/**
+ * 2-BOSQICH: Excelni haqiqatan yuklash.
  *
  * Fayl turi (registr / katalog / balans) SARLAVHA bo'yicha backendda
  * aniqlanadi — bu yerda tanlov ham, taxmin ham yo'q.
+ *
+ * ⚠️ Bu yo'lga faqat foydalanuvchi hisob-kitobni ko'rib TASDIQLAGACH
+ * kelinadi. Brauzerda saqlangan `File` obyektining O'ZI yuboriladi —
+ * ya'ni tasdiqlangan fayl bilan yoziladigan fayl bir xil bo'lishiga
+ * kafolat bor.
  */
 export function useImportSales() {
   const invalidate = useInvalidateSales()

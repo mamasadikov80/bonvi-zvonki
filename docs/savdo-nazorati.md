@@ -263,9 +263,60 @@ KO'RILMAGANLARNI ko'rsatadi.
 
 ## 6. Import
 
-`POST /sales/import` — multipart fayl. Fayl turi SARLAVHA bo'yicha
-avtomatik aniqlanadi (registr / katalog / balans hisoboti), noto'g'ri
-fayl aniq xato bilan rad etiladi.
+Import **IKKI BOSQICHLI**: fayl avval hisoblanadi, bazaga esa
+foydalanuvchi tasdiqlagandan keyin yoziladi.
+
+```
+fayl → POST /sales/import/preview → hisob-kitob modali
+     → «Tasdiqlash» → POST /sales/import → natija hisoboti
+```
+
+⚠️ **Tasdiqlanmasa bazaga hech narsa yozilmaydi.** Bekor qilinganda
+yoki modal yopilganda hech qanday so'rov ketmaydi — 2-bosqichda faqat
+brauzerdagi `File` obyekti turadi va tasdiqlashda O'SHA fayl
+yuboriladi.
+
+**Nega.** Ilgari fayl tanlanishi bilan bazaga tushardi va foydalanuvchi
+nima kirganini FAQAT KEYIN ko'rardi. Ikkita xato jimgina o'tib ketardi:
+noto'g'ri fayl (o'tgan haftaning eksporti, boshqa bo'limniki) va
+takroriy yuklash. Ikkalasini ham orqaga qaytarish yo'q — savdolar
+allaqachon yozilgan bo'lardi.
+
+### 6.1 `POST /sales/import/preview` — hisob-kitob
+
+Multipart fayl, ruxsat `sales:import`, `.xlsx`, 20 MB. **Bazaga hech
+narsa yozmaydi** — faqat `SELECT`. Uchala fayl turi uchun ham ishlaydi.
+
+| Maydon | Ma'nosi |
+| --- | --- |
+| `kind` | `register` / `catalog` / `balance` — sarlavha bo'yicha |
+| `filename`, `rows` | fayl nomi va undagi ma'noli qatorlar |
+| `date_from`, `date_to` | davr (registr; qolganida `null`) |
+| `by_type` | registrda operatsiya turi, katalogda guruh, balansda bo'lim: `{type, label, count, amount_usd}` |
+| `by_day` | kun kesimi, faqat registr: `{day, count, amount_usd}` |
+| `new_rows` / `existing_rows` | bazada YO'Q va BOR kalitlar (registrda `external_id`, qolganida `code`) |
+| `unknown_partners`, `unknown_partner_count` | katalogda topilmagan mijoz kodlari (ro'yxat 20 tagacha) |
+| `unmatched_branches` | xodimga biriktirilmagan filiallar — NOMLARI bilan |
+| `without_phone` | telefon kaliti olinmaydigan qatorlar — nazorat qilib bo'lmaydi |
+| `warnings` | tayyor o'zbekcha jumlalar: sanasiz/summasiz/takroriy qatorlar soni |
+
+⚠️ **`rows` va `new_rows + existing_rows` teng bo'lmasligi mumkin va bu
+nosozlik emas**: faylda bir operatsiya raqami ikki qatorda uchraydi
+(o'lchandi — 2384 qatorda 2383 noyob). Ekranda ular ham qo'shilmaydi.
+
+⚠️ `existing_rows` fayldagi HAMMA kalit bo'yicha **bitta** `SELECT ...
+IN (...)` bilan hisoblanadi. Har qator uchun alohida so'rov 2383 ta
+borish-kelish demak edi va hisob-kitob importning o'zidan sekinroq
+bo'lardi.
+
+⚠️ Preview `importer._resolve_branches` ni ISHLATMAYDI — o'sha funksiya
+topilmagan filialni `sale_branches` ga yozadi. Bu yerda o'sha qoidaning
+faqat o'qish qismi takrorlangan (`preview._match_branches`), aks holda
+bekor qilingan hisob-kitobdan ham bazada iz qolardi.
+
+### 6.2 `POST /sales/import` — yozish
+
+O'zgarmadi. Tasdiqlashda aynan shu chaqiriladi.
 
 - Idempotent: `sales.external_id` va `sale_partners.code` bo'yicha upsert.
 - Sonlar matn ko'rinishida keladi (`"1 950,000"`) — tozalash import
@@ -288,12 +339,25 @@ fayl aniq xato bilan rad etiladi.
 | `sales/domain/entities.py` | tur xaritasi, filial normalizatsiyasi |
 | `sales/application/reader.py` | xlsx o'qish, tur aniqlash, son/sana/telefon tozalash |
 | `sales/application/importer.py` | `import_file` / `import_register` / `import_catalog`, `backfill_sale_links` |
+| `sales/application/preview.py` | `build_preview` — hisob-kitob, YOZMAYDI |
+| `web/src/modules/sales/ImportModal.tsx` | ikki bosqichli modal |
 
 Haqiqiy fayllarda o'lchandi (22.08.2026): katalog 3746 kontragent
 (94.3% telefonli), registr 2383 operatsiya, shundan 1039 savdo;
 kodi topilmagan **0 ta**, xodimga bog'langan **728 (70.1%)**,
 `phone_key` olgan savdo 885 (85.2%; qolganining 152 tasi «Разовый
 клиент», ular baribir nazoratdan tashqarida). Qayta import: 0 yangi.
+
+Hisob-kitob o'sha fayllarda (23.08.2026, baza to'la holatda):
+
+| Fayl | `rows` | `new` / `existing` | Nima ko'rsatdi |
+| --- | --- | --- | --- |
+| `savdo kunlik.xlsx` | 2384 | 0 / 2383 | 10.08–20.08, Продажа 1039, Входящие платежи 999, Закупка 178; 14 filial xodimsiz, 504 qator telefonsiz |
+| `Workbook3.xlsx` | 3746 | 0 / 3746 | Клиенты 3284, 323 telefonsiz, 1239 «Неактив» |
+| `Workbook1.xlsx` | 2766 | 0 / 2153 | bo'limlar kesimi (`Kod` noyob emas: 2766 qator → 2153 kod); 180 qator telefonsiz |
+
+Uchala so'rovdan keyin ham `sales` da 2383, `sale_partners` da 3746,
+`sale_branches` da 29 qator qoldi — ya'ni hisob-kitob bazaga tegmadi.
 
 ## 7. Interfeys
 
@@ -370,6 +434,7 @@ ko'rmasligi kerak.
 
 | Metod | Yo'l | Ruxsat | Nima qaytaradi |
 | --- | --- | --- | --- |
+| POST | `/sales/import/preview` | `sales:import` | `ImportPreview` — hisob-kitob, **bazaga yozmaydi** (6.1) |
 | POST | `/sales/import` | `sales:import` | `ImportReport` (multipart fayl) |
 | GET | `/sales/compliance` | `sales:read` | `{items, total, page, page_size, window_days}` |
 | GET | `/sales/compliance/summary` | `sales:read` | toifalar soni + xodimlar kesimi |

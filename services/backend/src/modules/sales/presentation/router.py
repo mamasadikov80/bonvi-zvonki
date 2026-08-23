@@ -1,9 +1,15 @@
 """«Savdo nazorati» endpointlari (shartnomaning 7.1-bo'limi).
 
-Oltita yo'l bor va ular ikki xil ishni bajaradi:
+Yettita yo'l bor va ular ikki xil ishni bajaradi:
 
-  · MA'LUMOT KIRITISH — `POST /sales/import` (SAP eksporti);
+  · MA'LUMOT KIRITISH — `POST /sales/import/preview` (hisob-kitob,
+    bazaga YOZMAYDI) va `POST /sales/import` (SAP eksporti);
   · NAZORAT — ro'yxat, hisobot, qaror va filial → xodim xaritasi.
+
+⚠️ IMPORT IKKI BOSQICHLI. Fayl avval `preview` ga boradi va
+foydalanuvchi nima tushishini ko'radi; `import` esa faqat u
+tasdiqlagach chaqiriladi. Bir bosqichli import noto'g'ri faylni
+jimgina bazaga kiritib yuborardi va orqaga qaytarish yo'q edi.
 
 ⚠️ RUXSAT `sales:*` — ADMIN va MANAGER da. SALES va VIEWER da YO'Q va
 `:own` ko'rinishi ham yo'q: bu ro'yxat XODIM USTIDAN olib boriladigan
@@ -36,6 +42,7 @@ from src.modules.sales.application.compliance import (
 )
 from src.modules.sales.application.digest import run_digest
 from src.modules.sales.application.importer import import_file
+from src.modules.sales.application.preview import build_preview
 from src.modules.sales.application.reader import SalesFileError
 from src.modules.sales.application.review import save_review
 from src.modules.sales.domain.entities import SaleReviewReason, SaleReviewStatus
@@ -67,6 +74,51 @@ ALLOWED_SUFFIX = ".xlsx"
 # ══════════════════════════════════════════════════════════════
 #  Javob shakllari
 # ══════════════════════════════════════════════════════════════
+
+
+class TypeCount(BaseModel):
+    """Kesimning bitta qatori: registrda operatsiya turi, katalogda
+    guruh, balans hisobotida bo'lim."""
+
+    type: str
+    label: str
+    """SAP dagi ko'rinish — ekranda tarjimasi bo'lmasa shu chiqadi."""
+    count: int
+    amount_usd: float | None = None
+    """`null` — bu kesimda summa umuman yo'q (katalog, balans)."""
+
+
+class DayCount(BaseModel):
+    """Kun kesimi — faqat registr uchun to'ldiriladi."""
+
+    day: date
+    count: int
+    amount_usd: float | None = None
+
+
+class ImportPreview(BaseModel):
+    """Tasdiqlashdan OLDIN ko'rsatiladigan hisob-kitob.
+
+    ⚠️ Bu javob bazaga hech narsa yozilmagan holatda qaytadi. Yozish
+    faqat foydalanuvchi tasdiqlab, o'sha faylni `POST /sales/import`
+    ga yuborganda bo'ladi.
+    """
+
+    kind: str
+    filename: str
+    rows: int
+    date_from: date | None = None
+    date_to: date | None = None
+    by_type: list[TypeCount] = Field(default_factory=list)
+    by_day: list[DayCount] = Field(default_factory=list)
+    new_rows: int
+    """Bazada YO'Q kalitlar soni. `0` — fayl allaqachon yuklangan."""
+    existing_rows: int
+    unknown_partners: list[str] = Field(default_factory=list)
+    unknown_partner_count: int
+    unmatched_branches: list[str] = Field(default_factory=list)
+    without_phone: int
+    warnings: list[str] = Field(default_factory=list)
 
 
 class ImportReportOut(BaseModel):
@@ -220,21 +272,12 @@ class ReviewIn(BaseModel):
 # ══════════════════════════════════════════════════════════════
 
 
-@router.post(
-    "/import",
-    response_model=ImportReportOut,
-    summary="SAP eksportini yuklash (registr / katalog / balans)",
-    dependencies=[CanImport],
-)
-async def import_sales(
-    session: DbSession,
-    file: Annotated[UploadFile, File(description="`.xlsx` eksport fayli")],
-) -> ImportReportOut:
-    """Fayl TURI SARLAVHA bo'yicha aniqlanadi, nomiga qaralmaydi.
+async def _upload(file: UploadFile) -> tuple[str, bytes]:
+    """Yuklangan faylni tekshirib xotiraga oladi.
 
-    Foydalanuvchi faylni har safar boshqacha nomlaydi («Workbook3»,
-    «wb3», «savdo kunlik») — nomga tayanish jimgina noto'g'ri importga
-    olib borardi.
+    Ikki yo'l ham (hisob-kitob va import) AYNAN shu tekshiruvdan
+    o'tadi: chegara yoki kengaytma faqat bittasida tursa,
+    hisob-kitobdan o'tgan fayl importda kutilmaganda rad etilardi.
     """
     name = (file.filename or "").strip()
     if not name.lower().endswith(ALLOWED_SUFFIX):
@@ -253,7 +296,52 @@ async def import_sales(
         )
     if not payload:
         raise SalesFileError("Fayl bo'sh")
+    return name, payload
 
+
+@router.post(
+    "/import/preview",
+    response_model=ImportPreview,
+    summary="Yuklashdan OLDIN hisob-kitob (bazaga yozmaydi)",
+    dependencies=[CanImport],
+)
+async def import_preview(
+    session: DbSession,
+    file: Annotated[UploadFile, File(description="`.xlsx` eksport fayli")],
+) -> ImportPreview:
+    """Faylni o'qiydi va nima bo'lishini aytadi. HECH NARSA YOZMAYDI.
+
+    ⚠️ Yo'l `/import/preview` — `/import` dan OLDIN e'lon qilingan
+    bo'lishi shart emas (FastAPI aniq yo'lni to'g'ri topadi), lekin
+    ikkalasi yonma-yon turishi ataylab: ular BIR jarayonning ikki
+    bosqichi va bittasi o'zgarganda ikkinchisi ham ko'rinib turadi.
+
+    Bosqichlar: fayl → shu yerdan hisob-kitob → foydalanuvchi
+    tasdiqlaydi → O'SHA fayl `POST /sales/import` ga boradi.
+    Tasdiqlanmasa bazada hech narsa o'zgarmaydi.
+    """
+    name, payload = await _upload(file)
+    preview = await build_preview(session, BytesIO(payload), filename=name)
+    return ImportPreview(**asdict(preview))
+
+
+@router.post(
+    "/import",
+    response_model=ImportReportOut,
+    summary="SAP eksportini yuklash (registr / katalog / balans)",
+    dependencies=[CanImport],
+)
+async def import_sales(
+    session: DbSession,
+    file: Annotated[UploadFile, File(description="`.xlsx` eksport fayli")],
+) -> ImportReportOut:
+    """Fayl TURI SARLAVHA bo'yicha aniqlanadi, nomiga qaralmaydi.
+
+    Foydalanuvchi faylni har safar boshqacha nomlaydi («Workbook3»,
+    «wb3», «savdo kunlik») — nomga tayanish jimgina noto'g'ri importga
+    olib borardi.
+    """
+    name, payload = await _upload(file)
     report = await import_file(session, BytesIO(payload), filename=name)
     return ImportReportOut(
         kind=str(report.kind),

@@ -570,13 +570,14 @@
       "button": "Excel yuklash",
       "title": "SAP eksportini yuklash",
       "hint": "Registr, katalog yoki balans — tizim o'zi tanaydi",
+      "previewTitle": "Yuklashdan oldin tekshiring",
+      "previewHint": "Bazaga hali hech narsa yozilmadi",
       "doneTitle": "Import tugadi",
       "choose": "Faylni tanlang",
       "chooseHint": "Faqat .xlsx. Fayl turi sarlavhaga qarab aniqlanadi",
       "size": "{{value}} MB",
       "kindNote": "Uchala eksport ham shu yerdan yuklanadi: operatsiyalar registri («savdo kunlik»), kontragentlar katalogi va mijoz balansi hisoboti. Turini tanlash shart emas — u sarlavha ustunlariga qarab aniqlanadi.",
-      "idempotentNote": "Bir faylni ikki marta yuklash xavfsiz: qatorlar operatsiya raqami bo'yicha yangilanadi, nusxa paydo bo'lmaydi. Tartib ham muhim emas — katalog keyin kelsa, savdolarning bog'lanishi tiklanadi.",
-      "start": "Yuklash",
+      "start": "Tekshirish",
       "running": "Yuklanmoqda…",
       "runningHint": "Fayl katta bo'lsa bir necha soniya ketishi mumkin",
       "failed": "Faylni o'qib bo'lmadi",
@@ -599,6 +600,35 @@
         "register": "Operatsiyalar registri",
         "catalog": "Kontragentlar katalogi",
         "balance": "Balans hisoboti"
+      },
+      "checking": "Tekshirilmoqda…",
+      "checkingHint": "Fayl o'qilyapti — bazaga hali hech narsa yozilmaydi",
+      "confirm": "Tasdiqlash va bazaga qo'shish",
+      "twoStepNote": "Fayl ikki bosqichda yuklanadi: avval hisob-kitob ko'rsatiladi, bazaga esa siz tasdiqlaganingizdan keyingina yoziladi. Takroriy yuklash xavfsiz — qatorlar operatsiya raqami bo'yicha yangilanadi, nusxa paydo bo'lmaydi.",
+      "preview": {
+        "new": "Yangi qator",
+        "existing": "Allaqachon bazada",
+        "total": "Faylda jami",
+        "dayCount": "{{count}} kun",
+        "alreadyLoaded": "Bu fayl allaqachon yuklangan — yangi qator yo'q. Tasdiqlasangiz mavjud qatorlar fayldagi qiymatlar bilan yangilanadi, nusxa paydo bo'lmaydi.",
+        "byType": {
+          "register": "Operatsiya turlari",
+          "catalog": "Guruhlar bo'yicha",
+          "balance": "Bo'limlar bo'yicha"
+        },
+        "byDay": "Kunlar bo'yicha operatsiyalar",
+        "warnings": "Diqqat qiling",
+        "withoutPhone": "{{count}} qatordan telefon kaliti olinmaydi — ular savdo nazoratiga kirmaydi",
+        "unknownPartners": "{{count}} ta mijoz kodi katalogda topilmadi — bu savdolar telefonsiz qoladi. Kontragentlar katalogini ham yuklang."
+      },
+      "opType": {
+        "sale": "Savdo",
+        "payment_in": "Kirim to'lov",
+        "purchase": "Xarid",
+        "payment_out": "Chiqim to'lov",
+        "sale_cancel": "Savdo bekor qilindi",
+        "accounting": "Buxgalteriya operatsiyasi",
+        "other": "Boshqa"
       }
     },
     "branches": {

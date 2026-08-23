@@ -62,6 +62,25 @@ _OP_TYPES: dict[str, SaleOpType] = {
 }
 
 
+#: Turning SAP dagi ko'rinishi — import oldidagi hisob-kitob uchun.
+#
+# ⚠️ ATAYLAB RUSCHA. Bu yorliq foydalanuvchi FAYLDA ko'rgan so'z bilan
+# bir xil bo'lishi kerak: hisob-kitob oynasidagi sonni u SAP dagi
+# hisobot bilan solishtiradi, tarjima qilingan so'z esa solishtirishni
+# imkonsiz qilardi. Ekranda tarjima BOR (frontend `type` kaliti bo'yicha
+# oladi), bu esa uning zaxirasi — SAP da yangi tur paydo bo'lsa ham
+# nimadir ko'rinib turadi.
+OP_TYPE_LABELS: dict[SaleOpType, str] = {
+    SaleOpType.SALE: "Продажа",
+    SaleOpType.PAYMENT_IN: "Входящие платежи",
+    SaleOpType.PURCHASE: "Закупка",
+    SaleOpType.PAYMENT_OUT: "Исходящие платежи",
+    SaleOpType.SALE_CANCEL: "Отмена продажи",
+    SaleOpType.ACCOUNTING: "Бух.оп",
+    SaleOpType.OTHER: "Прочее",
+}
+
+
 def op_type_from_sap(value: str | None) -> SaleOpType:
     """SAP `Тип` matnini `op_type` ga aylantiradi.
 
