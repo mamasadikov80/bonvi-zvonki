@@ -12,32 +12,77 @@ ko'rsatiladi — rahbar har bir xodim, hudud va davr kesimida ishni ko'rib turad
 
 ## ⚡ Tez ishga tushirish
 
+Faqat **Docker** kerak — boshqa hech narsa o'rnatilmaydi.
 Loyiha papkasi ichida turib (`cd BonviZvonki`):
 
-**Birinchi marta — qurish va ishga tushirish:**
+### Birinchi marta — macOS / Linux
 
-# `make init`
+```bash
+cp .env.example .env && docker compose up -d --build
+```
 
-**Keyingi yangilanishlarda:**
+### Birinchi marta — Windows (PowerShell)
 
-# `make update`
+```powershell
+copy .env.example .env ; docker compose up -d --build
+```
+
+### Keyingi yangilanishlarda (ikkala tizimda ham)
+
+```bash
+git pull && docker compose up -d --build
+```
+
+Windows'ning eski **PowerShell 5.1** da `&&` ishlamaydi — u yerda `;` bilan:
+
+```powershell
+git pull ; docker compose up -d --build
+```
 
 ---
 
-Bu ikki buyruq nima qiladi:
+> ### ⚠️ `.env` nusxasi — MAJBURIY birinchi qadam
+>
+> `docker-compose.yml` da uchta servis (`backend`, `worker`, `bot`) `env_file: .env`
+> ni o'qiydi. Fayl bo'lmasa compose hech narsa qurmasdan
+> **`env file ... not found`** deb to'xtaydi — «buyruq yozdim, hech narsa
+> bo'lmadi» holati aynan shundan chiqadi. `.env` git'ga tushmaydi
+> (`.gitignore` da), shuning uchun klondan keyin uni **o'zingiz** yaratasiz.
+>
+> **Mavjud `.env` ezib yuborilmasin.** Ikkinchi marta ishga tushirayotgan
+> bo'lsangiz, ustiga yozmaydigan variantni oling:
+>
+> ```bash
+> cp -n .env.example .env                   # macOS / Linux — bor bo'lsa tegmaydi
+> ```
+> ```powershell
+> Copy-Item .env.example .env -NoClobber    # Windows — bor bo'lsa tegmaydi
+> ```
+>
+> `git pull` `.env` ni hech qachon o'zgartirmaydi, shuning uchun yangilash
+> buyrug'ida bu qadam yo'q.
 
-| | `make init` | `make update` |
-|---|---|---|
-| `.env` | yo'q bo'lsa `.env.example` dan yaratadi | tegmaydi |
-| kod | joyidagi kod | `git pull` (remote bo'lsa) |
-| image'lar | quradi | qayta quradi |
-| konteynerlar | ko'taradi | yangilaydi |
-| baza jadvallari | yaratadi + demo ma'lumot | yangi ustunlarni qo'shadi |
-| mavjud ma'lumot | — | **saqlanadi** |
+---
 
-Ikkalasi ham oxirida backend sog'lom bo'lishini kutadi va manzil bilan
-kirish ma'lumotlarini chiqaradi. Birinchi ishga tushirish 5–10 daqiqa
-oladi (image'lar yuklab olinadi), keyingilari 1–2 daqiqa.
+Birinchi buyruq: `.env` yaratadi → image'larni quradi → hamma servisni
+ko'taradi. Baza jadvallari, migratsiya va demo ma'lumot backend konteyneri
+ichida **avtomatik** bajariladi — alohida buyruq shart emas.
+
+Birinchi ishga tushirish **5–10 daqiqa** oladi (image'lar yuklab olinadi),
+keyingilari 1–2 daqiqa. Buyruq qaytgach backend yana bir necha daqiqa
+bazani tayyorlaydi — kuzatish: `docker compose logs -f backend`,
+holat: `docker compose ps`.
+
+Yangilash buyrug'i ma'lumotni **o'chirmaydi**: unda `down` ham, `-v` ham yo'q.
+
+**Xohlasangiz, aynan shu buyruqlar skriptga ham solingan:**
+
+```bash
+./start.sh          # macOS / Linux
+```
+```powershell
+.\start.ps1         # Windows PowerShell
+```
 
 ---
 
@@ -49,19 +94,23 @@ oladi (image'lar yuklab olinadi), keyingilari 1–2 daqiqa.
 | **Disk** | kamida **8 GB** bo'sh joy (image'lar ~5 GB + baza) |
 | **RAM** | Docker'ga kamida 4 GB ajratilgan bo'lsin |
 | **Bo'sh portlar** | `5180`, `8010`, `5433`, `6380` |
-| **Boshqa** | hech narsa. Python, Node, PostgreSQL **o'rnatilmaydi** — hammasi konteyner ichida |
+| **Boshqa** | hech narsa. Python, Node, PostgreSQL, `make` — **o'rnatilmaydi** |
 
-Docker ishlayotganini tekshirish: `docker info` xatosiz chiqsa tayyor.
+Docker tayyorligini tekshirish: `docker info` xatosiz chiqsa bo'ldi.
 
-> Windows'da `make` bo'lmasa: Git Bash + `choco install make`, yoki
-> to'g'ridan-to'g'ri: `cp .env.example .env && docker compose up -d --build`
+**Windows uchun alohida:**
+- Docker Desktop **ishga tushgan** bo'lsin (trey belgisi yashil, "Engine running").
+- **WSL2 yoqilgan** bo'lsin — Docker Desktop → Settings → General →
+  *Use the WSL 2 based engine*. Yoqilmagan bo'lsa konteynerlar ko'tarilmaydi.
+- Buyruqlar **PowerShell** da yoziladi (`cmd.exe` da emas).
 
 ---
 
 ## `.env` sozlamalari
 
-`make init` uni o'zi yaratadi va **shu holicha tizim to'liq ko'tariladi** —
-hech narsa to'ldirmasangiz ham dashboard, demo ma'lumot va analitika ishlaydi.
+Birinchi buyruqdagi nusxa uni `.env.example` dan yaratadi va **shu holicha
+tizim to'liq ko'tariladi** — hech narsa to'ldirmasangiz ham dashboard,
+demo ma'lumot va analitika ishlaydi.
 
 ⚠️ Haqiqiy kalitlar `.env` dan tashqariga chiqmaydi — bu faylni git'ga
 qo'shmang va hech qayerga nusxalamang.
@@ -123,43 +172,74 @@ dashboard orqali qayta parollang.
 
 ## Kundalik buyruqlar
 
+Hamma joyda ishlaydi — qo'shimcha dastur talab qilmaydi:
+
 ```bash
-make help          # barcha buyruqlar
-make up            # ko'tarish (build bilan)
-make down          # to'xtatish (ma'lumot saqlanadi)
-make restart       # qayta ishga tushirish
-make logs          # loglar (hammasi)
-make logs-backend  # faqat backend
-make sh-backend    # backend konteyneriga kirish
-make psql          # PostgreSQL konsoli
-make seed          # yetishmayotgan demo ma'lumotni qo'shish
-make migrate       # migratsiyalarni qo'llash
-make test          # backend testlari
-make lint          # kod tekshiruvi
+docker compose ps                      # nima ishlayapti
+docker compose logs -f                 # loglar (hammasi)
+docker compose logs -f backend         # faqat backend
+docker compose restart                 # qayta ishga tushirish
+docker compose down                    # to'xtatish (ma'lumot SAQLANADI)
+docker compose up -d --build           # ko'tarish / yangilash
+
+docker compose exec backend bash                       # konteynerga kirish
+docker compose exec postgres psql -U zvonki -d zvonki  # PostgreSQL konsoli
+docker compose exec backend python -m src.seed         # demo ma'lumot (idempotent)
+docker compose exec backend alembic upgrade head       # migratsiyalar
+docker compose exec backend pytest -q                  # backend testlari
 ```
 
 **Hot reload yoqilgan** — `services/` ichidagi faylni tahrirlasangiz,
 tegishli servis avtomatik qayta yuklanadi. Qayta qurish shart emas.
 
+### Qulaylik uchun: `make` (ixtiyoriy)
+
+Agar kompyuteringizda `make` **o'rnatilgan** bo'lsa, yuqoridagilarning
+qisqa varianti bor. `make` alohida dastur — **u bo'lmasa ham hammasi
+ishlaydi**, yuqoridagi `docker compose` buyruqlaridan foydalaning.
+
+- macOS'da olish: `xcode-select --install`
+- Linuxda: `sudo apt install make` (yoki distributivingizga mos)
+- Windowsda odatda yo'q — PowerShell buyruqlaridan foydalaning
+
+```bash
+make help          # barcha buyruqlar ro'yxati
+make init          # birinchi marta: .env + build + ko'tarish + kutish
+make update        # git pull + qayta qurish (baza saqlanadi)
+make up / down / restart / logs / logs-backend
+make sh-backend / psql / seed / migrate / test / lint
+```
+
 ### 🛑 Ma'lumotni O'CHIRADIGAN buyruqlar
 
-`make init`, `make update`, `make up`, `make down` bazaga tegmaydi.
-Quyidagilar esa **butun bazani o'chiradi** — ular `docker compose down -v`
-ishlatadi va volume'lar bilan birga barcha qo'ng'iroqlar, baholar va
-sozlamalar yo'qoladi:
+Yuqoridagilarning hech biri bazaga tegmaydi — `docker compose down` ham
+volume'ni saqlaydi. Quyidagilar esa **butun bazani o'chiradi**: ular
+`docker compose down -v` ishlatadi, volume'lar bilan birga barcha
+qo'ng'iroqlar, baholar va sozlamalar yo'qoladi.
 
 | Buyruq | Nima o'chadi |
 |---|---|
-| `make clean` | konteynerlar + **volume'lar (BAZA)** |
+| `docker compose down -v` · `make clean` | konteynerlar + **volume'lar (BAZA)** |
 | `make nuke` | yuqoridagilar + image'lar |
 | `make seed-reset` | demo ma'lumot tozalanib qayta yaratiladi |
 | `make clean-no-audio` | audiosiz, baholanmagan qo'ng'iroq qatorlari |
 
-Boshqa kompyuterda ishga tushirayotganda bu buyruqlar **kerak emas**.
+Boshqa kompyuterda ishga tushirayotganda bularning hech biri **kerak emas**.
 
 ---
 
 ## Muammolar
+
+**`make: command not found` / `make : The term 'make' is not recognized`**
+`make` — alohida dastur, u loyihaning talabi EMAS. Windowsda odatda umuman
+yo'q, macOS'da Xcode buyruq qatori vositalarisiz yo'q. Yechim: yuqoridagi
+`docker compose` buyruqlaridan foydalaning. `make` aynan kerak bo'lsa:
+macOS — `xcode-select --install`, Linux — `sudo apt install make`.
+
+**`env file .../.env not found`**
+`.env` yaratilmagan. `.env` git'ga tushmaydi, klondan keyin uni o'zingiz
+nusxalaysiz: `cp .env.example .env` (Windowsda `copy .env.example .env`),
+keyin buyruqni qaytaring.
 
 **Port band** (`bind: address already in use`)
 `.env` dagi `WEB_PORT` / `API_PORT` / `POSTGRES_PORT` / `REDIS_PORT` ni
@@ -168,26 +248,32 @@ Kim band qilganini ko'rish: `lsof -i :5180` (macOS/Linux),
 `netstat -ano | findstr :5180` (Windows).
 
 **`.env` ni o'zgartirdim, lekin ta'sir qilmadi**
-`make restart` yetmaydi — konteynerni qayta yaratish kerak:
-`docker compose up -d --force-recreate backend bot worker`
+`restart` yetmaydi — Compose `env_file` qiymatlarini konteyner *yaratilishida*
+biriktiradi. Kerak: `docker compose up -d --force-recreate backend bot worker`
 
 **`Cannot connect to the Docker daemon`**
 Docker Desktop ishga tushmagan yoki pauzada. Uni oching, "Engine running"
-yozuvini kuting va buyruqni qaytaring.
+yozuvini kuting va buyruqni qaytaring. Windowsda qo'shimcha: Settings →
+General → *Use the WSL 2 based engine* yoqilgan bo'lsin.
 
-**`make init` «Backend 5 daqiqada javob bermadi» deydi**
-Sekin internetda birinchi build uzoqroq ketishi mumkin. Loglarga qarang:
-`make logs-backend`. Konteynerlar holati: `docker compose ps`.
+**Buyruq tugadi, lekin `localhost:5180` ochilmayapti**
+Backend hali bazani tayyorlayotgan bo'lishi mumkin (birinchi safar bir
+necha daqiqa). Holat: `docker compose ps` — `backend` `healthy` bo'lishi
+kerak. Kuzatish: `docker compose logs -f backend`.
 
 **Jadval yo'q / ustun yo'q xatosi**
 Backend ishga tushganda `python -m src.bootstrap` jadvallarni o'zi
-yaratadi va yetishmayotgan ustunlarni qo'shadi (idempotent).
-Qo'lda: `make migrate`, keyin `docker compose restart backend`.
-Konteyner umuman ko'tarilmasa: `docker compose up -d --force-recreate backend`.
+yaratadi va yetishmayotgan ustunlarni qo'shadi (idempotent). Qo'lda:
+`docker compose exec backend alembic upgrade head`, keyin
+`docker compose restart backend`. Konteyner umuman ko'tarilmasa:
+`docker compose up -d --force-recreate backend`.
 
-**`make` topilmadi (Windows)**
-`cp .env.example .env && docker compose up -d --build` — bu `make init`
-bilan bir xil ish qiladi (kutish va xabarsiz).
+**`./start.sh: Permission denied`**
+`chmod +x start.sh` — yoki to'g'ridan-to'g'ri: `bash start.sh`.
+
+**PowerShell `.\start.ps1` ni ishga tushirmayapti**
+Bir seansga ruxsat: `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`,
+yoki skriptsiz — README boshidagi ikki buyruqni qo'lda yozing.
 
 ---
 

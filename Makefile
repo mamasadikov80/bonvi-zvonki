@@ -18,7 +18,7 @@ help: ## Buyruqlar ro'yxati
 # ─── Asosiy ───────────────────────────────────────────────────
 
 .PHONY: init
-init: ## ⭐ Birinchi marta: .env + build + ko'tarish + baza
+init: ## Birinchi marta (make bo'lsa): .env + build + ko'tarish + baza
 	@if [ ! -f .env ]; then \
 		cp .env.example .env; \
 		echo "  ✅ .env yaratildi (.env.example dan nusxa)"; \
@@ -33,7 +33,7 @@ init: ## ⭐ Birinchi marta: .env + build + ko'tarish + baza
 # Jadval o'zgarishlari backend konteyneri ishga tushganda o'zi
 # qo'llanadi (compose `command`: bootstrap → alembic upgrade head → seed).
 .PHONY: update
-update: ## ⭐ Keyingi safar: kodni yangilash + qayta qurish (baza saqlanadi)
+update: ## Keyingi safar (make bo'lsa): kodni yangilash + qayta qurish (baza saqlanadi)
 	@if git remote | grep -q .; then \
 		git pull --ff-only || echo "  ⚠️  git pull o'tmadi — mavjud kod bilan davom etamiz"; \
 	else \
