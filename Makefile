@@ -18,13 +18,53 @@ help: ## Buyruqlar ro'yxati
 # ─── Asosiy ───────────────────────────────────────────────────
 
 .PHONY: init
-init: ## Birinchi ishga tushirish (.env yaratadi va hammasini ko'taradi)
-	@if [ ! -f .env ]; then cp .env.example .env; echo "✅ .env yaratildi"; fi
-	@$(MAKE) up
+init: ## ⭐ Birinchi marta: .env + build + ko'tarish + baza
+	@if [ ! -f .env ]; then \
+		cp .env.example .env; \
+		echo "  ✅ .env yaratildi (.env.example dan nusxa)"; \
+	else \
+		echo "  ℹ️  .env allaqachon bor — tegilmadi"; \
+	fi
+	docker compose up -d --build
+	@$(MAKE) --no-print-directory wait
+	@$(MAKE) --no-print-directory info
+
+# Yangilash. Ma'lumot SAQLANADI — bu yerda `down` ham, `-v` ham yo'q.
+# Jadval o'zgarishlari backend konteyneri ishga tushganda o'zi
+# qo'llanadi (compose `command`: bootstrap → alembic upgrade head → seed).
+.PHONY: update
+update: ## ⭐ Keyingi safar: kodni yangilash + qayta qurish (baza saqlanadi)
+	@if git remote | grep -q .; then \
+		git pull --ff-only || echo "  ⚠️  git pull o'tmadi — mavjud kod bilan davom etamiz"; \
+	else \
+		echo "  ℹ️  git remote yo'q — mavjud kod quriladi"; \
+	fi
+	docker compose up -d --build
+	@$(MAKE) --no-print-directory wait
+	@$(MAKE) --no-print-directory info
 
 .PHONY: up
 up: ## Hamma servislarni ko'tarish (hot reload bilan)
 	docker compose up -d --build
+	@$(MAKE) --no-print-directory info
+
+# Backend ichida: bootstrap → migratsiya → seed. Bu bir necha daqiqa
+# olishi mumkin, shuning uchun healthcheck natijasi kutiladi —
+# aks holda «Tayyor!» yozuvi baza hali tayyor emasligida chiqardi.
+.PHONY: wait
+wait: ## Backend sog'lom bo'lishini kutish
+	@printf "  Backend tayyorlanmoqda (baza + demo ma'lumot)"
+	@for i in $$(seq 1 150); do \
+		s=$$(docker inspect -f '{{.State.Health.Status}}' zvonki-backend 2>/dev/null || echo starting); \
+		if [ "$$s" = "healthy" ]; then echo " — tayyor ✅"; exit 0; fi; \
+		printf "."; sleep 2; \
+	done; \
+	echo ""; \
+	echo "  ⚠️  Backend 5 daqiqada javob bermadi. Loglarni ko'ring: make logs-backend"; \
+	exit 1
+
+.PHONY: info
+info: ## Manzillar va kirish ma'lumotlari
 	@echo ""
 	@echo "  ✅ Tayyor!"
 	@echo "  ─────────────────────────────────────────────"
