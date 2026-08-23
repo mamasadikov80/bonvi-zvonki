@@ -40,3 +40,10 @@ Thumbs.db
 # Git ga tushmaydi: ular ma'lumot, kod emas, va tarixdan o'chirib
 # bo'lmaydi. Namuna kerak bo'lsa maskalangan nusxa qo'shiladi.
 docs/*.xlsx
+
+# npm lock fayli ATAYLAB kuzatilmaydi: u yaratilgan mashinaning
+# platformasini «tanlangan» deb belgilaydi va npm nuqsoni tufayli
+# (npm/cli#4828) boshqa platformada kerakli ikkilik modul
+# o'rnatilmay qoladi — Mac'da yig'ilgan lock Windows/x64 da web
+# konteynerini yiqitdi. Obraz `package.json` dan yig'iladi.
+services/web/package-lock.json

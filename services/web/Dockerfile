@@ -8,15 +8,27 @@ ENV NODE_ENV=development
 
 # ── Dev (hot reload) ─────────────────────────────────────────
 FROM base AS dev
-COPY package.json package-lock.json* ./
-RUN npm install
+# ⚠️ `package-lock.json` ATAYLAB KO'CHIRILMAYDI.
+#
+# Lock fayl qaysi mashinada yaratilgan bo'lsa, o'sha platformaning
+# ikkilik modullarini «tanlangan» deb belgilaydi. npm'da ma'lum
+# nuqson bor (npm/cli#4828): boshqa platformada u kerakli
+# `@rollup/rollup-linux-x64-musl` ni o'rnatmay ketadi va konteyner
+# «Cannot find module» bilan yiqiladi. Mac'da yig'ilgan lock bilan
+# Windows/x64 da aynan shunday bo'ldi.
+#
+# Faqat `package.json` ko'chiriladi — npm har platformada o'ziga
+# keraklisini o'zi tanlaydi.
+COPY package.json ./
+RUN npm install --no-audit --no-fund
 EXPOSE 5173
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
 
 # ── Build ────────────────────────────────────────────────────
 FROM base AS build
-COPY package.json package-lock.json* ./
-RUN npm ci || npm install
+# Sabab yuqorida — lock fayl platformaga bog'lab qo'yadi
+COPY package.json ./
+RUN npm install --no-audit --no-fund
 COPY . .
 RUN npm run build
 
