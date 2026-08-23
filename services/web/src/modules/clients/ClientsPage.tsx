@@ -53,15 +53,17 @@ import {
   Button,
   Card,
   EmptyState,
-  Segmented,
   Select,
   Skeleton,
 } from '@/shared/ui/primitives'
 import { SearchInput } from '@/shared/ui/SearchInput'
 import { SortHeader, type SortState } from '@/shared/ui/SortHeader'
 
-/** Sahifadagi qatorlar soni — foydalanuvchi tanlaydi. */
-const PAGE_SIZES = [20, 50] as const
+/** Sahifadagi qatorlar soni. Tanlov YO'Q — «Qo'ng'iroqlar» bo'limida
+ *  ham xuddi shu 50 ta. Ikkita variantli tanlagich panelda joy egallardi,
+ *  lekin javob beradigan savoli yo'q edi: 20 ta qator kam, 100 ta esa
+ *  hech qachon so'ralmagan. */
+const PAGE_SIZE = 50
 
 /** Saralanadigan ustunlar. Raqamlilar avval kattadan kichikka:
  *  «eng ko'p gaplashilgan mijoz» ko'proq so'raladigan savol.
@@ -125,14 +127,13 @@ export function ClientsPage() {
     order: 'desc',
   })
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState<number>(PAGE_SIZES[0])
   const [search, setSearch] = useState('')
   const [applied, setApplied] = useState('')
   const [scope, setScope] = useState<ClientScope>('clients')
 
   const query: ClientsQuery = {
     page,
-    page_size: pageSize,
+    page_size: PAGE_SIZE,
     date_from: filters.date_from,
     date_to: filters.date_to,
     agent_ids: filters.agent_ids,
@@ -145,7 +146,7 @@ export function ClientsPage() {
 
   const clients = useClients(query)
   const total = clients.data?.total ?? 0
-  const pages = Math.max(1, Math.ceil(total / pageSize))
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   /* Har qanday o'zgarish birinchi sahifaga qaytaradi — aks holda
      5-sahifada turib filtrni toraytirgan odam bo'sh jadval ko'rardi
@@ -170,6 +171,11 @@ export function ClientsPage() {
         </p>
       </div>
 
+      {/* Filtrlar BITTA qatorda: davr/hudud/xodim umumiy paneldan,
+          qidiruv va «kim ro'yxatga kiradi» esa shu sahifaga xos.
+          Ilgari ular ikkita ustma-ust kartada turardi — bir xil
+          ko'rinishdagi ikki qator jadvalni ekrandan pastga surardi,
+          ammo mazmunan ular bitta savolning qismlari. */}
       <FilterBar
         value={filters}
         onChange={reset(setFilters)}
@@ -177,49 +183,36 @@ export function ClientsPage() {
         onRangeChange={setRange}
         showAgentFilter={!isSales}
         showRegionFilter={!isSales}
-      />
+      >
+        {/* Qidiruv qolgan bo'sh joyni oladi: bu yerda eng ko'p
+            ishlatiladigan boshqaruv aynan u */}
+        <SearchInput
+          className="min-w-[220px] flex-1"
+          placeholder={t('clients.searchPlaceholder')}
+          value={search}
+          onChange={reset((next: string) => {
+            setSearch(next)
+            setApplied(next.trim())
+          })}
+        />
+
+        {/* Kim ro'yxatga kiradi. Ichki suhbatlar sukut bo'yicha
+            chiqarilgan — hamkasb mijoz emas. Bu YASHIRIN filtr
+            emas: tanlov ekranda ko'rinib turadi. */}
+        <Select
+          icon={Tag}
+          active={scope !== 'clients'}
+          className="w-44"
+          value={scope}
+          onChange={(e) => reset(setScope)(e.target.value as ClientScope)}
+        >
+          <option value="clients">{t('clients.scope.clients')}</option>
+          <option value="internal">{t('clients.scope.internal')}</option>
+          <option value="all">{t('clients.scope.all')}</option>
+        </Select>
+      </FilterBar>
 
       <Card>
-        {/* ── Qidiruv va ko'rinish ─────────────────────────────
-            Jadvalning ustida turadi: bularning ikkalasi ham
-            RO'YXATGA tegishli (nimani va nechtasini ko'rsatish),
-            yuqoridagi panel esa DAVR va kesimga. */}
-        <div className="flex flex-wrap items-center gap-3 border-b border-border p-4">
-          <SearchInput
-            className="min-w-[240px] flex-1"
-            placeholder={t('clients.searchPlaceholder')}
-            value={search}
-            onChange={reset((next: string) => {
-              setSearch(next)
-              setApplied(next.trim())
-            })}
-          />
-
-          {/* Kim ro'yxatga kiradi. Ichki suhbatlar sukut bo'yicha
-              chiqarilgan — hamkasb mijoz emas. Bu YASHIRIN filtr
-              emas: tanlov ekranda ko'rinib turadi. */}
-          <Select
-            icon={Tag}
-            active={scope !== 'clients'}
-            className="w-48"
-            value={scope}
-            onChange={(e) => reset(setScope)(e.target.value as ClientScope)}
-          >
-            <option value="clients">{t('clients.scope.clients')}</option>
-            <option value="internal">{t('clients.scope.internal')}</option>
-            <option value="all">{t('clients.scope.all')}</option>
-          </Select>
-
-          <Segmented
-            value={String(pageSize)}
-            onChange={(value) => reset(setPageSize)(Number(value))}
-            items={PAGE_SIZES.map((size) => ({
-              value: String(size),
-              label: t('clients.perPage', { count: size }),
-            }))}
-          />
-        </div>
-
         {clients.isLoading ? (
           <div className="space-y-2 p-5">
             {Array.from({ length: 10 }).map((_, i) => (

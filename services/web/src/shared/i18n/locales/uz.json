@@ -374,7 +374,6 @@
     "subtitle": "Kim bilan qancha gaplashilgan — raqam bo'yicha yig'ilgan ro'yxat",
     "found": "{{count}} ta mijoz",
     "searchPlaceholder": "Ism yoki telefon raqami bo'yicha qidirish",
-    "perPage": "{{count}} ta",
     "colClient": "Mijoz",
     "colDirection": "Yo'nalish",
     "colAgent": "Xodim",

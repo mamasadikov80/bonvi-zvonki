@@ -374,7 +374,6 @@
     "subtitle": "С кем и сколько говорили — список собран по номерам",
     "found": "{{count}} клиентов",
     "searchPlaceholder": "Поиск по имени или номеру телефона",
-    "perPage": "{{count}}",
     "colClient": "Клиент",
     "colDirection": "Направление",
     "colAgent": "Сотрудник",

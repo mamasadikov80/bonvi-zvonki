@@ -374,7 +374,6 @@
     "subtitle": "Who was talked to and how much — grouped by phone number",
     "found": "{{count}} clients",
     "searchPlaceholder": "Search by name or phone number",
-    "perPage": "{{count}}",
     "colClient": "Client",
     "colDirection": "Direction",
     "colAgent": "Agent",

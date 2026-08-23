@@ -17,7 +17,7 @@
  */
 
 import { MapPin, RotateCcw, SlidersHorizontal, User } from 'lucide-react'
-import { useMemo } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import type { AnalyticsQuery } from '@/modules/analytics/api'
@@ -49,6 +49,22 @@ interface Props {
    * guruhlarga xizmat ko'rsatishi mumkin.
    */
   showRegionFilter?: boolean
+  /**
+   * Sahifaga XOS filtrlar — umumiylaridan keyin, o'sha qatorda.
+   *
+   * Mijozlar sahifasida qidiruv va «kim ro'yxatga kiradi» tanlovi bor;
+   * ular alohida kartada turganda ekranda ikkita bir xil ko'rinishdagi
+   * qator hosil bo'lardi va jadval pastga surilardi. Bu yerda ular
+   * bitta qatorga qo'shiladi.
+   *
+   * Bermagan sahifalar (Boshqaruv paneli, Faollik) uchun hech narsa
+   * o'zgarmaydi — `undefined` hech qanday tugun chizmaydi.
+   *
+   * ⚠️ To'g'ridan-to'g'ri chiziladi (o'rovchi `div` YO'Q), ya'ni
+   * berilgan element flex qatorining bevosita bolasi bo'ladi va
+   * `flex-1` kabi sinflar ishlaydi.
+   */
+  children?: ReactNode
 }
 
 /** Bo'sh ro'yxat filtr emas — so'rovga `regions=[]` yuborilmaydi */
@@ -62,6 +78,7 @@ export function FilterBar({
   onRangeChange,
   showAgentFilter = true,
   showRegionFilter = true,
+  children,
 }: Props) {
   const { t } = useTranslation()
   const { data: options } = useFilterOptions()
@@ -144,6 +161,8 @@ export function FilterBar({
             summary={(count) => t('filters.agentCount', { count })}
           />
         )}
+
+        {children}
 
         {hasFilters && (
           <Button
