@@ -166,7 +166,10 @@ export function ClientsPage() {
         <h1 className="text-xl font-semibold tracking-tight 2xl:text-2xl">
           {t('clients.title')}
         </h1>
-        <p className="text-sm text-muted">
+        {/* Son sarlavhadan atigi bir pog'ona kichik: u ikkilamchi izoh
+            emas, ro'yxatning o'lchami va uni bir qarashda o'qish
+            kerak. `tnum` — raqamlar bir xil kenglikda tursin. */}
+        <p className="tnum text-base font-medium text-muted 2xl:text-lg">
           {clients.data ? t('clients.found', { count: total }) : t('clients.subtitle')}
         </p>
       </div>
