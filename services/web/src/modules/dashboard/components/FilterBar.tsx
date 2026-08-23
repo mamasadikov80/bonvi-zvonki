@@ -65,6 +65,24 @@ interface Props {
    * `flex-1` kabi sinflar ishlaydi.
    */
   children?: ReactNode
+  /**
+   * Umumiy filtrlardan OLDIN turadigan sahifa boshqaruvi.
+   *
+   * Mijozlar sahifasida bu — qidiruv maydoni. U eng chapda turishi
+   * kerak, chunki bu yerda eng ko'p ishlatiladigan boshqaruv aynan
+   * u; davr/hudud/xodim esa toraytiruvchi ikkinchi qadam.
+   */
+  leading?: ReactNode
+  /**
+   * «FILTRLAR» yorlig'i va ikonkasi.
+   *
+   * Mijozlar sahifasida o'chirilgan: u yerda qatorning boshida
+   * qidiruv turadi va yorliq faqat joy egallab, hech nima
+   * tushuntirmaydi — yonidagi boshqaruvlarning o'zi filtr ekani
+   * ko'rinib turibdi. Boshqaruv paneli va Faollikda qator faqat
+   * filtrlardan iborat, u yerda yorliq blokni sahifadan ajratadi.
+   */
+  showLabel?: boolean
 }
 
 /** Bo'sh ro'yxat filtr emas — so'rovga `regions=[]` yuborilmaydi */
@@ -79,6 +97,8 @@ export function FilterBar({
   showAgentFilter = true,
   showRegionFilter = true,
   children,
+  leading,
+  showLabel = true,
 }: Props) {
   const { t } = useTranslation()
   const { data: options } = useFilterOptions()
@@ -119,10 +139,14 @@ export function FilterBar({
   return (
     <div className="card animate-fade-up p-4">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-        <div className="flex items-center gap-2 text-muted">
-          <SlidersHorizontal className="size-4" />
-          <span className="label-eyebrow">{t('filters.title')}</span>
-        </div>
+        {showLabel && (
+          <div className="flex items-center gap-2 text-muted">
+            <SlidersHorizontal className="size-4" />
+            <span className="label-eyebrow">{t('filters.title')}</span>
+          </div>
+        )}
+
+        {leading}
 
         {/* Davr — tayyor variantlar, yil yoki ixtiyoriy oraliq */}
         <DateRangePicker

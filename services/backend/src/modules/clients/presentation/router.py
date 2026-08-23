@@ -16,7 +16,7 @@ kartochkasini ochib, savdosi shubhali deb belgilanganini KO'RMASLIGI
 kerak. Ruxsat kartochkani ochish huquqidan MEROS OLINMAYDI.
 """
 
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from datetime import date, datetime, timedelta
 from typing import Annotated
 from uuid import UUID
@@ -34,6 +34,7 @@ from src.core.exceptions import NotFoundError, ValidationError
 from src.modules.clients.application.directory import (
     ClientDirectory,
     ClientFilter,
+    ClientRow,
     ClientScope,
     ClientSort,
 )
@@ -238,6 +239,35 @@ def _filter(
     )
 
 
+async def _locate(
+    directory: ClientDirectory, key: str, f: ClientFilter
+) -> tuple[ClientRow, ClientFilter] | None:
+    """Raqamni topadi. Tanlangan kesimda yo'q bo'lsa — BARCHA kesimda.
+
+    ⚠️ NEGA KENGAYTIRAMIZ. Kesim (`scope`) ro'yxatning ko'rinishi, mijoz
+    haqidagi HAQIQAT emas: sukut bo'yicha `clients` ichki raqamlarni
+    chiqarib tashlaydi. Kartochka manzilida `scope` bo'lmasa — havolani
+    saqlab qo'ygan yoki qo'lda yozgan odamda shunday bo'ladi — ichki
+    raqam hech qachon ochilmasdi va 404 kelardi. Raqam bazada bor, uni
+    ko'rish huquqi ham bor, faqat SO'ROVDAGI TANLOV mos emas: bunday
+    holatda xato qaytarish foydalanuvchini «tizim buzuq» degan noto'g'ri
+    xulosaga olib boradi.
+
+    ⚠️ XODIM VA HUDUD SHARTLARI SAQLANADI (`replace` faqat `scope` ni
+    almashtiradi). Savdo xodimi uchun `agent_ids` uning o'ziga qotirilgan
+    — kesim kengayganda ham begona mijoz ochilib ketmaydi.
+    """
+    summary = await directory.summary(key, f)
+    if summary is not None:
+        return summary, f
+    if f.scope is ClientScope.ALL:
+        return None
+
+    wide = replace(f, scope=ClientScope.ALL)
+    summary = await directory.summary(key, wide)
+    return (summary, wide) if summary is not None else None
+
+
 @router.get(
     "",
     response_model=PaginatedClients,
@@ -316,20 +346,26 @@ async def get_client(
     """
     cleaned = _key_or_error(key)
     directory = ClientDirectory(session)
-    f = _filter(
-        user,
-        date_from=date_from,
-        date_to=date_to,
-        agent_ids=agent_ids,
-        regions=regions,
-        scope=scope,
+    found = await _locate(
+        directory,
+        cleaned,
+        _filter(
+            user,
+            date_from=date_from,
+            date_to=date_to,
+            agent_ids=agent_ids,
+            regions=regions,
+            scope=scope,
+        ),
     )
-
-    summary = await directory.summary(cleaned, f)
-    if summary is None:
+    if found is None:
         raise NotFoundError("Bu raqam bo'yicha qo'ng'iroq topilmadi")
 
-    agents = await directory.agents_of(cleaned, f)
+    # ⚠️ `resolved` — mijoz HAQIQATDA topilgan filtr. «Kim gaplashgan»
+    # ro'yxati ham aynan shundan olinadi, aks holda yig'ma to'lgan-u
+    # xodimlar bo'sh bo'lgan kartochka chiqardi.
+    summary, resolved = found
+    agents = await directory.agents_of(cleaned, resolved)
     return ClientDetail(
         client=ClientListItem(**asdict(summary)),
         agents=[ClientAgentItem(**asdict(row)) for row in agents],
@@ -356,19 +392,31 @@ async def client_calls(
 ) -> PaginatedClientCalls:
     """Yangisidan eskisiga. Har qatorda KIM gaplashgani ko'rinadi."""
     cleaned = _key_or_error(key)
-    result = await ClientDirectory(session).calls(
-        cleaned,
-        _filter(
-            user,
-            date_from=date_from,
-            date_to=date_to,
-            agent_ids=agent_ids,
-            regions=regions,
-            scope=scope,
-        ),
-        page=page,
-        page_size=page_size,
+    directory = ClientDirectory(session)
+    f = _filter(
+        user,
+        date_from=date_from,
+        date_to=date_to,
+        agent_ids=agent_ids,
+        regions=regions,
+        scope=scope,
     )
+    result = await directory.calls(cleaned, f, page=page, page_size=page_size)
+
+    # Kartochka bilan BIR XIL qoida (`_locate`): raqam tanlangan kesimda
+    # umuman yo'q bo'lsa, barcha kesimda qaraymiz. Aks holda ichki
+    # raqamning kartochkasi ochilar-u, suhbatlar jadvali bo'sh qolardi.
+    #
+    # Tekshiruv FAQAT ro'yxat bo'sh chiqqanda ishlaydi: qatorlar bor
+    # ekan, kesim to'g'ri va qo'shimcha so'rov qilinmaydi. Bo'sh davr bu
+    # yerga tushadi, lekin natijani o'zgartirmaydi — kengaytirilgan
+    # kesimda ham o'sha davrda qo'ng'iroq yo'q.
+    if result.total == 0:
+        found = await _locate(directory, cleaned, f)
+        if found is not None and found[1].scope is not f.scope:
+            result = await directory.calls(
+                cleaned, found[1], page=page, page_size=page_size
+            )
     return PaginatedClientCalls(
         items=[
             ClientCallItem(

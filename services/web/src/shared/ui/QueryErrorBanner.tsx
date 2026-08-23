@@ -23,7 +23,36 @@ import { CloudOff, RefreshCw, WifiOff } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { ApiError } from '@/shared/api/client'
 import { cn } from '@/shared/lib/utils'
+
+/**
+ * KUTILGAN javoblar — nosozlik EMAS.
+ *
+ * `404` — «bunday mijoz yo'q». Bu server yiqilgani emas, savolga
+ * berilgan to'g'ri javob; sahifaning o'zi uni tushunarli matn bilan
+ * ko'rsatadi (`clients.notFound`). Chiziq esa yuqorida «ma'lumotni
+ * olib bo'lmadi» deb yozib, foydalanuvchini dasturiy xatolik bor deb
+ * o'ylashga majbur qilardi.
+ *
+ * `403` — «bu bo'lim senga ochiq emas» (masalan savdo xodimi mijoz
+ * kartochkasidagi savdo nazoratini so'rasa). Ruxsat chegarasi ham
+ * loyihalangan xatti-harakat.
+ *
+ * `422` — so'rov shakli noto'g'ri (`/clients/undefined` kabi). Bu
+ * KODDAGI xato va uni tuzatish kerak, lekin foydalanuvchiga «tarmoq
+ * yiqildi» deb ko'rsatish uni chalg'itadi.
+ *
+ * ⚠️ Ro'yxat ATAYLAB qisqa. `5xx` va tarmoq uzilishi baribir
+ * ko'rinadi — chiziqning butun ma'nosi «bo'sh ro'yxat» bilan «server
+ * yiqildi» ni ajratish. `401` bu yerga umuman yetib kelmaydi:
+ * `api/client.ts` uni loginga otib yuboradi.
+ */
+const EXPECTED = new Set([403, 404, 422])
+
+/** Chiziq shu so'rovni sanashi kerakmi. */
+const isFailure = (error: unknown): boolean =>
+  !(error instanceof ApiError) || !EXPECTED.has(error.status)
 
 export function QueryErrorBanner() {
   const { t } = useTranslation()
@@ -41,7 +70,12 @@ export function QueryErrorBanner() {
       setFailed(
         cache
           .getAll()
-          .filter((q) => q.state.status === 'error' && q.getObserversCount() > 0).length,
+          .filter(
+            (q) =>
+              q.state.status === 'error' &&
+              q.getObserversCount() > 0 &&
+              isFailure(q.state.error),
+          ).length,
       )
     }
     sanash()
@@ -64,7 +98,9 @@ export function QueryErrorBanner() {
       // hisoblanadi — natijada tugma bosilardi va hech narsa qilmasdi.
       await client.refetchQueries({
         type: 'active',
-        predicate: (q) => q.state.status === 'error',
+        // Kutilgan xatolar (404/403/422) chiziqni yoqmaydi, demak
+        // ularni qayta so'rashning ham ma'nosi yo'q: javob o'zgarmaydi.
+        predicate: (q) => q.state.status === 'error' && isFailure(q.state.error),
       })
     } finally {
       setRetrying(false)

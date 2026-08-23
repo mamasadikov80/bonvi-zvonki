@@ -342,6 +342,80 @@ async def test_topilmagan_mijoz_404(admin_client) -> None:
     assert response.status_code == 404, response.text
 
 
+@pytest.mark.asyncio
+async def test_ichki_raqam_kartochkasi_scope_siz_ochiladi(admin_client, dataset) -> None:
+    """⚠️ XATO EDI: ichki raqamning kartochkasi hech qachon ochilmasdi.
+
+    Ro'yxat `scope=internal` bilan ishlaydi, kartochkaning manzilida esa
+    `scope` bo'lmasligi mumkin (havola saqlab qo'yilgan yoki qo'lda
+    yozilgan). Backend sukut bo'yicha `clients` kesimida qidirardi va
+    ichki raqam u yerda YO'Q — natijada ro'yxatda ko'rinib turgan qator
+    bosilmas bo'lib qolardi.
+
+    Endi kesimda topilmasa `all` bilan qayta qaraladi: yig'ma ham,
+    suhbatlar jadvali ham ochiq.
+    """
+    data = await dataset(scores=[])
+    await _add_calls(
+        data.agent_id,
+        [{"phone": "700100200", "name": "Ombor", "call_type": "internal"}],
+    )
+    params = {"agent_ids": str(data.agent_id)}
+
+    # Ro'yxat kalitni aynan `internal` kesimida beradi
+    listed = (
+        await admin_client.get(f"{API}/clients", params={**params, "scope": "internal"})
+    ).json()["items"]
+    assert [row["key"] for row in listed] == ["700100200"]
+
+    # ⚠️ `scope` YUBORILMAYDI — aynan buzilgan holat
+    detail = await admin_client.get(f"{API}/clients/700100200", params=params)
+    assert detail.status_code == 200, detail.text
+    assert detail.json()["client"]["calls_total"] == 1
+    assert detail.json()["agents"], "«kim gaplashgan» ham to'lishi kerak"
+
+    calls = await admin_client.get(f"{API}/clients/700100200/calls", params=params)
+    assert calls.status_code == 200, calls.text
+    assert calls.json()["total"] == 1, "jadval ham bo'sh qolmasin"
+
+    # Aniq kesim berilganda ham o'sha natija
+    exact = await admin_client.get(
+        f"{API}/clients/700100200", params={**params, "scope": "internal"}
+    )
+    assert exact.status_code == 200
+    assert exact.json()["client"]["calls_total"] == 1
+
+
+@pytest.mark.asyncio
+async def test_kesim_kengayishi_xodim_chegarasini_buzmaydi(sales_client, dataset) -> None:
+    """⚠️ Kesim kengaysa ham BEGONA mijoz ochilmaydi.
+
+    `_locate` faqat `scope` ni almashtiradi; xodim va hudud shartlari
+    joyida qoladi. Aks holda savdo xodimi istalgan raqamni manzilga
+    yozib, hamkasbining mijozini ochib ko'rardi — bu ruxsat tizimidagi
+    teshik bo'lardi.
+    """
+    client, own = sales_client
+    stranger = await dataset(scores=[])
+    await _add_calls(own.agent_id, [{"phone": "901112233", "name": "Meniki"}])
+    await _add_calls(
+        stranger.agent_id,
+        [{"phone": "907778899", "name": "Begona", "call_type": "internal"}],
+    )
+
+    # O'ziniki — ochiladi
+    mine = await client.get(f"{API}/clients/901112233")
+    assert mine.status_code == 200, mine.text
+
+    # Begona — kesim kengaytirilsa ham 404
+    for params in ({}, {"scope": "all"}, {"scope": "internal"}):
+        stranger_detail = await client.get(f"{API}/clients/907778899", params=params)
+        assert stranger_detail.status_code == 404, stranger_detail.text
+
+    stranger_calls = await client.get(f"{API}/clients/907778899/calls")
+    assert stranger_calls.json()["total"] == 0, "begona suhbatlar ko'rinmasin"
+
+
 # ══════════════════════════════════════════════════════════════
 #  Kartochkadagi savdo tarixi (savdo-nazorati, 3-bosqich)
 # ══════════════════════════════════════════════════════════════

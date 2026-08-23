@@ -175,7 +175,10 @@ export function ClientsPage() {
           qidiruv va «kim ro'yxatga kiradi» esa shu sahifaga xos.
           Ilgari ular ikkita ustma-ust kartada turardi — bir xil
           ko'rinishdagi ikki qator jadvalni ekrandan pastga surardi,
-          ammo mazmunan ular bitta savolning qismlari. */}
+          ammo mazmunan ular bitta savolning qismlari.
+
+          «FILTRLAR» yorlig'i bu yerda YO'Q: qatorning boshida qidiruv
+          turadi va yorliq uni chetga surib, hech nima tushuntirmasdi. */}
       <FilterBar
         value={filters}
         onChange={reset(setFilters)}
@@ -183,19 +186,21 @@ export function ClientsPage() {
         onRangeChange={setRange}
         showAgentFilter={!isSales}
         showRegionFilter={!isSales}
+        showLabel={false}
+        leading={
+          /* Qidiruv ENG CHAPDA va qolgan bo'sh joyni oladi: bu
+             sahifada eng ko'p ishlatiladigan boshqaruv aynan u */
+          <SearchInput
+            className="min-w-[220px] flex-1"
+            placeholder={t('clients.searchPlaceholder')}
+            value={search}
+            onChange={reset((next: string) => {
+              setSearch(next)
+              setApplied(next.trim())
+            })}
+          />
+        }
       >
-        {/* Qidiruv qolgan bo'sh joyni oladi: bu yerda eng ko'p
-            ishlatiladigan boshqaruv aynan u */}
-        <SearchInput
-          className="min-w-[220px] flex-1"
-          placeholder={t('clients.searchPlaceholder')}
-          value={search}
-          onChange={reset((next: string) => {
-            setSearch(next)
-            setApplied(next.trim())
-          })}
-        />
-
         {/* Kim ro'yxatga kiradi. Ichki suhbatlar sukut bo'yicha
             chiqarilgan — hamkasb mijoz emas. Bu YASHIRIN filtr
             emas: tanlov ekranda ko'rinib turadi. */}
@@ -279,7 +284,18 @@ export function ClientsPage() {
                   return (
                     <tr
                       key={row.key}
-                      onClick={() => navigate(`/clients/${row.key}`)}
+                      /* Kesim manzilga QO'SHILADI: kartochka ham shu
+                         kesimda ochilsin. Ichki raqam sukut kesimida
+                         (`clients`) yo'q va `scope` siz havola 404
+                         berardi — ro'yxatda ko'rinib turgan qator
+                         bosilmas bo'lib qolardi. */
+                      onClick={() =>
+                        navigate(
+                          scope === 'clients'
+                            ? `/clients/${row.key}`
+                            : `/clients/${row.key}?scope=${scope}`,
+                        )
+                      }
                       /* Balandlik QAT'IY: qatorlar mazmuniga qarab
                          (nomi bormi, raqamlari uzunmi) turlicha
                          cho'zilib, ro'yxat notekis ko'rinardi. 60px —

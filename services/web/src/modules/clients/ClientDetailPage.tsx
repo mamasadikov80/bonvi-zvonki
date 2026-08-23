@@ -30,7 +30,7 @@
 import { ArrowLeft, Clock, PhoneMissed, ShoppingBag, Star, Users } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import { useAuth } from '@/modules/auth/store'
 import { CallTypeBadge } from '@/modules/calls/CallTypeBadge'
@@ -41,6 +41,7 @@ import {
   useClientSales,
   type ClientCall,
   type ClientSale,
+  type ClientScope,
 } from '@/modules/clients/api'
 import { RuleBadges, VerdictBadge } from '@/modules/sales/badges'
 import { DateRangePicker } from '@/shared/ui/DateRangePicker'
@@ -114,10 +115,22 @@ export function ClientDetailPage() {
 
   const period = mode === 'range' ? rangeToQuery(range) : {}
 
+  /* ── KESIM manzildan ──────────────────────────────────────
+     Ro'yxat qaysi kesimda ishlagan bo'lsa, kartochka ham o'shanda
+     ochiladi. Aks holda «Ichki raqamlar» ro'yxatidan bosilgan qator
+     404 berardi: backend sukut bo'yicha `clients` kesimida qidiradi
+     va ichki raqam u yerda YO'Q.
+
+     Manzilda turgani ataylab: havolani saqlab qo'ysa ham, sahifani
+     yangilasa ham kesim yo'qolmaydi. */
+  const [searchParams] = useSearchParams()
+  const scope = (searchParams.get('scope') as ClientScope | null) ?? undefined
+  const view = { ...period, scope }
+
   const [page, setPage] = useState(1)
-  const detail = useClient(clientKey, period)
+  const detail = useClient(clientKey, view)
   const calls = useClientCalls(clientKey, {
-    ...period,
+    ...view,
     page,
     page_size: PAGE_SIZE,
   })
@@ -146,7 +159,7 @@ export function ClientDetailPage() {
      oynalari uzluksiz va kesishmaydigan bo'ladi. */
   const boundary = useClientCalls(
     clientKey,
-    { ...period, page: (page - 1) * PAGE_SIZE, page_size: 1 },
+    { ...view, page: (page - 1) * PAGE_SIZE, page_size: 1 },
     { enabled: canSeeSales && page > 1 },
   )
   const boundaryAt = boundary.data?.items[0]

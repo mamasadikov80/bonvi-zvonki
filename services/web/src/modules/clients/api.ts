@@ -99,16 +99,32 @@ export interface ClientPeriod {
 }
 
 /**
+ * Davr + KESIM. Kartochka ro'yxatdagi kesimni ergashtiradi.
+ *
+ * ⚠️ NEGA `scope` KERAK. Backend sukut bo'yicha `clients` kesimida
+ * qidiradi — ya'ni ICHKI raqamlardan boshqa hammasida. Ro'yxatda
+ * «Ichki raqamlar» tanlangan bo'lsa-yu, kartochka `scope` yubormasa,
+ * o'sha raqam kesimdan tashqarida qolib 404 qaytardi: ro'yxatda
+ * ko'rinib turgan qator BOSILMAS bo'lib qolardi.
+ *
+ * Savdolar (`useClientSales`) bu maydonni OLMAYDI: savdo faqat
+ * raqam kaliti bo'yicha topiladi, unda «ichki/mijoz» tushunchasi yo'q.
+ */
+export interface ClientView extends ClientPeriod {
+  scope?: ClientScope
+}
+
+/**
  * Bitta mijoz. Davr berilmasa — butun tarix.
  *
  * ⚠️ Tanlangan davrda aloqa bo'lmasa ham javob KELADI: sonlari nol,
  * sanalari bo'sh. «Mijoz topilmadi» degan xato faqat raqam umuman
  * bo'lmaganda chiqadi — davrni toraytirish mijozni yo'qotmaydi.
  */
-export const useClient = (key: string | undefined, period: ClientPeriod = {}) =>
+export const useClient = (key: string | undefined, view: ClientView = {}) =>
   useQuery({
-    queryKey: ['clients', 'detail', key, period],
-    queryFn: () => api.get<ClientDetail>(`/clients/${key}`, period as never),
+    queryKey: ['clients', 'detail', key, view],
+    queryFn: () => api.get<ClientDetail>(`/clients/${key}`, view as never),
     enabled: Boolean(key),
   })
 
@@ -139,7 +155,7 @@ export interface PaginatedClientCalls {
 
 export const useClientCalls = (
   key: string | undefined,
-  query: ClientPeriod & { page?: number; page_size?: number } = {},
+  query: ClientView & { page?: number; page_size?: number } = {},
   { enabled = true }: { enabled?: boolean } = {},
 ) =>
   useQuery({
