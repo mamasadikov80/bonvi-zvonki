@@ -169,7 +169,7 @@ export function ClientsPage() {
         {/* Son sarlavhadan atigi bir pog'ona kichik: u ikkilamchi izoh
             emas, ro'yxatning o'lchami va uni bir qarashda o'qish
             kerak. `tnum` — raqamlar bir xil kenglikda tursin. */}
-        <p className="tnum text-base font-medium text-muted 2xl:text-lg">
+        <p className="tnum text-lg font-medium text-muted 2xl:text-xl">
           {clients.data ? t('clients.found', { count: total }) : t('clients.subtitle')}
         </p>
       </div>
