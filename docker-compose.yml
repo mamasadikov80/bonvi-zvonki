@@ -73,7 +73,17 @@ services:
     hostname: backend
     labels: *labels
     restart: unless-stopped
-    env_file: .env
+    # ⚠️ `required: false` — `.env` BO'LMASA HAM ko'tariladi.
+    #
+    # Klon qilingan yangi kompyuterda `.env` yo'q (u git'da
+    # saqlanmaydi) va majburiy bo'lsa `docker compose up` hatto
+    # boshlanmasdan «env file not found» bilan to'xtardi. Endi bitta
+    # buyruq yetadi; maxfiy kalitlar esa `.env` paydo bo'lgach
+    # o'qiladi. Pastdagi `environment:` bloki muhim qiymatlarni
+    # sukut bilan beradi, ya'ni tizim baribir ishlaydi.
+    env_file:
+      - path: .env
+        required: false
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-zvonki}:${POSTGRES_PASSWORD:-zvonki_dev_password}@postgres:5432/${POSTGRES_DB:-zvonki}
       REDIS_URL: redis://redis:6379/0
@@ -115,7 +125,17 @@ services:
     hostname: worker
     labels: *labels
     restart: unless-stopped
-    env_file: .env
+    # ⚠️ `required: false` — `.env` BO'LMASA HAM ko'tariladi.
+    #
+    # Klon qilingan yangi kompyuterda `.env` yo'q (u git'da
+    # saqlanmaydi) va majburiy bo'lsa `docker compose up` hatto
+    # boshlanmasdan «env file not found» bilan to'xtardi. Endi bitta
+    # buyruq yetadi; maxfiy kalitlar esa `.env` paydo bo'lgach
+    # o'qiladi. Pastdagi `environment:` bloki muhim qiymatlarni
+    # sukut bilan beradi, ya'ni tizim baribir ishlaydi.
+    env_file:
+      - path: .env
+        required: false
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-zvonki}:${POSTGRES_PASSWORD:-zvonki_dev_password}@postgres:5432/${POSTGRES_DB:-zvonki}
       REDIS_URL: redis://redis:6379/0
@@ -168,7 +188,17 @@ services:
     hostname: bot
     labels: *labels
     restart: unless-stopped
-    env_file: .env
+    # ⚠️ `required: false` — `.env` BO'LMASA HAM ko'tariladi.
+    #
+    # Klon qilingan yangi kompyuterda `.env` yo'q (u git'da
+    # saqlanmaydi) va majburiy bo'lsa `docker compose up` hatto
+    # boshlanmasdan «env file not found» bilan to'xtardi. Endi bitta
+    # buyruq yetadi; maxfiy kalitlar esa `.env` paydo bo'lgach
+    # o'qiladi. Pastdagi `environment:` bloki muhim qiymatlarni
+    # sukut bilan beradi, ya'ni tizim baribir ishlaydi.
+    env_file:
+      - path: .env
+        required: false
     environment:
       API_BASE_URL: http://backend:8000
       REDIS_URL: redis://redis:6379/1

@@ -13,21 +13,17 @@ ko'rsatiladi — rahbar har bir xodim, hudud va davr kesimida ishni ko'rib turad
 ## ⚡ Tez ishga tushirish
 
 Faqat **Docker** kerak — boshqa hech narsa o'rnatilmaydi.
-Loyiha papkasi ichida turib (`cd BonviZvonki`):
-
-### Birinchi marta — macOS / Linux
+Klon qilib, papka ichida bitta buyruq:
 
 ```bash
-cp .env.example .env && docker compose up -d --build
+docker compose up -d --build
 ```
 
-### Birinchi marta — Windows (PowerShell)
+Shu bilan tamom: obrazlar quriladi, baza ko'tariladi, jadvallar
+yaratiladi va admin hisobi qo'shiladi. Birinchi marta 3–10 daqiqa
+oladi (bazaviy obrazlar yuklanadi), keyingi safar kesh bilan ancha tez.
 
-```powershell
-copy .env.example .env ; docker compose up -d --build
-```
-
-### Keyingi yangilanishlarda (ikkala tizimda ham)
+**Keyingi yangilanishlarda** — xuddi shu buyruq, oldiga `git pull`:
 
 ```bash
 git pull && docker compose up -d --build
@@ -39,28 +35,35 @@ Windows'ning eski **PowerShell 5.1** da `&&` ishlamaydi — u yerda `;` bilan:
 git pull ; docker compose up -d --build
 ```
 
+Tugagach: **http://localhost:5180** · kirish `admin@zvonki.uz` / `admin12345`
+
 ---
 
-> ### ⚠️ `.env` nusxasi — MAJBURIY birinchi qadam
+> ### 🔑 `.env` — faqat tashqi xizmatlar uchun
 >
-> `docker-compose.yml` da uchta servis (`backend`, `worker`, `bot`) `env_file: .env`
-> ni o'qiydi. Fayl bo'lmasa compose hech narsa qurmasdan
-> **`env file ... not found`** deb to'xtaydi — «buyruq yozdim, hech narsa
-> bo'lmadi» holati aynan shundan chiqadi. `.env` git'ga tushmaydi
-> (`.gitignore` da), shuning uchun klondan keyin uni **o'zingiz** yaratasiz.
+> Tizim `.env` **siz ham ishlaydi**: baza, portlar va maxfiy kalit
+> `docker-compose.yml` da sukut qiymatlar bilan berilgan. Dashboard
+> ochiladi, barcha bo'limlar ishlaydi — faqat baza bo'sh bo'ladi.
 >
-> **Mavjud `.env` ezib yuborilmasin.** Ikkinchi marta ishga tushirayotgan
-> bo'lsangiz, ustiga yozmaydigan variantni oling:
+> Tashqi xizmatlar kerak bo'lganda `.env` yaratasiz:
 >
 > ```bash
-> cp -n .env.example .env                   # macOS / Linux — bor bo'lsa tegmaydi
+> cp -n .env.example .env      # macOS / Linux — mavjudini ezmaydi
 > ```
 > ```powershell
-> Copy-Item .env.example .env -NoClobber    # Windows — bor bo'lsa tegmaydi
+> Copy-Item .env.example .env -NoClobber    # Windows
 > ```
 >
-> `git pull` `.env` ni hech qachon o'zgartirmaydi, shuning uchun yangilash
-> buyrug'ida bu qadam yo'q.
+> Keyin uni to'ldirib, `docker compose up -d` ni qayta yurgizasiz.
+>
+> | Qiymat | Nimaga kerak | Bo'lmasa |
+> | --- | --- | --- |
+> | `MOIZVONKI_DOMAIN`, `MOIZVONKI_API_KEY` | qo'ng'iroqlarni tortib olish | ro'yxat bo'sh qoladi |
+> | `TELEGRAM_BOT_TOKEN` | bot va so'rovnomalar | bot ishlamaydi |
+> | `SECRET_KEY` | tokenlarni imzolash | dev qiymati ishlatiladi — **ishlab chiqarishda albatta almashtiring** |
+>
+> AI kaliti `.env` da EMAS — u dashboard ichida, **Sozlamalar** bo'limida
+> kiritiladi va bazada saqlanadi.
 
 ---
 
@@ -237,9 +240,11 @@ yo'q, macOS'da Xcode buyruq qatori vositalarisiz yo'q. Yechim: yuqoridagi
 macOS — `xcode-select --install`, Linux — `sudo apt install make`.
 
 **`env file .../.env not found`**
-`.env` yaratilmagan. `.env` git'ga tushmaydi, klondan keyin uni o'zingiz
-nusxalaysiz: `cp .env.example .env` (Windowsda `copy .env.example .env`),
-keyin buyruqni qaytaring.
+Eski Docker Compose (2.24 dan past) `.env` ni majburiy deb biladi. Ikki
+yechim: Docker Desktop'ni yangilash yoki bo'sh fayl yaratish —
+`cp .env.example .env` (Windowsda `copy .env.example .env`), so'ng
+buyruqni qaytarish. Yangi Compose'da bu xato umuman chiqmaydi:
+`.env` ixtiyoriy qilib belgilangan.
 
 **Port band** (`bind: address already in use`)
 `.env` dagi `WEB_PORT` / `API_PORT` / `POSTGRES_PORT` / `REDIS_PORT` ni
