@@ -24,6 +24,12 @@ Uch xil Excel eksporti keladi. Barchasi SAP dan qo'lda yuklanadi.
 
 ### 2.1 `savdo kunlik.xlsx` — operatsiyalar registri
 
+⚠️ **Fayl nomiga tayanilmaydi** — tur SARLAVHA bo'yicha aniqlanadi.
+`клиент харакати общий 01.xlsx` (12 591 qator, 01.07–23.08.2026)
+sarlavhasi `savdo kunlik.xlsx` bilan bir xil va xuddi shu registr
+sifatida o'qiladi; `Mijozlar ruyxati.xlsx` esa `Workbook3.xlsx` bilan
+bir xil (2.2-bo'lim).
+
 2 384 qator, 11 kun (10.08–20.08.2026). Ustunlar:
 `# | Тип | Номер операции | Подразделение | Направление | № док. |
 Дата регистрации | Код заказчика/поставщика | Название заказчика/поставщика |
@@ -38,17 +44,51 @@ Uch xil Excel eksporti keladi. Barchasi SAP dan qo'lda yuklanadi.
   Takror kelgan qator import ichida bir marta yoziladi.
 - `Дата регистрации` — matn `dd.mm.yyyy`, **VAQTI YO'Q** (faqat sana).
 - `Хақдор ($)` — savdo summasi (Продажа qatorlarida to'ladi),
-  `Қарздор ($)` — to'lov/qarz (Входящие платежи da). Sonlar **matn**:
-  `"1 950,000"` (probel = minglik, vergul = o'nlik).
+  `Қарздор ($)` — to'lov/qarz (Входящие платежи da).
 - ⚠️ **`($)` ustuni HAR DOIM dollar ekvivalenti**, `(cўм)` esa hujjat
   valyutasidagi summa (UZS da so'm, CNY da yuan, AED da dirham) —
   sarlavha aldamchi. Misol: UZS hujjatda `8,333 $` ↔ `100 000,000` so'm.
-- ⚠️ **Sonlarning bir qismi matn EMAS.** Excel probelsiz qiymatlarni
-  (`"561,000"`) o'zi raqamga aylantirib, vergulni minglik ajratkichi deb
-  o'qigan va katakka `561000` yozgan (`number_format` = `#,##0`).
-  O'lchandi: `Хақдор ($)` da 649 ta shunday katak, 1735 tasi matn.
-  Raqam katakdagi qiymat **1000 barobar katta** — import uni bo'ladi.
-  Busiz savdo summalari shishib ketardi.
+
+#### ⚠️ Summa tuzog'i: eksportning IKKI AVLODI bor
+
+Bitta ustunda ikki xil ma'no keladi va farqni **faqat katak formati**
+(`number_format`) ko'rsatadi — fayl nomi ham, sarlavha ham bir xil.
+O'lchandi (`Хақдор ($)`, hamma raqam kataklar):
+
+| | ESKI (`savdo kunlik.xlsx`) | YANGI (`клиент харакати общий 01.xlsx`) |
+| --- | --- | --- |
+| matn kataklar | 1 735 (`"1 950,000"`) | **0** |
+| raqam kataklar | 649 | 12 591 |
+| raqam formati | **`#,##0`** | **`General`** |
+| qiymat misoli | `561000` (aslida 561.000) | `1230.0` (aynan 1230) |
+
+Import qoidasi (`sales/application/reader.py`):
+
+1. **MATN** (`"1 950,000"`) — probel = minglik, vergul = o'nlik → `1950.000`.
+2. **RAQAM + `#,##0` + butun son** → **1000 ga bo'linadi**. Bu ESKI
+   faylning buzilgan katagi: Excel probelsiz `"561,000"` ni o'zi raqamga
+   aylantirib, vergulni minglik ajratkichi deb o'qigan va katakka
+   `561000` yozgan. `#,##0` («o'nliksiz butun son») formati aynan
+   shundan qolgan — kodda `LegacyThousands` belgisi shu katakka
+   qo'yiladi.
+3. **Qolgan har qanday RAQAM** (`General`, `#,##0.00`, kasrli) —
+   **O'ZGARISHSIZ**. Yangi eksportda qiymat allaqachon to'g'ri.
+
+⚠️ 3-qoida **regressiyadan keyin yozildi**. Ilgari HAR QANDAY raqam
+katak 1000 ga bo'linardi va yangi eksport yuklangach summalar 1000
+barobar kichrayib ketdi: **146 000 $ → 146 $**, **256 $ → 0**. Yangi
+faylda 12 591 ta summa katagining hammasi raqam va hammasi `General`,
+ya'ni eski qoida ularning BARCHASINI buzardi.
+
+⚠️ `#,##0` belgisi summa ustunlarida **toza ajratadi**: yangi registrda
+u umuman uchramaydi, yangi katalogda esa faqat 3 ta katakda bor va
+uchalasi ham `Тел ракам` ustunida — u yerda summa o'qilmaydi. Shuning
+uchun belgi katak o'qilayotganda qo'yilsa ham (`_cell_value`), ta'siri
+faqat `parse_amount` bilan cheklanadi.
+
+⚠️ Shu sababli registr `values_only` siz o'qiladi: format qiymatning
+yonida qolmaydi, katak obyekti kerak. Katak obyektlari saqlanmaydi —
+12 591 qatorli faylda narx 0.56 s → 0.65 s.
 - Valyuta: USD 1895, UZS 391, CNY 84, AED 9 (Бух.оп da bo'sh — USD deb olinadi).
 - **Telefon yo'q, sotuvchi ismi yo'q.** Bog'lanish faqat mijoz kodi orqali.
 - ⚠️ Savdolarning **~29% i «Разовый клиент» (К00001)** umumiy kodida —
@@ -60,6 +100,12 @@ Uch xil Excel eksporti keladi. Barchasi SAP dan qo'lda yuklanadi.
 oxirgi-9-raqam. `Код группы`: Клиенты 3 284, qolgani yetkazib beruvchi va
 h.k. Kamchilik: 85 ta yetkazib beruvchi ikki marta (Й/П prefiks), 43 ta
 `КлентID` bir necha kodda, telefon formatlari 10 xil.
+
+⚠️ Bu yerda ham ikki avlod bor: eski `Workbook3.xlsx` da `Сальдо счета`
+va `Лимит кредитования` matn (`"150 000,00000"`) yoki `#,##0` raqam,
+yangi `Mijozlar ruyxati.xlsx` da esa oddiy `General`/`#,##0.00` raqam
+(`150000`). 2.1-dagi summa qoidasi bu ustunlarga ham bir xil qo'llanadi
+(hozircha ular importda o'qilmaydi — kerak bo'lsa tayyor).
 
 ### 2.3 `Workbook1/2.xlsx` — mijoz balansi hisoboti
 

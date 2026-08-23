@@ -32,11 +32,14 @@ from src.modules.sales.application.importer import (
     import_register,
 )
 from src.modules.sales.application.reader import (
+    LegacyThousands,
     SalesFileError,
     SalesFileKind,
     parse_amount,
     parse_date,
+    parse_register,
     phone_key,
+    read_workbook,
 )
 from src.modules.sales.domain.entities import SaleOpType, normalize_branch
 from src.modules.sales.infrastructure.models import (
@@ -107,13 +110,33 @@ BALANCE_HEADER = [
 ]
 
 
+class Legacy(int):
+    """ESKI avlod katagi — xlsx ga `#,##0` formati bilan yoziladi.
+
+    Formatning O'ZI ma'no tashiydi (`reader.LegacyThousands` izohiga
+    qarang), shuning uchun uni testda qo'lda qo'yish shart: `_xlsx`
+    oddiy sonni `General` qilib yozadi va o'sha katak YANGI avlod deb
+    o'qiladi.
+    """
+
+    __slots__ = ()
+
+
 def _xlsx(header: list[str], rows: list[list[Any]]) -> BytesIO:
-    """Xotirada kichik `.xlsx` yasaydi."""
+    """Xotirada kichik `.xlsx` yasaydi.
+
+    `Legacy(...)` bilan o'ralgan qiymat eski eksportning buzilgan
+    katagiga aylanadi — aynan shu katakda `number_format` `#,##0`
+    bo'ladi va importda 1000 ga bo'linadi.
+    """
     workbook = Workbook()
     sheet = workbook.active
     sheet.append(header)
     for row in rows:
         sheet.append(row)
+        for index, value in enumerate(row, start=1):
+            if isinstance(value, Legacy):
+                sheet.cell(row=sheet.max_row, column=index).number_format = "#,##0"
     buffer = BytesIO()
     workbook.save(buffer)
     buffer.seek(0)
@@ -187,15 +210,36 @@ def test_matn_son_tozalanadi() -> None:
     assert parse_amount("—") is None
 
 
-def test_raqam_katak_ming_barobar_kichrayadi() -> None:
-    """⚠️ Excel `"561,000"` ni 561000 deb o'qigan.
+def test_eski_avlod_raqam_katagi_ming_barobar_kichrayadi() -> None:
+    """⚠️ Excel `"561,000"` ni 561000 deb o'qigan (`#,##0` formati).
 
     Vergul minglik ajratkich sifatida talqin qilingan, ya'ni katakdagi
-    son har doim 1000 barobar katta. Busiz savdo summalari shishib
-    ketardi va har qanday summa chegarasi ma'nosiz bo'lardi.
+    son 1000 barobar katta. Busiz eski faylning savdo summalari
+    shishib ketardi va har qanday summa chegarasi ma'nosiz bo'lardi.
     """
-    assert parse_amount(561000) == Decimal("561.000")
-    assert parse_amount(8333) == Decimal("8.333")
+    assert parse_amount(LegacyThousands(561000)) == Decimal("561.000")
+    assert parse_amount(LegacyThousands(8333)) == Decimal("8.333")
+    assert parse_amount(LegacyThousands(0)) == Decimal("0.000")
+
+
+def test_yangi_avlod_raqam_katagi_ozgarishsiz_qoladi() -> None:
+    """⚠️ YANGI eksportda qiymat TO'G'RI — unga tegilmaydi.
+
+    Ilgari har qanday raqam katak 1000 ga bo'linardi va yangi fayl
+    yuklangach summalar 1000 barobar kichrayib ketdi: 146 000 $ → 146 $,
+    256 $ → 0. Yangi faylda 12 591 ta summa katagining hammasi raqam va
+    hammasi `General`, ya'ni eski qoida ularning BARCHASINI buzardi.
+    """
+    assert parse_amount(1230.0) == Decimal("1230.000")
+    assert parse_amount(2900.0) == Decimal("2900.000")
+
+    # ⚠️ Chegaraviy holatlar — aynan foydalanuvchi ko'rgan raqamlar
+    assert parse_amount(146000) == Decimal("146000.000")
+    assert parse_amount(256) == Decimal("256.000")
+    assert parse_amount(0.0) == Decimal("0.000")
+
+    # Kasr qism ham saqlanadi — yangi faylda 1623 ta shunday katak bor
+    assert parse_amount(1869.986) == Decimal("1869.986")
 
 
 def test_sana_tahlil_qilinadi() -> None:
@@ -450,6 +494,48 @@ def _register_row(
     ]
 
 
+def test_ikki_avlod_bitta_faylda_togri_oqiladi() -> None:
+    """⚠️ Summa avlodi KATAK FORMATI bo'yicha ajratiladi.
+
+    Bu yerda haqiqiy `.xlsx` yasaladi va format ataylab qo'yiladi —
+    chunki `parse_amount` ni to'g'ri chaqirish `read_workbook` ning
+    ishi va aynan o'sha bog'lanish buzilgan edi. Uchala holat bitta
+    faylda: eski matn, eski buzilgan katak, yangi toza raqam.
+    """
+    amounts = {
+        # ESKI avlod — matn (probel minglik, vergul o'nlik)
+        "matn": "1 950,000",
+        # ESKI avlod — Excel `"561,000"` ni son deb o'qigan (`#,##0`)
+        "eski-katak": Legacy(561000),
+        # YANGI avlod — `General`, qiymat allaqachon to'g'ri
+        "yangi": 1230.0,
+        "yangi-katta": 146000,
+        "yangi-kichik": 256,
+        "yangi-nol": 0.0,
+    }
+    book = _xlsx(
+        REGISTER_HEADER,
+        [
+            _register_row(op_number=nom, partner_code="K-1", credit_usd=summa)
+            for nom, summa in amounts.items()
+        ],
+    )
+
+    rows = {
+        row.external_id: row.amount_usd
+        for row in parse_register(read_workbook(book))
+    }
+
+    assert rows["matn"] == Decimal("1950.000")
+    assert rows["eski-katak"] == Decimal("561.000")
+    # ⚠️ Yangi avlodga TEGILMAYDI. Ilgari bu qatorlar 1000 ga
+    # bo'linib 1.230 / 146.000 / 0.256 bo'lib qolardi.
+    assert rows["yangi"] == Decimal("1230.000")
+    assert rows["yangi-katta"] == Decimal("146000.000")
+    assert rows["yangi-kichik"] == Decimal("256.000")
+    assert rows["yangi-nol"] == Decimal("0.000")
+
+
 @pytest.mark.asyncio
 async def test_registr_idempotent(cleanup: Callable[..., None]) -> None:
     """Bir faylni ikki marta yuklash — nusxa qator paydo bo'lmaydi."""
@@ -580,7 +666,8 @@ async def test_summa_hujjat_valyutasida_saqlanadi(
                 op_number=op,
                 partner_code=code,
                 branch=branch,
-                credit_usd=8333,  # Excel «8,333» ni son deb o'qigan
+                # Excel «8,333» ni son deb o'qigan — ESKI avlod katagi
+                credit_usd=Legacy(8333),
                 credit_uzs="100 000,000",
                 currency="UZS",
             )

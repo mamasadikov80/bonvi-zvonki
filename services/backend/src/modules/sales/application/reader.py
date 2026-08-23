@@ -9,9 +9,10 @@ foydalanuvchi tomonidan har safar boshqacha yoziladi).
 ⚠️ BU MODULDA UCHTA TUZOQ BOR va uchalasi ham HAQIQIY ma'lumotda
 o'lchangan:
 
-  1. SONLAR MATN: `"1 950,000"` — probel minglik ajratkich, vergul
-     o'nlik. Lekin BIR QISMI matn EMAS: Excel `"561,000"` ni raqam
-     deb o'qib 561000 qilib qo'ygan (`_amount` izohiga qarang).
+  1. SUMMA IKKI AVLODDA KELADI va ular BIR XIL ustunda turadi —
+     ESKI eksportda son matn (`"1 950,000"`), YANGISIDA esa oddiy
+     raqam (`1230.0`). Farqni faqat katak FORMATI ko'rsatadi
+     (`parse_amount` va `LegacyThousands` izohiga qarang).
   2. SANA MATN: `dd.mm.yyyy`, vaqti yo'q.
   3. TELEFON 10 XIL FORMATDA, ba'zan umuman telefon emas (`@EadTrader`).
 
@@ -95,6 +96,48 @@ _FOREIGN_MIN_DIGITS = 11
 #: SAP eksporti sonni HAR DOIM uch xona aniqlik bilan yozadi.
 _DECIMALS = Decimal("0.001")
 
+#: ESKI avlod summa katagining formati — «o'nlik ko'rsatilmagan».
+#
+# ⚠️ AYNAN SHU SATR ikki avlodni ajratadi, boshqa belgi yo'q.
+# O'lchandi (`Хақдор ($)` ustuni bo'yicha, hamma raqam kataklar):
+#
+#     savdo kunlik.xlsx (eski)          649 ta → HAMMASI `#,##0`
+#     клиент харакати общий (yangi)  12 591 ta → HAMMASI `General`
+#     Workbook3.xlsx (eski katalog)     257 ta → `#,##0`
+#     Mijozlar ruyxati.xlsx (yangi)       0 ta `#,##0` summa
+#
+# Yangi katalogda `#,##0` umuman uchramaydi degani EMAS: 3 ta katak
+# bor, lekin uchalasi ham `Тел ракам` ustunida — u yerda summa
+# o'qilmaydi, ya'ni bu belgi summa ustunlarida TOZA ajratadi.
+_LEGACY_THOUSANDS_FORMAT = "#,##0"
+
+
+class LegacyThousands(int):
+    """ESKI eksportning noto'g'ri o'qilgan summa katagi.
+
+    Excel `"561,000"` matnini import qilayotib vergulni MINGLIK
+    ajratkichi deb hisoblagan va katakka 561 EMAS, 561000 sonini
+    yozgan. Katakda `#,##0` formati aynan shundan qolgan: Excel uni
+    «o'nliksiz butun son» deb belgilagan. Probelli `"1 950,000"` esa
+    raqamga o'xshamagani uchun matn bo'lib qolgan — shuning uchun
+    eski faylning bitta ustunida ikki xil ma'no yonma-yon yuradi.
+
+    Tekshirildi — bunday kataklar HAR DOIM 1000 barobar katta:
+
+        UZS hujjat:  ($) katak 8333  ↔  (сўм) matn `100 000,000`
+                     8333/1000 = 8.333 $ ≈ 100 000 so'm (kurs ~12 000)
+        AED hujjat:  ($) katak 136240 ↔ (дирҳам) katak 500000
+                     136.240 $ ≈ 500 dirham (kurs 3.67)
+
+    ⚠️ `int` DAN MEROS ATAYLAB. Belgi katak o'qilayotganda qo'yiladi,
+    ya'ni u summa ustunidan tashqarida ham paydo bo'ladi (yangi
+    katalogda — telefon raqamida). `int` bo'lib qolgani uchun
+    `_text()` va boshqa hamma joy uni oddiy sondan farq qilmaydi va
+    belgining ta'siri FAQAT `parse_amount` bilan cheklanadi.
+    """
+
+    __slots__ = ()
+
 
 # ══════════════════════════════════════════════════════════════
 #  Qiymatlarni tozalash
@@ -104,31 +147,35 @@ _DECIMALS = Decimal("0.001")
 def parse_amount(value: Any) -> Decimal | None:
     """Summani `Decimal` ga aylantiradi. `"1 950,000"` → `1950.000`.
 
-    ⚠️ ENG XAVFLI JOY — RAQAM BO'LIB KELGAN KATAK.
+    ⚠️ EKSPORTNING IKKI AVLODI BOR va ular bir xil ustunda keladi.
+    Qaysi qoida ishlashini KATAKNING TURI hal qiladi:
 
-    Eksportda summa matn: probel minglik ajratkich, vergul o'nlik.
-    LEKIN Excel bir qismini o'zi raqamga aylantirib qo'ygan: `"561,000"`
-    da probel yo'q, shuning uchun u vergulni MINGLIK ajratkichi deb
-    o'qib, katakka 561000 sonini yozgan (`number_format` = `#,##0`).
-    Probelli `"1 950,000"` esa matn bo'lib qolgan.
+      · MATN (`"1 950,000"`) — probel minglik ajratkich, vergul
+        o'nlik → 1950.000. Eski eksportda summalarning ko'pi shunday.
 
-    Ya'ni bitta ustunda ikki xil ma'no: 649 ta raqam katak va 1735 ta
-    matn katak. Tekshirildi — raqam kataklar HAR DOIM 1000 barobar
-    katta:
+      · `LegacyThousands` — eski eksportning Excel tomonidan buzib
+        o'qilgan katagi (`#,##0` formatli butun son) → 1000 ga
+        bo'linadi. Belgi `read_workbook` da qo'yiladi.
 
-        UZS hujjat:  ($) katak 8333  ↔  (сўм) matn `100 000,000`
-                     8333/1000 = 8.333 $ ≈ 100 000 so'm (kurs ~12 000)
-        AED hujjat:  ($) katak 136240 ↔ (дирҳам) katak 500000
-                     136.240 $ ≈ 500 dirham (kurs 3.67)
+      · Oddiy RAQAM (`1230.0`, `256`, `0.0`) — YANGI eksport, qiymat
+        allaqachon to'g'ri → O'ZGARISHSIZ olinadi.
 
-    Busiz savdo summalari 1000 barobar shishib ketardi va «10 000 $ dan
-    katta savdo» degan har qanday chegara ma'nosiz bo'lardi.
+    ⚠️ OXIRGI SHART QAYTA YOZILGAN. Ilgari HAR QANDAY raqam katak
+    1000 ga bo'linardi va bu yangi eksportda summalarni 1000 barobar
+    kichraytirib yubordi: 146 000 $ → 146 $, 256 $ → 0. Yangi faylda
+    12 591 ta summa katagining hammasi raqam va hammasi `General`,
+    ya'ni eski qoida ularning BARCHASINI buzardi.
     """
     if value is None or isinstance(value, bool):
         return None
 
+    # ⚠️ `LegacyThousands` — `int`ning bolasi, shuning uchun u
+    # umumiy raqam shartidan OLDIN tekshirilishi shart.
+    if isinstance(value, LegacyThousands):
+        return (Decimal(int(value)) / 1000).quantize(_DECIMALS)
+
     if isinstance(value, (int, float, Decimal)):
-        return (Decimal(str(value)) / 1000).quantize(_DECIMALS)
+        return Decimal(str(value)).quantize(_DECIMALS)
 
     text = str(value).strip().replace("\xa0", "").replace(" ", "")
     if not text:
@@ -281,6 +328,27 @@ def _normalize_header(value: Any) -> str:
     return " ".join(str(value or "").split()).lower()
 
 
+def _cell_value(cell: Any) -> Any:
+    """Katakning qiymati, kerak bo'lsa ESKI AVLOD belgisi bilan.
+
+    Belgi (`LegacyThousands`) faqat ikkala shart bajarilganda qo'yiladi:
+    katak formati `#,##0` VA qiymat butun son. Qolgan hamma narsa
+    qiymatning o'zi bo'lib qaytadi — matn ham, `General` raqam ham,
+    sana ham.
+
+    ⚠️ `type(...) is` ATAYLAB, `isinstance` emas: `bool` ham `int`ning
+    bolasi va `True` tasodifan summa deb belgilanmasligi kerak.
+    Format faqat raqam katak uchun so'raladi — `number_format` har
+    safar uslublar jadvaliga murojaat qiladi va uni har katak uchun
+    chaqirish faylni sezilarli sekinlashtirardi.
+    """
+    value = cell.value
+    if type(value) is int or (type(value) is float and value.is_integer()):
+        if cell.number_format == _LEGACY_THOUSANDS_FORMAT:
+            return LegacyThousands(value)
+    return value
+
+
 def _match_kind(header: Sequence[str]) -> SalesFileKind | None:
     present = set(header)
     for kind, needed in _SIGNATURES.items():
@@ -297,6 +365,13 @@ def read_workbook(source: Any, *, filename: str = "") -> SalesWorkbook:
     ⚠️ `read_only=True` — 3746 qatorli katalog to'liq obyekt daraxtiga
     aylantirilsa yuzlab megabayt xotira ketardi. `data_only=True` —
     formulalar emas, hisoblangan qiymat kerak.
+
+    ⚠️ QATORLAR KATAK OBYEKTI BILAN O'QILADI (`values_only` YO'Q).
+    Sabab bitta: summaning qaysi avloddan ekanini faqat
+    `cell.number_format` ayta oladi va u qiymatning yonida qolmaydi.
+    Katak obyektlari SAQLANMAYDI — `_cell_value` darhol sof qiymat
+    qaytaradi, ya'ni `read_only` ning xotira yutug'i buzilmaydi.
+    O'lchandi: 12 591 qatorli faylda 0.56 s → 0.65 s.
     """
     try:
         workbook = load_workbook(source, read_only=True, data_only=True)
@@ -313,20 +388,21 @@ def read_workbook(source: Any, *, filename: str = "") -> SalesWorkbook:
         rows: list[tuple[Any, ...]] = []
         scanned = 0
 
-        for raw in sheet.iter_rows(values_only=True):
+        for raw in sheet.iter_rows():
             if kind is None:
                 # Sarlavhadan OLDINGI qatorlar (hisobot nomi, davr)
                 # ma'lumot emas — ular hech qayerga yig'ilmaydi.
                 if scanned >= _HEADER_SCAN_ROWS:
                     break
                 scanned += 1
-                candidate = [_normalize_header(cell) for cell in raw]
+                candidate = [_normalize_header(cell.value) for cell in raw]
                 kind = _match_kind(candidate)
                 if kind is not None:
                     header = candidate
                 continue
-            if any(cell is not None for cell in raw):
-                rows.append(raw)
+            values = tuple(_cell_value(cell) for cell in raw)
+            if any(value is not None for value in values):
+                rows.append(values)
 
         if kind is None:
             raise SalesFileError(
